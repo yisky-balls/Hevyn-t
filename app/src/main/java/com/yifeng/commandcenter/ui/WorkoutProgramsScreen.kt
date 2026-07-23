@@ -17,13 +17,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.CreateNewFolder
-import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -193,7 +193,7 @@ fun WorkoutProgramsScreen(
                     color = LiftMuted,
                 )
                 IconButton(onClick = { showCreateFolder = true }) {
-                    Icon(Icons.Outlined.CreateNewFolder, contentDescription = "Create folder")
+                    Icon(Icons.Outlined.AddCircle, contentDescription = "Create folder")
                 }
             }
             DottedDivider()
@@ -343,7 +343,7 @@ private fun FolderHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            if (isExpanded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
+            if (isExpanded) Icons.Outlined.KeyboardArrowDown else Icons.Outlined.KeyboardArrowUp,
             contentDescription = if (isExpanded) "Collapse folder" else "Expand folder",
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(24.dp),
@@ -363,7 +363,7 @@ private fun FolderHeader(
         )
         Box {
             IconButton(onClick = { menuExpanded = true }) {
-                Icon(Icons.Outlined.MoreHoriz, contentDescription = "Folder options")
+                Icon(Icons.Outlined.MoreVert, contentDescription = "Folder options")
             }
             DropdownMenu(
                 expanded = menuExpanded,
@@ -379,7 +379,7 @@ private fun FolderHeader(
                 )
                 DropdownMenuItem(
                     text = { Text("Delete folder") },
-                    leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
                     onClick = {
                         menuExpanded = false
                         onDelete()
@@ -406,7 +406,7 @@ private fun RoutineRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            Icons.Outlined.FitnessCenter,
+            Icons.Outlined.Build,
             contentDescription = null,
             tint = LiftMuted,
             modifier = Modifier.size(23.dp),
@@ -434,7 +434,7 @@ private fun RoutineRow(
         }
         Box {
             IconButton(onClick = { menuExpanded = true }) {
-                Icon(Icons.Outlined.MoreHoriz, contentDescription = "Routine options")
+                Icon(Icons.Outlined.MoreVert, contentDescription = "Routine options")
             }
             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
@@ -447,7 +447,7 @@ private fun RoutineRow(
                 )
                 DropdownMenuItem(
                     text = { Text("Delete") },
-                    leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
                     onClick = {
                         menuExpanded = false
                         onDelete()
@@ -500,7 +500,7 @@ private fun FolderPickerDialog(
                         .height(48.dp),
                 ) {
                     Icon(
-                        Icons.Outlined.CreateNewFolder,
+                        Icons.Outlined.AddCircle,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
                     )

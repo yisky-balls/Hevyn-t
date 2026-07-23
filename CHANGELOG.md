@@ -2,6 +2,39 @@
 
 All notable changes to Hevyn’t are documented here.
 
+## [1.5.1] - 2026-07-23
+
+### Added
+
+- Added persistent routine-builder sessions so interrupted routine creation and editing resumes in the correct folder and updates the intended routine after an app restart.
+- Added complete routine exercise templates, preserving exercise IDs, notes, rest durations, and each set’s weight and repetition targets when routines are saved, edited, reloaded, or started.
+- Added decimal weight entry and decimal workout-volume calculations, with compact formatting that removes unnecessary trailing zeros.
+- Added a final workout-complete notification when the last unfinished set is completed from the rest-timer flow.
+
+### Improved
+
+- Replaced periodic active-workout polling with shared-preference listeners and cached session decoding, making workout and timer changes from the app or notification actions appear immediately with less background work.
+- Reworked rest-timer scheduling to resolve the next set from the latest workout state, schedule completion in-app as well as through alarms, and request notification permission only when a rest notification is first needed.
+- Made new workout and routine sets blank by default instead of pre-filling sample weights and repetitions.
+- Sanitized workout inputs while typing: weights accept one decimal separator, commas are normalized to decimal points, repetitions remain whole numbers, invalid characters are removed, and field lengths are bounded.
+- Simplified numeric set fields and replaced extended Material icons with core equivalents while preserving routine, folder, workout, and navigation actions.
+- Updated adaptive launcher resources with monochrome icon support and removed obsolete generated icon, color, and starter-test resources.
+- Reduced runtime dependencies by removing unused Lifecycle Runtime KTX and Material Icons Extended artifacts.
+- Enabled release optimization for smaller optimized APKs.
+
+### Fixed
+
+- Fixed routine edits losing notes, set counts, weights, repetitions, rest durations, or exercise identities after save and reload.
+- Fixed restored routine-builder sessions being treated as normal workouts, which could save history instead of updating the selected routine.
+- Fixed stale rest-timer target details after sets were edited, removed, or completed through another app component.
+- Preserved compatibility with workouts and routines saved by earlier releases while migrating them to the expanded session and template formats.
+
+### Tests
+
+- Added unit coverage for decimal workout volume, weight formatting, malformed completed-set values, and weight/repetition input sanitization.
+- Added repository instrumentation coverage for active-workout session persistence, legacy workout compatibility, routine template round trips, and preference-change notifications.
+- Removed the generated placeholder unit and instrumentation tests.
+
 ## [1.5.0] - 2026-07-23
 
 ### Added

@@ -11,7 +11,9 @@ data class Routine(
 data class RoutineExercise(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
+    val notes: String = "",
     val restSeconds: Int = 180,
+    val sets: List<WorkoutSet> = defaultSets(),
 )
 
 data class RoutineFolder(
@@ -41,15 +43,25 @@ data class ActiveWorkout(
     val exercises: List<ActiveExercise>,
 )
 
+data class RoutineBuildTarget(
+    val folderId: String,
+    val routineId: String?,
+)
+
+data class ActiveWorkoutSession(
+    val workout: ActiveWorkout,
+    val routineBuildTarget: RoutineBuildTarget? = null,
+)
+
 data class LastWorkoutSummary(
     val name: String,
     val completedAtMillis: Long,
     val completedSets: Int,
-    val volumeKg: Int,
+    val volumeKg: Double,
 )
 
 fun defaultSets(): List<WorkoutSet> = listOf(
-    WorkoutSet(weight = "60", reps = "8"),
-    WorkoutSet(weight = "65", reps = "6"),
-    WorkoutSet(weight = "70", reps = "4"),
+    WorkoutSet(),
+    WorkoutSet(),
+    WorkoutSet(),
 )

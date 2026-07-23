@@ -1,6 +1,7 @@
 package com.yifeng.commandcenter.data
 
 import android.content.Context
+import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -38,10 +39,10 @@ class RoutineRepository(context: Context) {
                     .put("routines", encodeRoutines(folder.routines))
             )
         }
-        preferences.edit()
-            .putString(KEY_FOLDERS, array.toString())
-            .remove(KEY_ROUTINES)
-            .apply()
+        preferences.edit {
+            putString(KEY_FOLDERS, array.toString())
+            remove(KEY_ROUTINES)
+        }
     }
 
     private fun decodeFolders(raw: String): List<RoutineFolder> {
@@ -74,7 +75,9 @@ class RoutineRepository(context: Context) {
                             put(JSONObject()
                                 .put("id", exercise.id)
                                 .put("name", exercise.name)
-                                .put("restSeconds", exercise.restSeconds))
+                                .put("notes", exercise.notes)
+                                .put("restSeconds", exercise.restSeconds)
+                                .put("sets", encodeSets(exercise.sets)))
                         }
                     })
             )
@@ -101,7 +104,9 @@ class RoutineRepository(context: Context) {
                                             RoutineExercise(name = "").id
                                         },
                                         name = rawExercise.optString("name"),
+                                        notes = rawExercise.optString("notes"),
                                         restSeconds = rawExercise.optInt("restSeconds", legacyRestSeconds),
+                                        sets = rawExercise.optJSONArray("sets")?.let(::decodeSets) ?: defaultSets(),
                                     )
                                 } else {
                                     RoutineExercise(
@@ -126,16 +131,13 @@ class RoutineRepository(context: Context) {
         return listOf(legacy)
     }
 
-    fun loadLastWorkout(): LastWorkoutSummary? =
-        loadWorkoutHistory().maxByOrNull { it.completedAtMillis }
-
     private fun loadLegacyLastWorkout(): LastWorkoutSummary? {
         val name = preferences.getString(KEY_LAST_NAME, null) ?: return null
         return LastWorkoutSummary(
             name = name,
             completedAtMillis = preferences.getLong(KEY_LAST_DATE, 0L),
             completedSets = preferences.getInt(KEY_LAST_SETS, 0),
-            volumeKg = preferences.getInt(KEY_LAST_VOLUME, 0),
+            volumeKg = preferences.getInt(KEY_LAST_VOLUME, 0).toDouble(),
         )
     }
 
@@ -153,13 +155,13 @@ class RoutineRepository(context: Context) {
                     .put("volumeKg", summary.volumeKg))
             }
         }
-        preferences.edit()
-            .putString(KEY_WORKOUT_HISTORY, array.toString())
-            .remove(KEY_LAST_NAME)
-            .remove(KEY_LAST_DATE)
-            .remove(KEY_LAST_SETS)
-            .remove(KEY_LAST_VOLUME)
-            .apply()
+        preferences.edit {
+            putString(KEY_WORKOUT_HISTORY, array.toString())
+            remove(KEY_LAST_NAME)
+            remove(KEY_LAST_DATE)
+            remove(KEY_LAST_SETS)
+            remove(KEY_LAST_VOLUME)
+        }
     }
 
     private fun decodeWorkoutHistory(array: JSONArray): List<LastWorkoutSummary> = buildList {
@@ -169,7 +171,27 @@ class RoutineRepository(context: Context) {
                 name = item.getString("name"),
                 completedAtMillis = item.getLong("completedAtMillis"),
                 completedSets = item.optInt("completedSets"),
-                volumeKg = item.optInt("volumeKg"),
+                volumeKg = item.optDouble("volumeKg"),
+            ))
+        }
+    }
+
+    private fun encodeSets(sets: List<WorkoutSet>): JSONArray = JSONArray().apply {
+        sets.forEach { set ->
+            put(JSONObject()
+                .put("id", set.id)
+                .put("weight", set.weight)
+                .put("reps", set.reps))
+        }
+    }
+
+    private fun decodeSets(array: JSONArray): List<WorkoutSet> = buildList {
+        for (index in 0 until array.length()) {
+            val set = array.getJSONObject(index)
+            add(WorkoutSet(
+                id = set.getString("id"),
+                weight = set.optString("weight"),
+                reps = set.optString("reps"),
             ))
         }
     }

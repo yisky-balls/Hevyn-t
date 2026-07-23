@@ -3,6 +3,7 @@ package com.yifeng.commandcenter.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -28,7 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,7 +39,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,24 +53,23 @@ import com.yifeng.commandcenter.data.ActiveExercise
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.ActiveWorkoutOperations
 import com.yifeng.commandcenter.data.ActiveWorkoutRepository
+import com.yifeng.commandcenter.data.ActiveWorkoutSession
 import com.yifeng.commandcenter.data.LastWorkoutSummary
 import com.yifeng.commandcenter.data.Routine
+import com.yifeng.commandcenter.data.RoutineBuildTarget
 import com.yifeng.commandcenter.data.RoutineExercise
 import com.yifeng.commandcenter.data.RoutineFolder
 import com.yifeng.commandcenter.data.RoutineFolderOperations
 import com.yifeng.commandcenter.data.RoutineRepository
+import com.yifeng.commandcenter.data.WorkoutMetricsCalculator
 import com.yifeng.commandcenter.timer.RestTimerManager
 import com.yifeng.commandcenter.timer.RestTimerState
 import com.yifeng.commandcenter.ui.theme.DisplayFont
 import com.yifeng.commandcenter.ui.theme.LiftMuted
+import java.util.UUID
 import kotlinx.coroutines.delay
 
 private enum class AppPage { Home, Workout }
-
-private data class RoutineBuildTarget(
-    val folderId: String,
-    val routineId: String?,
-)
 
 private data class AppContentState(
     val page: AppPage,
@@ -82,18 +81,18 @@ fun FitnessApp() {
     val context = LocalContext.current
     val repository = remember { RoutineRepository(context) }
     val activeWorkoutRepository = remember { ActiveWorkoutRepository(context) }
+    val restoredSession = remember { activeWorkoutRepository.loadSession() }
     var selectedPage by remember { mutableStateOf(AppPage.Workout) }
     var folders by remember { mutableStateOf(repository.loadFolders()) }
-    var activeWorkout by remember { mutableStateOf(activeWorkoutRepository.load()) }
+    var activeWorkout by remember { mutableStateOf(restoredSession?.workout) }
     var isWorkoutExpanded by remember {
         mutableStateOf(activeWorkout == null || activeWorkoutRepository.isExpanded())
     }
-    var routineBuildTarget by remember { mutableStateOf<RoutineBuildTarget?>(null) }
+    var routineBuildTarget by remember { mutableStateOf(restoredSession?.routineBuildTarget) }
     var showRoutineNameDialog by remember { mutableStateOf(false) }
     var workoutHistory by remember { mutableStateOf(repository.loadWorkoutHistory()) }
     var lastWorkout by remember { mutableStateOf(workoutHistory.maxByOrNull { it.completedAtMillis }) }
     var timerState by remember { mutableStateOf<RestTimerState?>(RestTimerManager.getState(context)) }
-    var activeWorkoutRevision by remember { mutableLongStateOf(activeWorkoutRepository.revision()) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -101,26 +100,41 @@ fun FitnessApp() {
         if (granted) RestTimerManager.refresh(context)
     }
 
-    LaunchedEffect(Unit) {
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    DisposableEffect(activeWorkoutRepository, context) {
+        val unregisterWorkout = activeWorkoutRepository.registerSessionListener { session ->
+            activeWorkout = session?.workout
+            routineBuildTarget = session?.routineBuildTarget
+        }
+        val unregisterTimer = RestTimerManager.registerStateListener(context) { state ->
+            timerState = state
+        }
+        onDispose {
+            unregisterWorkout()
+            unregisterTimer()
         }
     }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            timerState = RestTimerManager.getState(context)
-            val latestRevision = activeWorkoutRepository.revision()
-            if (latestRevision != activeWorkoutRevision) {
-                activeWorkoutRevision = latestRevision
-                activeWorkout = activeWorkoutRepository.load()
-            }
-            delay(500)
-        }
+    LaunchedEffect(timerState?.endMillis) {
+        val expectedEndMillis = timerState?.endMillis ?: return@LaunchedEffect
+        delay((expectedEndMillis - System.currentTimeMillis()).coerceAtLeast(0L))
+        RestTimerManager.complete(context, expectedEndMillis)
+    }
+
+    fun saveSession(workout: ActiveWorkout, target: RoutineBuildTarget?) {
+        activeWorkout = workout
+        routineBuildTarget = target
+        activeWorkoutRepository.save(ActiveWorkoutSession(workout, target))
+        isWorkoutExpanded = true
+        activeWorkoutRepository.setExpanded(true)
+    }
+
+    fun clearSession() {
+        RestTimerManager.cancel(context)
+        timerState = null
+        showRoutineNameDialog = false
+        routineBuildTarget = null
+        activeWorkout = null
+        activeWorkoutRepository.clear()
     }
 
     fun startRoutine(routine: Routine) {
@@ -129,17 +143,19 @@ fun FitnessApp() {
             activeWorkoutRepository.setExpanded(true)
             return
         }
-        routineBuildTarget = null
-        activeWorkout = ActiveWorkout(
+        val workout = ActiveWorkout(
             routineName = routine.name,
             exercises = routine.exercises.map { exercise ->
-                ActiveExercise(name = exercise.name, restSeconds = exercise.restSeconds)
+                ActiveExercise(
+                    id = exercise.id,
+                    name = exercise.name,
+                    notes = exercise.notes,
+                    restSeconds = exercise.restSeconds,
+                    sets = exercise.sets.map { it.copy(completed = false) },
+                )
             },
         )
-        activeWorkoutRepository.save(activeWorkout!!)
-        isWorkoutExpanded = true
-        activeWorkoutRepository.setExpanded(true)
-        activeWorkoutRevision = activeWorkoutRepository.revision()
+        saveSession(workout, null)
         selectedPage = AppPage.Workout
     }
 
@@ -154,21 +170,20 @@ fun FitnessApp() {
             activeWorkoutRepository.setExpanded(true)
             return
         }
-        routineBuildTarget = RoutineBuildTarget(folder.id, routine?.id)
-        activeWorkout = ActiveWorkout(
+        val target = RoutineBuildTarget(folder.id, routine?.id)
+        val workout = ActiveWorkout(
             routineName = routine?.name.orEmpty(),
             exercises = routine?.exercises.orEmpty().map { exercise ->
                 ActiveExercise(
                     id = exercise.id,
                     name = exercise.name,
+                    notes = exercise.notes,
                     restSeconds = exercise.restSeconds,
+                    sets = exercise.sets.map { it.copy(completed = false) },
                 )
             },
         )
-        activeWorkoutRepository.save(activeWorkout!!)
-        isWorkoutExpanded = true
-        activeWorkoutRepository.setExpanded(true)
-        activeWorkoutRevision = activeWorkoutRepository.revision()
+        saveSession(workout, target)
         selectedPage = AppPage.Workout
     }
 
@@ -176,14 +191,16 @@ fun FitnessApp() {
         val target = routineBuildTarget ?: return
         val workout = activeWorkout ?: return
         val routine = Routine(
-            id = target.routineId ?: Routine(name = "", exercises = emptyList()).id,
+            id = target.routineId ?: UUID.randomUUID().toString(),
             name = name,
             exercises = workout.exercises.mapNotNull { exercise ->
                 exercise.name.trim().takeIf { it.isNotEmpty() }?.let { exerciseName ->
                     RoutineExercise(
                         id = exercise.id,
                         name = exerciseName,
+                        notes = exercise.notes,
                         restSeconds = exercise.restSeconds,
+                        sets = exercise.sets.map { it.copy(completed = false) },
                     )
                 }
             },
@@ -196,49 +213,33 @@ fun FitnessApp() {
                 existingRoutineId = target.routineId,
             )
         )
-        showRoutineNameDialog = false
-        routineBuildTarget = null
-        activeWorkout = null
-        activeWorkoutRepository.clear()
-        activeWorkoutRevision = activeWorkoutRepository.revision()
+        clearSession()
     }
 
     fun finishWorkout(workout: ActiveWorkout) {
-        val completedSets = workout.exercises.sumOf { exercise ->
-            exercise.sets.count { it.completed }
-        }
-        val volume = workout.exercises.sumOf { exercise ->
-            exercise.sets.filter { it.completed }.sumOf { set ->
-                (set.weight.toIntOrNull() ?: 0) * (set.reps.toIntOrNull() ?: 0)
-            }
-        }
+        val metrics = WorkoutMetricsCalculator.calculate(workout)
         val summary = LastWorkoutSummary(
             name = workout.routineName,
             completedAtMillis = System.currentTimeMillis(),
-            completedSets = completedSets,
-            volumeKg = volume,
+            completedSets = metrics.completedSets,
+            volumeKg = metrics.volumeKg,
         )
         repository.saveLastWorkout(summary)
         workoutHistory = workoutHistory + summary
         lastWorkout = summary
-        RestTimerManager.cancel(context)
-        timerState = null
-        activeWorkout = null
-        activeWorkoutRepository.clear()
-        activeWorkoutRevision = activeWorkoutRepository.revision()
+        clearSession()
     }
 
     fun updateActiveWorkout(transform: (ActiveWorkout) -> ActiveWorkout?) {
         activeWorkoutRepository.update(transform)?.let { updated ->
             activeWorkout = updated
-            activeWorkoutRevision = activeWorkoutRepository.revision()
         }
     }
 
     val routines = folders.flatMap { it.routines }
-    if (showRoutineNameDialog && activeWorkout != null) {
+    activeWorkout?.takeIf { showRoutineNameDialog }?.let { workout ->
         RoutineNameDialog(
-            initialName = activeWorkout!!.routineName,
+            initialName = workout.routineName,
             isEditing = routineBuildTarget?.routineId != null,
             onDismiss = { showRoutineNameDialog = false },
             onSave = ::saveBuiltRoutine,
@@ -251,19 +252,15 @@ fun FitnessApp() {
         bottomBar = {
             if (activeWorkout == null || !isWorkoutExpanded) {
                 Column {
-                    if (activeWorkout != null && !isWorkoutExpanded) {
+                    activeWorkout?.takeIf { !isWorkoutExpanded }?.let { workout ->
                         MinimizedWorkoutBar(
-                            workout = activeWorkout!!,
+                            workout = workout,
                             onResume = {
                                 isWorkoutExpanded = true
                                 activeWorkoutRepository.setExpanded(true)
                             },
                             onDiscard = {
-                                RestTimerManager.cancel(context)
-                                timerState = null
-                                activeWorkout = null
-                                activeWorkoutRepository.clear()
-                                activeWorkoutRevision = activeWorkoutRepository.revision()
+                                clearSession()
                             },
                         )
                     }
@@ -341,8 +338,14 @@ fun FitnessApp() {
                         if (completed) {
                             activeWorkoutRepository.completeSet(exerciseId, setId)?.let { result ->
                                 activeWorkout = result.workout
-                                activeWorkoutRevision = activeWorkoutRepository.revision()
-                                if (routineBuildTarget == null) {
+                                if (routineBuildTarget == null && result.nextTarget != null) {
+                                    if (
+                                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                                        PackageManager.PERMISSION_GRANTED
+                                    ) {
+                                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
                                     RestTimerManager.start(
                                         context = context,
                                         durationSeconds = result.restSeconds,
@@ -351,12 +354,21 @@ fun FitnessApp() {
                                         exerciseName = result.completedExerciseName,
                                     )
                                     timerState = RestTimerManager.getState(context)
+                                } else if (result.nextTarget == null) {
+                                    RestTimerManager.cancel(context)
+                                    timerState = null
                                 }
                             }
                         } else {
                             updateActiveWorkout {
                                 ActiveWorkoutOperations.uncompleteSet(it, exerciseId, setId)
                             }
+                            timerState
+                                ?.takeIf { it.completedExerciseId == exerciseId && it.completedSetId == setId }
+                                ?.let {
+                                    RestTimerManager.cancel(context)
+                                    timerState = null
+                                }
                         }
                     },
                     onSetRemoved = { exerciseId, setId ->
@@ -364,7 +376,6 @@ fun FitnessApp() {
                             ActiveWorkoutOperations.removeSet(it, exerciseId, setId)
                         }?.let { updated ->
                             activeWorkout = updated
-                            activeWorkoutRevision = activeWorkoutRepository.revision()
                             RestTimerManager.reconcileRemovedSet(context, setId)
                             timerState = RestTimerManager.getState(context)
                         }
@@ -384,12 +395,7 @@ fun FitnessApp() {
                         activeWorkoutRepository.setExpanded(false)
                     },
                     onCancel = {
-                        RestTimerManager.cancel(context)
-                        showRoutineNameDialog = false
-                        routineBuildTarget = null
-                        activeWorkout = null
-                        activeWorkoutRepository.clear()
-                        activeWorkoutRevision = activeWorkoutRepository.revision()
+                        clearSession()
                     },
                 )
 
@@ -429,38 +435,37 @@ fun FitnessApp() {
                             activeWorkoutRepository.setExpanded(true)
                             return@WorkoutProgramsScreen
                         }
-                        routineBuildTarget = null
-                        activeWorkout = ActiveWorkout(
+                        val workout = ActiveWorkout(
                             routineName = "Empty workout",
                             exercises = emptyList(),
                         )
-                        activeWorkoutRepository.save(activeWorkout!!)
-                        isWorkoutExpanded = true
-                        activeWorkoutRepository.setExpanded(true)
-                        activeWorkoutRevision = activeWorkoutRepository.revision()
+                        saveSession(workout, null)
                     },
                 )
             }
             }
 
-            if (workout != null && isWorkoutExpanded && timerState != null) {
-                RestTimerBar(
-                    state = timerState!!,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    onSubtract = {
-                        RestTimerManager.adjust(context, -15)
-                        timerState = RestTimerManager.getState(context)
-                    },
-                    onAdd = {
-                        RestTimerManager.adjust(context, 15)
-                        timerState = RestTimerManager.getState(context)
-                    },
-                    onSkip = {
-                        RestTimerManager.skip(context)
-                        timerState = null
-                    },
-                )
-            }
+            timerState
+                ?.takeIf { isWorkoutExpanded }
+                ?.let { state -> workout?.let { RestTimerManager.resolveState(state, it) } }
+                ?.let { state ->
+                    RestTimerBar(
+                        state = state,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        onSubtract = {
+                            RestTimerManager.adjust(context, -15)
+                            timerState = RestTimerManager.getState(context)
+                        },
+                        onAdd = {
+                            RestTimerManager.adjust(context, 15)
+                            timerState = RestTimerManager.getState(context)
+                        },
+                        onSkip = {
+                            RestTimerManager.skip(context)
+                            timerState = null
+                        },
+                    )
+                }
         }
     }
 }
@@ -486,7 +491,7 @@ private fun AppBottomBar(
                 selectedColor = MaterialTheme.colorScheme.primary,
                 onClick = { onPageSelected(AppPage.Workout) },
             ) {
-                Icon(Icons.Outlined.FitnessCenter, contentDescription = null, modifier = Modifier.size(26.dp))
+                Icon(Icons.Outlined.Build, contentDescription = null, modifier = Modifier.size(26.dp))
             }
         }
     }

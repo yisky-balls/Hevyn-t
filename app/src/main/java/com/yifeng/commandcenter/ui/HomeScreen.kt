@@ -16,9 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBackIosNew
-import androidx.compose.material.icons.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -41,6 +40,7 @@ import com.yifeng.commandcenter.data.Routine
 import com.yifeng.commandcenter.data.RoutineExercise
 import com.yifeng.commandcenter.data.WorkoutCalendar
 import com.yifeng.commandcenter.data.WorkoutMonth
+import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.ui.theme.DisplayFont
 import com.yifeng.commandcenter.ui.theme.LiftBorder
 import com.yifeng.commandcenter.ui.theme.LiftDivider
@@ -99,7 +99,7 @@ fun HomeScreen(
         if (lastWorkout != null) {
             Text(
                 "LAST SESSION  /  ${lastWorkout.name.uppercase(Locale.getDefault())}  /  " +
-                    "${lastWorkout.completedSets} SETS  /  ${lastWorkout.volumeKg} KG",
+                    "${lastWorkout.completedSets} SETS  /  ${formatWeight(lastWorkout.volumeKg)} KG",
                 modifier = Modifier.padding(top = 18.dp),
                 color = LiftMuted,
                 fontFamily = DisplayFont,
@@ -146,14 +146,14 @@ private fun WorkoutCalendarPanel(
         )
         IconButton(onClick = onPreviousMonth) {
             Icon(
-                Icons.Outlined.ArrowBackIosNew,
+                Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
                 contentDescription = "Previous month",
                 modifier = Modifier.size(18.dp),
             )
         }
         IconButton(onClick = onNextMonth) {
             Icon(
-                Icons.Outlined.ArrowForwardIos,
+                Icons.AutoMirrored.Outlined.ArrowForward,
                 contentDescription = "Next month",
                 modifier = Modifier.size(18.dp),
             )
@@ -277,7 +277,7 @@ private fun TodayTrainingRow(
                 letterSpacing = 1.1.sp,
             )
             Icon(
-                Icons.Outlined.ArrowForward,
+                Icons.AutoMirrored.Outlined.ArrowForward,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 4.dp).size(20.dp),
@@ -307,7 +307,7 @@ private fun MonthlyTrainingRow(
             letterSpacing = 1.1.sp,
         )
         Icon(
-            Icons.Outlined.ArrowForwardIos,
+            Icons.AutoMirrored.Outlined.ArrowForward,
             contentDescription = null,
             modifier = Modifier.size(17.dp),
         )

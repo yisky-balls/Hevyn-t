@@ -26,21 +26,19 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,7 +68,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.ActiveExercise
 import com.yifeng.commandcenter.data.ActiveWorkout
+import com.yifeng.commandcenter.data.WorkoutMetricsCalculator
 import com.yifeng.commandcenter.data.WorkoutSet
+import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.ui.theme.DisplayFont
 import com.yifeng.commandcenter.ui.theme.LiftBorder
 import com.yifeng.commandcenter.ui.theme.LiftMuted
@@ -102,14 +102,7 @@ fun ActiveWorkoutScreen(
         }
     }
     val duration = ((nowMillis - workout.startedAtMillis) / 1_000L).coerceAtLeast(0L)
-    val completedSets = workout.exercises.sumOf { exercise ->
-        exercise.sets.count { it.completed }
-    }
-    val volume = workout.exercises.sumOf { exercise ->
-        exercise.sets.filter { it.completed }.sumOf { set ->
-            (set.weight.toIntOrNull() ?: 0) * (set.reps.toIntOrNull() ?: 0)
-        }
-    }
+    val metrics = WorkoutMetricsCalculator.calculate(workout)
     restExerciseId?.let { exerciseId ->
         val exercise = workout.exercises.firstOrNull { it.id == exerciseId }
         RestDurationDialog(
@@ -184,9 +177,9 @@ fun ActiveWorkoutScreen(
                 ) {
                     WorkoutMetric("DURATION", formatElapsed(duration), Modifier.weight(1f))
                     DottedVerticalDivider(Modifier.height(52.dp))
-                    WorkoutMetric("VOLUME", "$volume KG", Modifier.weight(1f))
+                    WorkoutMetric("VOLUME", "${formatWeight(metrics.volumeKg)} KG", Modifier.weight(1f))
                     DottedVerticalDivider(Modifier.height(52.dp))
-                    WorkoutMetric("SETS", completedSets.toString(), Modifier.weight(1f))
+                    WorkoutMetric("SETS", metrics.completedSets.toString(), Modifier.weight(1f))
                 }
             }
             DottedDivider(Modifier.padding(horizontal = LiftPageHorizontalPadding))
@@ -322,7 +315,7 @@ private fun ExerciseLogger(
             )
             IconButton(onClick = onDelete) {
                 Icon(
-                    Icons.Outlined.DeleteOutline,
+                    Icons.Outlined.Delete,
                     contentDescription = "Remove exercise",
                     tint = MaterialTheme.colorScheme.error,
                 )
@@ -351,7 +344,7 @@ private fun ExerciseLogger(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Outlined.Timer,
+                Icons.Outlined.Refresh,
                 contentDescription = null,
                 tint = LiftMuted,
                 modifier = Modifier.size(20.dp),
@@ -430,7 +423,7 @@ private fun EmptyWorkoutState(
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            Icons.Outlined.FitnessCenter,
+            Icons.Outlined.Build,
             contentDescription = null,
             modifier = Modifier.size(56.dp),
             tint = LiftMuted,
@@ -494,14 +487,13 @@ private fun SetRow(
     onCompleted: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                false
-            } else false
+    val dismissState = rememberSwipeToDismissBoxState()
+    LaunchedEffect(dismissState.settledValue) {
+        if (dismissState.settledValue == SwipeToDismissBoxValue.EndToStart) {
+            onDelete()
+            dismissState.reset()
         }
-    )
+    }
     SwipeToDismissBox(
         state = dismissState,
         modifier = Modifier
@@ -519,7 +511,7 @@ private fun SetRow(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.DeleteOutline, contentDescription = null)
+                Icon(Icons.Outlined.Delete, contentDescription = null)
                 Text(" Delete", fontWeight = FontWeight.Bold)
             }
         },
@@ -558,6 +550,7 @@ private fun SetRow(
         )
         CompactNumberField(
             value = set.weight,
+            allowDecimal = true,
             onValueChange = { onChanged(set.copy(weight = it)) },
         )
         CompactNumberField(
@@ -654,25 +647,53 @@ private fun RestDurationDialog(
 }
 
 @Composable
-private fun CompactNumberField(value: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(
+private fun CompactNumberField(
+    value: String,
+    allowDecimal: Boolean = false,
+    onValueChange: (String) -> Unit,
+) {
+    BasicTextField(
         value = value,
-        onValueChange = { onValueChange(it.filter(Char::isDigit).take(4)) },
+        onValueChange = { input ->
+            onValueChange(sanitizeWorkoutNumber(input, allowDecimal))
+        },
         modifier = Modifier
             .width(58.dp)
             .height(46.dp),
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyLarge.copy(
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             fontFamily = DisplayFont,
             fontSize = 17.sp,
         ),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color.Transparent,
-            unfocusedBorderColor = Color.Transparent,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (allowDecimal) KeyboardType.Decimal else KeyboardType.Number,
         ),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        decorationBox = { innerTextField ->
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                innerTextField()
+            }
+        },
     )
+}
+
+internal fun sanitizeWorkoutNumber(
+    input: String,
+    allowDecimal: Boolean,
+    maxLength: Int = 6,
+): String = buildString {
+    input.forEach { character ->
+        if (length >= maxLength) return@forEach
+        when {
+            character.isDigit() -> append(character)
+            allowDecimal && character in ".," && '.' !in this -> append('.')
+        }
+    }
 }
 
 private fun formatElapsed(totalSeconds: Long): String {

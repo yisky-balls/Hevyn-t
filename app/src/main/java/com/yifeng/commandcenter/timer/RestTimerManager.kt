@@ -14,8 +14,10 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import com.yifeng.commandcenter.MainActivity
 import com.yifeng.commandcenter.R
+import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.ActiveWorkoutRepository
 import com.yifeng.commandcenter.data.NextSetTarget
 import com.yifeng.commandcenter.data.WorkoutProgress
@@ -37,6 +39,7 @@ object RestTimerManager {
     const val ACTION_COMPLETE_SET = "com.yifeng.commandcenter.timer.COMPLETE_SET"
     const val EXTRA_EXERCISE_ID = "exercise_id"
     const val EXTRA_SET_ID = "set_id"
+    const val EXTRA_EXPECTED_END_MILLIS = "expected_end_millis"
 
     private const val PREFERENCES = "rest_timer"
     private const val KEY_END = "end"
@@ -129,6 +132,13 @@ object RestTimerManager {
         val repository = ActiveWorkoutRepository(context)
         val result = repository.completeSet(exerciseId, setId) ?: return
         NotificationManagerCompat.from(context).cancel(ACTIVE_SET_NOTIFICATION_ID)
+        if (result.nextTarget == null) {
+            clearState(context)
+            cancelCompletion(context)
+            NotificationManagerCompat.from(context).cancel(ACTIVE_NOTIFICATION_ID)
+            showWorkoutCompleteNotification(context)
+            return
+        }
         start(
             context = context,
             durationSeconds = result.restSeconds,
@@ -139,14 +149,17 @@ object RestTimerManager {
     }
 
     @SuppressLint("MissingPermission")
-    fun complete(context: Context) {
+    fun complete(context: Context, expectedEndMillis: Long? = null) {
         val state = readStoredState(context) ?: return
+        if (expectedEndMillis != null && state.endMillis != expectedEndMillis) return
+        if (System.currentTimeMillis() < state.endMillis) return
         val target = resolveTarget(context, state)
         clearState(context)
         cancelCompletion(context)
         NotificationManagerCompat.from(context).cancel(ACTIVE_NOTIFICATION_ID)
         NotificationManagerCompat.from(context).cancel(COMPLETE_NOTIFICATION_ID)
-        target?.let { showActiveSetNotification(context, it, restComplete = true) }
+        if (target != null) showActiveSetNotification(context, target, restComplete = true)
+        else showWorkoutCompleteNotification(context)
     }
 
     fun refresh(context: Context) {
@@ -162,6 +175,19 @@ object RestTimerManager {
             return null
         }
         return state.copy(nextTarget = resolveTarget(context, state))
+    }
+
+    fun resolveState(state: RestTimerState, workout: ActiveWorkout): RestTimerState =
+        state.copy(nextTarget = resolveTarget(workout, state))
+
+    fun registerStateListener(context: Context, onChanged: (RestTimerState?) -> Unit): () -> Unit {
+        val appContext = context.applicationContext
+        val preferences = appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_END) onChanged(getState(appContext))
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
     private fun readStoredState(context: Context): RestTimerState? {
@@ -234,31 +260,31 @@ object RestTimerManager {
     }
 
     private fun saveState(context: Context, state: RestTimerState) {
-        val editor = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
-            .putLong(KEY_END, state.endMillis)
-            .putInt(KEY_DURATION, state.durationSeconds)
-            .putString(KEY_COMPLETED_EXERCISE_ID, state.completedExerciseId)
-            .putString(KEY_COMPLETED_SET_ID, state.completedSetId)
-            .putString(KEY_EXERCISE, state.exerciseName)
-        writeTarget(editor, null)
-        editor.apply()
+        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit {
+            putLong(KEY_END, state.endMillis)
+            putInt(KEY_DURATION, state.durationSeconds)
+            putString(KEY_COMPLETED_EXERCISE_ID, state.completedExerciseId)
+            putString(KEY_COMPLETED_SET_ID, state.completedSetId)
+            putString(KEY_EXERCISE, state.exerciseName)
+            writeTarget(this, null)
+        }
     }
 
     private fun clearState(context: Context) {
-        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
-            .remove(KEY_END)
-            .remove(KEY_DURATION)
-            .remove(KEY_COMPLETED_EXERCISE_ID)
-            .remove(KEY_COMPLETED_SET_ID)
-            .remove(KEY_EXERCISE)
-            .remove(KEY_NEXT_EXERCISE_ID)
-            .remove(KEY_NEXT_SET_ID)
-            .remove(KEY_NEXT_EXERCISE_INDEX)
-            .remove(KEY_NEXT_SET_INDEX)
-            .remove(KEY_NEXT_EXERCISE_NAME)
-            .remove(KEY_NEXT_WEIGHT)
-            .remove(KEY_NEXT_REPS)
-            .apply()
+        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit {
+            remove(KEY_END)
+            remove(KEY_DURATION)
+            remove(KEY_COMPLETED_EXERCISE_ID)
+            remove(KEY_COMPLETED_SET_ID)
+            remove(KEY_EXERCISE)
+            remove(KEY_NEXT_EXERCISE_ID)
+            remove(KEY_NEXT_SET_ID)
+            remove(KEY_NEXT_EXERCISE_INDEX)
+            remove(KEY_NEXT_SET_INDEX)
+            remove(KEY_NEXT_EXERCISE_NAME)
+            remove(KEY_NEXT_WEIGHT)
+            remove(KEY_NEXT_REPS)
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -306,8 +332,33 @@ object RestTimerManager {
         NotificationManagerCompat.from(context).notify(ACTIVE_SET_NOTIFICATION_ID, notification)
     }
 
+    @SuppressLint("MissingPermission")
+    private fun showWorkoutCompleteNotification(context: Context) {
+        if (!canNotify(context)) return
+        createChannels(context)
+        val launchIntent = PendingIntent.getActivity(
+            context,
+            40,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_COMPLETE)
+            .setSmallIcon(R.drawable.ic_timer_notification)
+            .setContentTitle("Workout sets complete")
+            .setContentText("All sets in the active workout are complete.")
+            .setContentIntent(launchIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        NotificationManagerCompat.from(context).notify(COMPLETE_NOTIFICATION_ID, notification)
+    }
+
     private fun resolveTarget(context: Context, state: RestTimerState): NextSetTarget? {
         val workout = ActiveWorkoutRepository(context).load() ?: return null
+        return resolveTarget(workout, state)
+    }
+
+    private fun resolveTarget(workout: ActiveWorkout, state: RestTimerState): NextSetTarget? {
         if (state.completedExerciseId.isNotBlank()) {
             return WorkoutProgress.nextSetAfter(
                 workout = workout,
@@ -403,7 +454,10 @@ object RestTimerManager {
     }
 
     private fun completionIntent(context: Context): PendingIntent {
-        val intent = Intent(context, RestTimerReceiver::class.java).setAction(ACTION_COMPLETE)
+        val endMillis = readStoredState(context)?.endMillis ?: 0L
+        val intent = Intent(context, RestTimerReceiver::class.java)
+            .setAction(ACTION_COMPLETE)
+            .putExtra(EXTRA_EXPECTED_END_MILLIS, endMillis)
         return PendingIntent.getBroadcast(
             context,
             14,
@@ -413,7 +467,6 @@ object RestTimerManager {
     }
 
     private fun createChannels(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ACTIVE, "Active rest timer", NotificationManager.IMPORTANCE_LOW)
