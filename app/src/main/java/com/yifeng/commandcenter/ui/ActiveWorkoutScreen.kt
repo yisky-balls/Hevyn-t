@@ -1,10 +1,10 @@
 package com.yifeng.commandcenter.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -31,17 +32,13 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -64,7 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -74,9 +71,9 @@ import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.ActiveExercise
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.WorkoutSet
-import com.yifeng.commandcenter.ui.theme.LiftGreen
+import com.yifeng.commandcenter.ui.theme.DisplayFont
+import com.yifeng.commandcenter.ui.theme.LiftBorder
 import com.yifeng.commandcenter.ui.theme.LiftMuted
-import com.yifeng.commandcenter.ui.theme.LiftSurfaceRaised
 import kotlinx.coroutines.delay
 
 @Composable
@@ -126,14 +123,15 @@ fun ActiveWorkoutScreen(
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 170.dp),
+        contentPadding = PaddingValues(bottom = 150.dp),
     ) {
         item {
-            Surface(color = MaterialTheme.colorScheme.surface) {
+            Surface(color = MaterialTheme.colorScheme.background) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 18.dp),
+                        .height(82.dp)
+                        .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = if (isRoutineBuilder) onCancel else onMinimize) {
@@ -144,23 +142,36 @@ fun ActiveWorkoutScreen(
                     }
                     Column(Modifier.weight(1f)) {
                         Text(
-                            if (isRoutineBuilder) "Build Routine" else "Log Workout",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            if (isRoutineBuilder) "BUILD ROUTINE" else "LOG WORKOUT",
+                            fontFamily = DisplayFont,
+                            fontSize = 24.sp,
+                            letterSpacing = 1.2.sp,
                         )
                         Text(
-                            workout.routineName.ifBlank { "New routine" },
+                            workout.routineName.ifBlank { "New routine" }.uppercase(),
                             color = LiftMuted,
-                            fontSize = 13.sp,
+                            fontSize = 11.sp,
+                            fontFamily = DisplayFont,
+                            letterSpacing = 1.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Icon(Icons.Outlined.Timer, contentDescription = null)
-                    Button(
+                    OutlinedButton(
                         onClick = onFinish,
                         enabled = !isRoutineBuilder || workout.exercises.isNotEmpty(),
-                        modifier = Modifier.padding(start = 12.dp),
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .height(44.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        contentPadding = PaddingValues(horizontal = 15.dp),
                     ) {
-                        Text("Finish", fontWeight = FontWeight.Bold)
+                        Text(
+                            if (isRoutineBuilder) "SAVE" else "FINISH",
+                            fontFamily = DisplayFont,
+                            fontSize = 12.sp,
+                            letterSpacing = 1.sp,
+                        )
                     }
                 }
             }
@@ -168,15 +179,17 @@ fun ActiveWorkoutScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 22.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .padding(horizontal = LiftPageHorizontalPadding, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    WorkoutMetric("Duration", formatElapsed(duration), MaterialTheme.colorScheme.primary)
-                    WorkoutMetric("Volume", "$volume kg", Color.White)
-                    WorkoutMetric("Sets", completedSets.toString(), Color.White)
+                    WorkoutMetric("DURATION", formatElapsed(duration), Modifier.weight(1f))
+                    DottedVerticalDivider(Modifier.height(52.dp))
+                    WorkoutMetric("VOLUME", "$volume KG", Modifier.weight(1f))
+                    DottedVerticalDivider(Modifier.height(52.dp))
+                    WorkoutMetric("SETS", completedSets.toString(), Modifier.weight(1f))
                 }
             }
-            HorizontalDivider(color = LiftSurfaceRaised)
+            DottedDivider(Modifier.padding(horizontal = LiftPageHorizontalPadding))
         }
 
         if (workout.exercises.isEmpty()) {
@@ -203,11 +216,7 @@ fun ActiveWorkoutScreen(
                 onRemoveSet = { setId -> onSetRemoved(exercise.id, setId) },
                 onAddSet = { onSetAdded(exercise.id) },
             )
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = 8.dp,
-                color = MaterialTheme.colorScheme.surface,
-            )
+            DottedDivider(Modifier.padding(horizontal = LiftPageHorizontalPadding, vertical = 8.dp))
         }
 
         if (workout.exercises.isNotEmpty()) item {
@@ -215,21 +224,33 @@ fun ActiveWorkoutScreen(
                 onClick = onAddExercise,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
-                    .height(58.dp),
+                    .padding(horizontal = LiftPageHorizontalPadding, vertical = 12.dp)
+                    .height(50.dp),
             ) {
                 Icon(Icons.Outlined.Add, contentDescription = null)
-                Text("  Add exercise", fontSize = 17.sp)
+                Text("  ADD EXERCISE", fontFamily = DisplayFont, fontSize = 13.sp, letterSpacing = 1.sp)
             }
         }
     }
 }
 
 @Composable
-private fun WorkoutMetric(label: String, value: String, valueColor: Color) {
-    Column {
-        Text(label, color = LiftMuted, fontSize = 13.sp)
-        Text(value, color = valueColor, fontSize = 21.sp)
+private fun WorkoutMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(
+            label,
+            color = LiftMuted,
+            fontFamily = DisplayFont,
+            fontSize = 10.sp,
+            letterSpacing = 1.sp,
+        )
+        Text(
+            value,
+            modifier = Modifier.padding(top = 8.dp),
+            fontFamily = DisplayFont,
+            fontSize = 22.sp,
+            letterSpacing = 1.sp,
+        )
     }
 }
 
@@ -249,98 +270,110 @@ private fun ExerciseLogger(
     setPendingDelete?.let { set ->
         AlertDialog(
             onDismissRequest = { setPendingDelete = null },
-            title = { Text("Delete completed set?") },
+            title = {
+                Text(
+                    "DELETE COMPLETED SET?",
+                    fontFamily = DisplayFont,
+                    fontSize = 20.sp,
+                    letterSpacing = 1.sp,
+                )
+            },
             text = { Text("This set will be removed from your completed sets and workout volume.") },
             confirmButton = {
                 TextButton(onClick = {
                     setPendingDelete = null
                     onRemoveSet(set.id)
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                }) {
+                    Text(
+                        "DELETE",
+                        color = MaterialTheme.colorScheme.error,
+                        fontFamily = DisplayFont,
+                    )
+                }
             },
             dismissButton = {
-                TextButton(onClick = { setPendingDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { setPendingDelete = null }) {
+                    Text("CANCEL", fontFamily = DisplayFont)
+                }
             },
         )
     }
     Column(
         Modifier
             .animateContentSize(animationSpec = tween(220))
-            .padding(horizontal = 16.dp, vertical = 20.dp)
+            .padding(horizontal = LiftPageHorizontalPadding, vertical = 16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.size(48.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Outlined.FitnessCenter,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-            OutlinedTextField(
-                value = exercise.name,
+            IndustrialDumbbell(Modifier.size(width = 40.dp, height = 24.dp))
+            BasicTextField(
+                value = exercise.name.uppercase(),
                 onValueChange = onNameChanged,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp),
+                    .padding(start = 12.dp, top = 10.dp, bottom = 10.dp),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.titleMedium.copy(
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = DisplayFont,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.sp,
                 ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             )
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Outlined.DeleteOutline,
                     contentDescription = "Remove exercise",
-                    tint = LiftMuted,
+                    tint = MaterialTheme.colorScheme.error,
                 )
             }
         }
-        OutlinedTextField(
+        BasicTextField(
             value = exercise.notes,
             onValueChange = onNotesChanged,
-            placeholder = { Text("Add notes here…", color = LiftMuted) },
-            modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = Color.Transparent,
-            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 2.dp, bottom = 8.dp),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = LiftMuted),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            decorationBox = { innerTextField ->
+                Box(Modifier.padding(vertical = 8.dp)) {
+                    if (exercise.notes.isEmpty()) Text("Add notes…", color = LiftMuted)
+                    innerTextField()
+                }
+            },
         )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onEditRest)
-                .padding(horizontal = 8.dp, vertical = 10.dp),
+                .height(48.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 Icons.Outlined.Timer,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = LiftMuted,
+                modifier = Modifier.size(20.dp),
             )
             Text(
-                "Rest Timer: ${exercise.restSeconds / 60}min ${exercise.restSeconds % 60}s",
+                "REST   /   %02d:%02d".format(exercise.restSeconds / 60, exercise.restSeconds % 60),
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp),
-                color = MaterialTheme.colorScheme.primary,
+                    .padding(start = 10.dp),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontFamily = DisplayFont,
+                fontSize = 13.sp,
+                letterSpacing = 1.sp,
             )
             Icon(
                 Icons.Outlined.Edit,
                 contentDescription = "Edit rest timer",
-                tint = MaterialTheme.colorScheme.primary,
+                tint = LiftMuted,
                 modifier = Modifier.size(18.dp),
             )
         }
+        DottedDivider()
         SetHeader()
         exercise.sets.forEachIndexed { index, set ->
             key(set.id) {
@@ -348,31 +381,36 @@ private fun ExerciseLogger(
                     visible = true,
                     exit = shrinkVertically() + fadeOut(),
                 ) {
-                    SetRow(
-                        index = index,
-                        set = set,
-                        onChanged = { updatedSet -> onSetChanged(set.id, updatedSet) },
-                        onCompleted = {
-                            val becomingComplete = !set.completed
-                            onSetCompletionChanged(set.id, becomingComplete)
-                        },
-                        onDelete = {
-                            if (set.completed) setPendingDelete = set else onRemoveSet(set.id)
-                        },
-                    )
+                    Column {
+                        SetRow(
+                            index = index,
+                            set = set,
+                            onChanged = { updatedSet -> onSetChanged(set.id, updatedSet) },
+                            onCompleted = {
+                                val becomingComplete = !set.completed
+                                onSetCompletionChanged(set.id, becomingComplete)
+                            },
+                            onDelete = {
+                                if (set.completed) setPendingDelete = set else onRemoveSet(set.id)
+                            },
+                        )
+                        DottedDivider()
+                    }
                 }
             }
         }
-        Button(
+        OutlinedButton(
             onClick = onAddSet,
             modifier = Modifier
-                .fillMaxWidth()
+                .align(Alignment.CenterHorizontally)
+                .width(164.dp)
                 .padding(top = 12.dp)
-                .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
+                .height(48.dp),
+            border = BorderStroke(1.dp, LiftBorder),
+            contentPadding = PaddingValues(horizontal = 14.dp),
         ) {
-            Icon(Icons.Outlined.Add, contentDescription = null)
-            Text("  Add Set")
+            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(19.dp))
+            Text("  ADD SET", fontFamily = DisplayFont, fontSize = 12.sp, letterSpacing = 1.sp)
         }
     }
 }
@@ -386,38 +424,39 @@ private fun EmptyWorkoutState(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(520.dp)
-            .padding(horizontal = 20.dp),
+            .height(430.dp)
+            .padding(horizontal = LiftPageHorizontalPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
             Icons.Outlined.FitnessCenter,
             contentDescription = null,
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier.size(56.dp),
             tint = LiftMuted,
         )
         Text(
             if (isRoutineBuilder) "Build your routine" else "Get started",
-            modifier = Modifier.padding(top = 28.dp),
-            fontSize = 27.sp,
-            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 22.dp),
+            fontFamily = DisplayFont,
+            fontSize = 24.sp,
+            letterSpacing = 1.sp,
         )
         Text(
             "Add an exercise to ${if (isRoutineBuilder) "build your routine" else "start your workout"}",
-            modifier = Modifier.padding(top = 8.dp, bottom = 30.dp),
+            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
             color = LiftMuted,
-            fontSize = 18.sp,
+            fontSize = 15.sp,
             textAlign = TextAlign.Center,
         )
         Button(
             onClick = onAddExercise,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp),
+                .height(52.dp),
         ) {
             Icon(Icons.Outlined.Add, contentDescription = null)
-            Text("  Add Exercise", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text("  ADD EXERCISE", fontFamily = DisplayFont, fontSize = 13.sp, letterSpacing = 1.sp)
         }
         TextButton(
             onClick = onDiscard,
@@ -436,14 +475,14 @@ private fun SetHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 4.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("SET", modifier = Modifier.width(42.dp), color = LiftMuted, fontSize = 12.sp)
-        Text("PREVIOUS", modifier = Modifier.weight(1f), color = LiftMuted, fontSize = 12.sp)
-        Text("KG", modifier = Modifier.width(64.dp), color = LiftMuted, fontSize = 12.sp)
-        Text("REPS", modifier = Modifier.width(64.dp), color = LiftMuted, fontSize = 12.sp)
-        Spacer(Modifier.width(42.dp))
+        Text("SET", modifier = Modifier.width(42.dp), color = LiftMuted, fontFamily = DisplayFont, fontSize = 11.sp)
+        Text("PREVIOUS", modifier = Modifier.weight(1f), color = LiftMuted, fontFamily = DisplayFont, fontSize = 11.sp)
+        Text("KG", modifier = Modifier.width(58.dp), color = LiftMuted, fontFamily = DisplayFont, fontSize = 11.sp)
+        Text("REPS", modifier = Modifier.width(58.dp), color = LiftMuted, fontFamily = DisplayFont, fontSize = 11.sp)
+        Spacer(Modifier.width(38.dp))
     }
 }
 
@@ -455,12 +494,6 @@ private fun SetRow(
     onCompleted: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
-    val rowBackground = if (set.completed) {
-        LiftGreen.copy(alpha = 0.75f).compositeOver(MaterialTheme.colorScheme.background)
-    } else {
-        MaterialTheme.colorScheme.background
-    }
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -473,14 +506,14 @@ private fun SetRow(
         state = dismissState,
         modifier = Modifier
             .fillMaxWidth()
-            .height(62.dp)
+            .height(58.dp)
             .clip(RectangleShape),
         enableDismissFromStartToEnd = false,
         backgroundContent = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(62.dp)
+                    .height(58.dp)
                     .background(MaterialTheme.colorScheme.error)
                     .padding(end = 18.dp),
                 horizontalArrangement = Arrangement.End,
@@ -494,40 +527,32 @@ private fun SetRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(62.dp)
-                .background(rowBackground)
+                .height(58.dp)
+                .background(MaterialTheme.colorScheme.background)
                 .animateContentSize()
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .padding(vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-        Box(modifier = Modifier.width(42.dp)) {
-            TextButton(
-                onClick = { menuExpanded = true },
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Text(
-                    (index + 1).toString(),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Icon(Icons.Outlined.MoreVert, contentDescription = "Set options", modifier = Modifier.size(14.dp))
-            }
-            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                DropdownMenuItem(
-                    text = { Text("Delete set") },
-                    leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
-                    onClick = {
-                        menuExpanded = false
-                        onDelete()
-                    },
-                )
-            }
-        }
+        Box(
+            Modifier
+                .width(3.dp)
+                .height(46.dp)
+                .background(if (set.completed) MaterialTheme.colorScheme.primary else Color.Transparent)
+        )
+        Text(
+            (index + 1).toString(),
+            modifier = Modifier.width(39.dp),
+            textAlign = TextAlign.Center,
+            fontSize = 17.sp,
+            fontFamily = DisplayFont,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
         Text(
             "${set.weight.ifBlank { "—" }}kg × ${set.reps.ifBlank { "—" }}",
             modifier = Modifier.weight(1f),
-            color = if (set.completed) Color.White else LiftMuted,
+            color = LiftMuted,
+            fontFamily = DisplayFont,
+            fontSize = 13.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -541,12 +566,23 @@ private fun SetRow(
         )
         Surface(
             onClick = onCompleted,
-            color = if (set.completed) MaterialTheme.colorScheme.primary else LiftMuted,
+            color = Color.Transparent,
+            border = BorderStroke(
+                1.dp,
+                if (set.completed) MaterialTheme.colorScheme.primary else LiftBorder,
+            ),
             shape = MaterialTheme.shapes.small,
-            modifier = Modifier.size(38.dp),
+            modifier = Modifier.size(34.dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.Check, contentDescription = "Complete set")
+                if (set.completed) {
+                    Icon(
+                        Icons.Outlined.Check,
+                        contentDescription = "Complete set",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
         }
         }
@@ -563,20 +599,32 @@ private fun RestDurationDialog(
     val presets = listOf(60, 90, 120, 180, 300)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Rest timer") },
+        title = {
+            Text(
+                "REST TIMER",
+                fontFamily = DisplayFont,
+                fontSize = 20.sp,
+                letterSpacing = 1.sp,
+            )
+        },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     "%02d:%02d".format(seconds / 60, seconds % 60),
-                    fontSize = 38.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = DisplayFont,
+                    fontSize = 36.sp,
+                    letterSpacing = 1.5.sp,
                 )
                 Row(
                     modifier = Modifier.padding(vertical = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Button(onClick = { seconds = (seconds - 15).coerceAtLeast(15) }) { Text("−15s") }
-                    Button(onClick = { seconds = (seconds + 15).coerceAtMost(900) }) { Text("+15s") }
+                    OutlinedButton(onClick = { seconds = (seconds - 15).coerceAtLeast(15) }) {
+                        Text("−15 SEC", fontFamily = DisplayFont, fontSize = 12.sp)
+                    }
+                    OutlinedButton(onClick = { seconds = (seconds + 15).coerceAtMost(900) }) {
+                        Text("+15 SEC", fontFamily = DisplayFont, fontSize = 12.sp)
+                    }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -594,8 +642,14 @@ private fun RestDurationDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(seconds) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = { onSave(seconds) }) {
+                Text("SAVE", fontFamily = DisplayFont, color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("CANCEL", fontFamily = DisplayFont) }
+        },
     )
 }
 
@@ -605,10 +659,14 @@ private fun CompactNumberField(value: String, onValueChange: (String) -> Unit) {
         value = value,
         onValueChange = { onValueChange(it.filter(Char::isDigit).take(4)) },
         modifier = Modifier
-            .width(64.dp)
-            .height(50.dp),
+            .width(58.dp)
+            .height(46.dp),
         singleLine = true,
-        textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(
+            textAlign = TextAlign.Center,
+            fontFamily = DisplayFont,
+            fontSize = 17.sp,
+        ),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Color.Transparent,

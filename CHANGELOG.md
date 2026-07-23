@@ -2,6 +2,25 @@
 
 All notable changes to Hevyn’t are documented here.
 
+## [1.5.0] - 2026-07-23
+
+### Added
+
+- Added month navigation to the workout calendar, with completed training days and the current day clearly marked.
+- Added monthly training-day totals and a compact latest-session summary to the Home screen.
+- Added a bundled Doto variable display font for important headers, workout metrics, timers, routine names, and primary actions.
+
+### Improved
+
+- Refreshed Home, Workout, routine management, active workout logging, dialogs, bottom navigation, minimized workouts, and rest timers with a cohesive industrial red-on-black design.
+- Introduced dotted dividers, compact shapes, custom workout iconography, clearer visual hierarchy, and more consistent typography.
+- Redesigned routine folders as expandable groups and made populated routine rows directly startable.
+- Streamlined active workout logging with clearer metrics, compact set fields, explicit completion indicators, inline exercise editing, and redesigned rest-duration controls.
+
+### Tests
+
+- Added formatting coverage for routine previews and workout-calendar summaries.
+
 ## [1.0.1] - 2026-07-23
 
 ### Fixed

@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CreateNewFolder
@@ -23,7 +25,6 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -31,8 +32,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,12 +44,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.Routine
 import com.yifeng.commandcenter.data.RoutineFolder
+import com.yifeng.commandcenter.ui.theme.DisplayFont
+import com.yifeng.commandcenter.ui.theme.LiftBorder
 import com.yifeng.commandcenter.ui.theme.LiftMuted
 import com.yifeng.commandcenter.ui.theme.LiftRed
 
@@ -110,7 +113,14 @@ fun WorkoutProgramsScreen(
     folderToDelete?.let { folder ->
         AlertDialog(
             onDismissRequest = { folderToDelete = null },
-            title = { Text("Delete ${folder.name}?") },
+            title = {
+                Text(
+                    "DELETE ${folder.name.uppercase()}?",
+                    fontFamily = DisplayFont,
+                    fontSize = 20.sp,
+                    letterSpacing = 1.sp,
+                )
+            },
             text = {
                 Text(
                     if (folder.routines.isEmpty()) {
@@ -126,127 +136,190 @@ fun WorkoutProgramsScreen(
                         folderToDelete = null
                         onDeleteFolder(folder)
                     }
-                ) { Text("Delete", color = LiftRed) }
+                ) {
+                    Text(
+                        "DELETE",
+                        color = LiftRed,
+                        fontFamily = DisplayFont,
+                    )
+                }
             },
             dismissButton = {
-                TextButton(onClick = { folderToDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { folderToDelete = null }) {
+                    Text("CANCEL", fontFamily = DisplayFont)
+                }
             },
         )
     }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(
+            start = LiftPageHorizontalPadding,
+            end = LiftPageHorizontalPadding,
+            top = 20.dp,
+            bottom = 28.dp,
+        ),
     ) {
         item {
-            Text("Workout", fontSize = 36.sp, fontWeight = FontWeight.Bold)
-            Text("Choose a plan and get to work.", color = LiftMuted)
-            Spacer(Modifier.height(24.dp))
-            Card(
+            LiftPageHeader(
+                title = "WORKOUT",
+                subtitle = "Choose a plan and get to work.",
+            )
+            Spacer(Modifier.height(20.dp))
+            DottedDivider()
+            PrimaryActionRow(
+                label = "START EMPTY WORKOUT",
                 onClick = onStartEmpty,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(76.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = MaterialTheme.shapes.medium,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Outlined.Add, contentDescription = null)
-                    Text(
-                        "Start Empty Workout",
-                        modifier = Modifier.padding(start = 14.dp),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
+            )
+            DottedDivider()
         }
 
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.height(24.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    "Routines",
+                    "ROUTINES",
                     modifier = Modifier.weight(1f),
-                    fontSize = 27.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontFamily = DisplayFont,
+                    fontSize = 26.sp,
+                    letterSpacing = 1.2.sp,
+                )
+                LiftSectionLabel(
+                    text = "${folders.size} FOLDER${if (folders.size == 1) "" else "S"}",
+                    color = LiftMuted,
                 )
                 IconButton(onClick = { showCreateFolder = true }) {
                     Icon(Icons.Outlined.CreateNewFolder, contentDescription = "Create folder")
                 }
             }
-            Card(
-                onClick = {
-                    if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
-                },
+            DottedDivider()
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(68.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = MaterialTheme.shapes.medium,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Outlined.FitnessCenter, contentDescription = null)
-                    Text(
-                        "New Routine",
-                        modifier = Modifier.padding(start = 12.dp),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    .height(62.dp)
+                    .clickable {
+                    if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
                 }
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(21.dp))
+                LiftSectionLabel("NEW ROUTINE", Modifier.padding(start = 14.dp))
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "${folders.size} FOLDER${if (folders.size == 1) "" else "S"}",
-                color = LiftMuted,
-                fontSize = 12.sp,
-            )
+            DottedDivider()
+            Spacer(Modifier.height(16.dp))
         }
 
         folders.forEach { folder ->
             val isExpanded = expandedFolders[folder.id] ?: true
-            item(key = "header-${folder.id}") {
-                FolderHeader(
+            item(key = folder.id) {
+                FolderGroup(
                     folder = folder,
                     isExpanded = isExpanded,
                     onToggle = { expandedFolders[folder.id] = !isExpanded },
                     onRename = { folderToRename = folder },
                     onDelete = { folderToDelete = folder },
+                    onAddRoutine = { onBuildRoutine(folder, null) },
+                    onStartRoutine = onStartRoutine,
+                    onEditRoutine = { onBuildRoutine(folder, it) },
+                    onDeleteRoutine = { onDeleteRoutine(folder, it) },
                 )
-            }
-            if (isExpanded) {
-                folder.routines.forEach { routine ->
-                    item(key = routine.id) {
-                        RoutineCard(
-                            routine = routine,
-                            onStart = { onStartRoutine(routine) },
-                            onEdit = { onBuildRoutine(folder, routine) },
-                            onDelete = { onDeleteRoutine(folder, routine) },
-                        )
-                    }
-                }
-                item(key = "add-${folder.id}") {
-                    AddRoutineButton(onClick = { onBuildRoutine(folder, null) })
-                }
+                Spacer(Modifier.height(14.dp))
             }
         }
 
         if (folders.isEmpty()) {
             item {
-                AddRoutineButton(
-                    label = "+ Create a folder to add routines",
-                    onClick = { showCreateFolder = true },
+                Text(
+                    "NO ROUTINES YET. CREATE A FOLDER TO BEGIN.",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showCreateFolder = true }
+                        .padding(vertical = 24.dp),
+                    color = LiftMuted,
+                    fontFamily = DisplayFont,
+                    fontSize = 12.sp,
+                    letterSpacing = 1.sp,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrimaryActionRow(
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(68.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(22.dp))
+        Text(
+            label,
+            modifier = Modifier.weight(1f).padding(start = 14.dp),
+            fontFamily = DisplayFont,
+            fontSize = 15.sp,
+            letterSpacing = 1.sp,
+        )
+        Icon(
+            Icons.AutoMirrored.Outlined.ArrowForward,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(25.dp),
+        )
+    }
+}
+
+@Composable
+private fun FolderGroup(
+    folder: RoutineFolder,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    onAddRoutine: () -> Unit,
+    onStartRoutine: (Routine) -> Unit,
+    onEditRoutine: (Routine) -> Unit,
+    onDeleteRoutine: (Routine) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(1.dp, LiftBorder),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        FolderHeader(folder, isExpanded, onToggle, onRename, onDelete)
+        if (isExpanded) {
+            DottedDivider(Modifier.padding(horizontal = 12.dp))
+            folder.routines.forEach { routine ->
+                RoutineRow(
+                    routine = routine,
+                    onStart = { onStartRoutine(routine) },
+                    onEdit = { onEditRoutine(routine) },
+                    onDelete = { onDeleteRoutine(routine) },
+                )
+                DottedDivider(Modifier.padding(horizontal = 12.dp))
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(58.dp)
+                    .clickable(onClick = onAddRoutine)
+                    .padding(horizontal = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                LiftSectionLabel("ADD ROUTINE", Modifier.padding(start = 13.dp), LiftMuted)
             }
         }
     }
@@ -265,21 +338,28 @@ private fun FolderHeader(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
-            .padding(top = 12.dp, bottom = 4.dp),
+            .height(66.dp)
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             if (isExpanded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
             contentDescription = if (isExpanded) "Collapse folder" else "Expand folder",
-            tint = LiftMuted,
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(24.dp),
         )
         Text(
-            if (folder.routines.isEmpty()) folder.name else "${folder.name} (${folder.routines.size})",
+            folder.name.uppercase(),
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 8.dp),
+                .padding(start = 10.dp),
+            fontFamily = DisplayFont,
+            fontSize = 18.sp,
+            letterSpacing = 1.sp,
+        )
+        LiftSectionLabel(
+            text = "${folder.routines.size} ROUTINE${if (folder.routines.size == 1) "" else "S"}",
             color = LiftMuted,
-            fontSize = 20.sp,
         )
         Box {
             IconButton(onClick = { menuExpanded = true }) {
@@ -311,86 +391,68 @@ private fun FolderHeader(
 }
 
 @Composable
-private fun AddRoutineButton(
-    label: String = "+ Add new routine",
-    onClick: () -> Unit,
-) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(72.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
-        shape = MaterialTheme.shapes.small,
-    ) {
-        Text(label, color = MaterialTheme.colorScheme.primary, fontSize = 17.sp)
-    }
-}
-
-@Composable
-private fun RoutineCard(
+private fun RoutineRow(
     routine: Routine,
     onStart: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = MaterialTheme.shapes.medium,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = routine.exercises.isNotEmpty(), onClick = onStart)
+            .padding(start = 18.dp, end = 10.dp, top = 15.dp, bottom = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    routine.name,
-                    modifier = Modifier.weight(1f),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Box {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Outlined.MoreHoriz, contentDescription = "Routine options")
-                    }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Edit routine") },
-                            leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                            onClick = {
-                                menuExpanded = false
-                                onEdit()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Delete") },
-                            leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
-                            onClick = {
-                                menuExpanded = false
-                                onDelete()
-                            },
-                        )
-                    }
-                }
-            }
+        Icon(
+            Icons.Outlined.FitnessCenter,
+            contentDescription = null,
+            tint = LiftMuted,
+            modifier = Modifier.size(23.dp),
+        )
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Text(
-                routine.exercises.joinToString(", ") { it.name }.ifBlank { "No exercises yet" },
-                color = LiftMuted,
-                maxLines = 2,
+                routine.name.uppercase(),
+                fontSize = 18.sp,
+                fontFamily = DisplayFont,
+                letterSpacing = 0.8.sp,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                lineHeight = 21.sp,
             )
-            Button(
-                onClick = onStart,
-                enabled = routine.exercises.isNotEmpty(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)
-                    .height(50.dp),
-            ) {
-                Text("Start Routine", fontWeight = FontWeight.Bold)
+            Text(
+                routine.exercises.joinToString("  ·  ") { it.name }.ifBlank { "No exercises yet" },
+                modifier = Modifier.padding(top = 4.dp),
+                color = LiftMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 13.sp,
+            )
+        }
+        if (routine.exercises.isNotEmpty()) {
+            LiftSectionLabel("START", color = MaterialTheme.colorScheme.primary)
+        }
+        Box {
+            IconButton(onClick = { menuExpanded = true }) {
+                Icon(Icons.Outlined.MoreHoriz, contentDescription = "Routine options")
+            }
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                DropdownMenuItem(
+                    text = { Text("Edit routine") },
+                    leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                    onClick = {
+                        menuExpanded = false
+                        onEdit()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Delete") },
+                    leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
+                    onClick = {
+                        menuExpanded = false
+                        onDelete()
+                    },
+                )
             }
         }
     }
@@ -405,25 +467,58 @@ private fun FolderPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose a folder") },
+        title = {
+            Text(
+                "CHOOSE A FOLDER",
+                fontFamily = DisplayFont,
+                fontSize = 20.sp,
+                letterSpacing = 1.sp,
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column {
                 folders.forEach { folder ->
                     TextButton(
                         onClick = { onSelect(folder) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
                     ) {
-                        Text(folder.name, modifier = Modifier.fillMaxWidth())
+                        Text(
+                            folder.name.uppercase(),
+                            modifier = Modifier.fillMaxWidth(),
+                            fontFamily = DisplayFont,
+                            letterSpacing = 0.8.sp,
+                        )
                     }
+                    DottedDivider()
                 }
-                TextButton(onClick = onCreateFolder, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Outlined.CreateNewFolder, contentDescription = null)
-                    Text("  Create new folder")
+                TextButton(
+                    onClick = onCreateFolder,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.CreateNewFolder,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Text(
+                        "CREATE NEW FOLDER",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 12.dp),
+                        fontFamily = DisplayFont,
+                        letterSpacing = 0.8.sp,
+                    )
                 }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("CANCEL", fontFamily = DisplayFont) }
+        },
     )
 }
 
@@ -438,21 +533,41 @@ private fun NameDialog(
     var value by remember(initialValue) { mutableStateOf(initialValue) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = {
+            Text(
+                title.uppercase(),
+                fontFamily = DisplayFont,
+                fontSize = 20.sp,
+                letterSpacing = 1.sp,
+            )
+        },
         text = {
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it },
                 label = { Text("Folder name") },
                 singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = DisplayFont),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                ),
             )
         },
         confirmButton = {
             TextButton(
                 enabled = value.isNotBlank(),
                 onClick = { onConfirm(value.trim()) },
-            ) { Text(confirmLabel) }
+            ) {
+                Text(
+                    confirmLabel.uppercase(),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontFamily = DisplayFont,
+                )
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("CANCEL", fontFamily = DisplayFont) }
+        },
     )
 }

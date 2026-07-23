@@ -1,5 +1,6 @@
 package com.yifeng.commandcenter.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,12 +9,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.timer.RestTimerState
 import com.yifeng.commandcenter.timer.TimerMath
+import com.yifeng.commandcenter.ui.theme.DisplayFont
+import com.yifeng.commandcenter.ui.theme.LiftBorder
+import com.yifeng.commandcenter.ui.theme.LiftMuted
 import kotlinx.coroutines.delay
 
 @Composable
@@ -52,15 +56,14 @@ fun RestTimerBar(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp,
+        color = MaterialTheme.colorScheme.background,
     ) {
         Column {
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp),
+                    .height(2.dp),
             )
             state.nextTarget?.let { target ->
                 Text(
@@ -69,35 +72,43 @@ fun RestTimerBar(
                         if (target.weight.isNotBlank()) append("  •  ${target.weight} KG")
                         if (target.reps.isNotBlank()) append(" × ${target.reps}")
                     },
-                    modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 9.dp),
+                    color = LiftMuted,
+                    fontFamily = DisplayFont,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.8.sp,
+                    maxLines = 1,
                 )
             }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 18.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 TimerButton(label = "−15", onClick = onSubtract)
                 Text(
                     formatTimer(remaining),
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontFamily = DisplayFont,
+                    fontSize = 28.sp,
+                    letterSpacing = 1.2.sp,
                 )
                 TimerButton(label = "+15", onClick = onAdd)
-                Button(
+                TextButton(
                     onClick = onSkip,
-                    modifier = Modifier.height(58.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.height(44.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp),
                 ) {
-                    Text("Skip", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "SKIP",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = DisplayFont,
+                        fontSize = 11.sp,
+                        letterSpacing = 1.sp,
+                    )
                 }
             }
         }
@@ -106,16 +117,16 @@ fun RestTimerBar(
 
 @Composable
 private fun TimerButton(label: String, onClick: () -> Unit) {
-    Button(
+    OutlinedButton(
         onClick = onClick,
         modifier = Modifier
-            .width(64.dp)
-            .height(58.dp),
+            .width(54.dp)
+            .height(44.dp),
         contentPadding = PaddingValues(0.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        border = BorderStroke(1.dp, LiftBorder),
         shape = MaterialTheme.shapes.small,
     ) {
-        Text(label, fontSize = 17.sp)
+        Text(label, fontFamily = DisplayFont, fontSize = 12.sp)
     }
 }
 

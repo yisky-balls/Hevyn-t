@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,19 +15,25 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +46,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.yifeng.commandcenter.data.ActiveExercise
 import com.yifeng.commandcenter.data.ActiveWorkout
@@ -54,6 +61,8 @@ import com.yifeng.commandcenter.data.RoutineFolderOperations
 import com.yifeng.commandcenter.data.RoutineRepository
 import com.yifeng.commandcenter.timer.RestTimerManager
 import com.yifeng.commandcenter.timer.RestTimerState
+import com.yifeng.commandcenter.ui.theme.DisplayFont
+import com.yifeng.commandcenter.ui.theme.LiftMuted
 import kotlinx.coroutines.delay
 
 private enum class AppPage { Home, Workout }
@@ -243,29 +252,6 @@ fun FitnessApp() {
             if (activeWorkout == null || !isWorkoutExpanded) {
                 Column {
                     if (activeWorkout != null && !isWorkoutExpanded) {
-                        AnimatedVisibility(
-                            visible = timerState != null,
-                            enter = slideInVertically(tween(240)) { it / 2 } + fadeIn(tween(180)),
-                            exit = slideOutVertically(tween(200)) { it / 2 } + fadeOut(tween(160)),
-                        ) {
-                            timerState?.let { state ->
-                                RestTimerBar(
-                                    state = state,
-                                    onSubtract = {
-                                        RestTimerManager.adjust(context, -15)
-                                        timerState = RestTimerManager.getState(context)
-                                    },
-                                    onAdd = {
-                                        RestTimerManager.adjust(context, 15)
-                                        timerState = RestTimerManager.getState(context)
-                                    },
-                                    onSkip = {
-                                        RestTimerManager.skip(context)
-                                        timerState = null
-                                    },
-                                )
-                            }
-                        }
                         MinimizedWorkoutBar(
                             workout = activeWorkout!!,
                             onResume = {
@@ -484,28 +470,56 @@ private fun AppBottomBar(
     selectedPage: AppPage,
     onPageSelected: (AppPage) -> Unit,
 ) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-        NavigationBarItem(
-            selected = selectedPage == AppPage.Home,
-            onClick = { onPageSelected(AppPage.Home) },
-            icon = { Icon(Icons.Outlined.Home, contentDescription = null) },
-            label = { Text("Home") },
-            colors = NavigationBarItemDefaults.colors(
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                selectedIconColor = Color.White,
-                selectedTextColor = Color.White,
-            ),
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Row(Modifier.fillMaxWidth().height(92.dp)) {
+            AppBottomDestination(
+                label = "HOME",
+                selected = selectedPage == AppPage.Home,
+                selectedColor = MaterialTheme.colorScheme.primary,
+                onClick = { onPageSelected(AppPage.Home) },
+            ) {
+                Icon(Icons.Outlined.Home, contentDescription = null, modifier = Modifier.size(26.dp))
+            }
+            AppBottomDestination(
+                label = "WORKOUT",
+                selected = selectedPage == AppPage.Workout,
+                selectedColor = MaterialTheme.colorScheme.primary,
+                onClick = { onPageSelected(AppPage.Workout) },
+            ) {
+                Icon(Icons.Outlined.FitnessCenter, contentDescription = null, modifier = Modifier.size(26.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.AppBottomDestination(
+    label: String,
+    selected: Boolean,
+    selectedColor: Color,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    val contentColor = if (selected) selectedColor else LiftMuted
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.weight(1f))
+        Surface(color = Color.Transparent, contentColor = contentColor) { icon() }
+        Text(
+            label,
+            modifier = Modifier.padding(top = 8.dp),
+            color = contentColor,
+            fontFamily = DisplayFont,
+            fontSize = 11.sp,
+            letterSpacing = 1.5.sp,
         )
-        NavigationBarItem(
-            selected = selectedPage == AppPage.Workout,
-            onClick = { onPageSelected(AppPage.Workout) },
-            icon = { Icon(Icons.Outlined.FitnessCenter, contentDescription = null) },
-            label = { Text("Workout") },
-            colors = NavigationBarItemDefaults.colors(
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                selectedIconColor = Color.White,
-                selectedTextColor = Color.White,
-            ),
-        )
+        Spacer(Modifier.height(6.dp))
+        if (selected) SignalDot(Modifier.size(5.dp)) else Spacer(Modifier.size(5.dp))
+        Spacer(Modifier.height(7.dp))
     }
 }
