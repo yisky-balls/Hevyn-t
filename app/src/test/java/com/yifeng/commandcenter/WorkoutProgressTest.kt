@@ -19,7 +19,7 @@ class WorkoutProgressTest {
             )
         )
 
-        val target = WorkoutProgress.nextSetAfter(workout, 0, 0)
+        val target = WorkoutProgress.nextSetAfter(workout, "bench", "one")
 
         assertEquals("two", target?.setId)
         assertEquals(2, target?.setNumber)
@@ -32,7 +32,7 @@ class WorkoutProgressTest {
             ActiveExercise(id = "row", name = "Row", sets = listOf(set("two"))),
         )
 
-        val target = WorkoutProgress.nextSetAfter(workout, 0, 0)
+        val target = WorkoutProgress.nextSetAfter(workout, "bench", "one")
 
         assertEquals("row", target?.exerciseId)
         assertEquals(0, target?.setIndex)
@@ -44,11 +44,11 @@ class WorkoutProgressTest {
             ActiveExercise(id = "bench", name = "Bench", sets = listOf(set("one"))),
         )
 
-        assertNull(WorkoutProgress.nextSetAfter(workout, 0, 0))
+        assertNull(WorkoutProgress.nextSetAfter(workout, "bench", "one"))
     }
 
     @Test
-    fun `progression does not move backward to an earlier unfinished set`() {
+    fun `progression wraps to an earlier unfinished set before changing exercise`() {
         val workout = workout(
             ActiveExercise(
                 id = "bench",
@@ -57,9 +57,32 @@ class WorkoutProgressTest {
             ),
         )
 
-        val target = WorkoutProgress.nextSetAfter(workout, 0, 1)
+        val target = WorkoutProgress.nextSetAfter(
+            workout.copy(exercises = listOf(workout.exercises[0].copy(
+                sets = workout.exercises[0].sets.mapIndexed { index, set -> set.copy(completed = index == 1) }
+            ))),
+            "bench",
+            "two",
+        )
 
         assertEquals("three", target?.setId)
+    }
+
+    @Test
+    fun `progression never changes exercise while an earlier current set is unfinished`() {
+        val workout = workout(
+            ActiveExercise(
+                id = "bench",
+                name = "Bench",
+                sets = listOf(set("one"), set("two", completed = true), set("three", completed = true)),
+            ),
+            ActiveExercise(id = "row", name = "Row", sets = listOf(set("row-one"))),
+        )
+
+        val target = WorkoutProgress.nextSetAfter(workout, "bench", "three")
+
+        assertEquals("one", target?.setId)
+        assertEquals("bench", target?.exerciseId)
     }
 
     private fun workout(vararg exercises: ActiveExercise) = ActiveWorkout(

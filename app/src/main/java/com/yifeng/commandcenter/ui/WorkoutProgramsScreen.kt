@@ -376,7 +376,7 @@ private fun RoutineCard(
                 }
             }
             Text(
-                routine.exercises.joinToString(", ").ifBlank { "No exercises yet" },
+                routine.exercises.joinToString(", ") { it.name }.ifBlank { "No exercises yet" },
                 color = LiftMuted,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

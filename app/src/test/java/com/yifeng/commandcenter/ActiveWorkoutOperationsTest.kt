@@ -15,9 +15,20 @@ class ActiveWorkoutOperationsTest {
     fun updateRestSeconds_clampsToSupportedRange() {
         val workout = workout()
 
-        assertEquals(15, ActiveWorkoutOperations.updateRestSeconds(workout, 1).restSeconds)
-        assertEquals(900, ActiveWorkoutOperations.updateRestSeconds(workout, 9999).restSeconds)
-        assertEquals(120, ActiveWorkoutOperations.updateRestSeconds(workout, 120).restSeconds)
+        assertEquals(15, ActiveWorkoutOperations.updateRestSeconds(workout, "bench", 1)?.exercises?.first()?.restSeconds)
+        assertEquals(900, ActiveWorkoutOperations.updateRestSeconds(workout, "bench", 9999)?.exercises?.first()?.restSeconds)
+        assertEquals(120, ActiveWorkoutOperations.updateRestSeconds(workout, "bench", 120)?.exercises?.first()?.restSeconds)
+    }
+
+    @Test
+    fun `updating one rest timer preserves every other exercise`() {
+        val row = ActiveExercise(id = "row", name = "Row", restSeconds = 90, sets = listOf(set("row-one")))
+        val workout = workout().copy(exercises = workout().exercises + row)
+
+        val updated = ActiveWorkoutOperations.updateRestSeconds(workout, "bench", 240)!!
+
+        assertEquals(240, updated.exercises[0].restSeconds)
+        assertEquals(row, updated.exercises[1])
     }
 
     @Test
@@ -34,6 +45,18 @@ class ActiveWorkoutOperationsTest {
 
         assertEquals(2, updated.exercises.first().sets.size)
         assertEquals(listOf(exercise.sets[0].id, exercise.sets[2].id), updated.exercises.first().sets.map { it.id })
+    }
+
+    @Test
+    fun `removing a set preserves neighboring exercises exactly`() {
+        val bench = ActiveExercise(id = "bench", name = "Bench", sets = listOf(set("one"), set("two")))
+        val row = ActiveExercise(id = "row", name = "Edited row", notes = "keep", restSeconds = 75, sets = listOf(set("row-one")))
+        val workout = ActiveWorkout(routineName = "Test", exercises = listOf(bench, row))
+
+        val updated = ActiveWorkoutOperations.removeSet(workout, "bench", "one")!!
+
+        assertEquals(listOf("two"), updated.exercises[0].sets.map { it.id })
+        assertEquals(row, updated.exercises[1])
     }
 
     @Test

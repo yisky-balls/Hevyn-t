@@ -69,8 +69,14 @@ class RoutineRepository(context: Context) {
                 JSONObject()
                     .put("id", routine.id)
                     .put("name", routine.name)
-                    .put("restSeconds", routine.restSeconds)
-                    .put("exercises", JSONArray(routine.exercises))
+                    .put("exercises", JSONArray().apply {
+                        routine.exercises.forEach { exercise ->
+                            put(JSONObject()
+                                .put("id", exercise.id)
+                                .put("name", exercise.name)
+                                .put("restSeconds", exercise.restSeconds))
+                        }
+                    })
             )
         }
         return array
@@ -80,16 +86,32 @@ class RoutineRepository(context: Context) {
         for (index in 0 until array.length()) {
             val item = array.getJSONObject(index)
             val exerciseArray = item.getJSONArray("exercises")
+            val legacyRestSeconds = item.optInt("restSeconds", 180)
             add(
                 Routine(
                     id = item.getString("id"),
                     name = item.getString("name"),
                     exercises = buildList {
                         for (exerciseIndex in 0 until exerciseArray.length()) {
-                            add(exerciseArray.getString(exerciseIndex))
+                            val rawExercise = exerciseArray.get(exerciseIndex)
+                            add(
+                                if (rawExercise is JSONObject) {
+                                    RoutineExercise(
+                                        id = rawExercise.optString("id").ifBlank {
+                                            RoutineExercise(name = "").id
+                                        },
+                                        name = rawExercise.optString("name"),
+                                        restSeconds = rawExercise.optInt("restSeconds", legacyRestSeconds),
+                                    )
+                                } else {
+                                    RoutineExercise(
+                                        name = rawExercise.toString(),
+                                        restSeconds = legacyRestSeconds,
+                                    )
+                                }
+                            )
                         }
                     },
-                    restSeconds = item.optInt("restSeconds", 180),
                 )
             )
         }
@@ -160,21 +182,20 @@ class RoutineRepository(context: Context) {
                 Routine(
                     name = "Upper",
                     exercises = listOf(
-                        "Bench Press - Wide Grip (Barbell)",
-                        "Incline Bench Press (Dumbbell)",
-                        "Lat Pulldown (Cable)",
-                        "Seated Shoulder Press",
+                        RoutineExercise(name = "Bench Press - Wide Grip (Barbell)"),
+                        RoutineExercise(name = "Incline Bench Press (Dumbbell)"),
+                        RoutineExercise(name = "Lat Pulldown (Cable)"),
+                        RoutineExercise(name = "Seated Shoulder Press"),
                     ),
                 ),
                 Routine(
                     name = "Leg",
                     exercises = listOf(
-                        "Squat (Barbell)",
-                        "Leg Extension (Machine)",
-                        "Lying Leg Curl (Machine)",
-                        "Cable Crunch",
+                        RoutineExercise(name = "Squat (Barbell)", restSeconds = 150),
+                        RoutineExercise(name = "Leg Extension (Machine)", restSeconds = 150),
+                        RoutineExercise(name = "Lying Leg Curl (Machine)", restSeconds = 150),
+                        RoutineExercise(name = "Cable Crunch", restSeconds = 150),
                     ),
-                    restSeconds = 150,
                 ),
             ),
         ),

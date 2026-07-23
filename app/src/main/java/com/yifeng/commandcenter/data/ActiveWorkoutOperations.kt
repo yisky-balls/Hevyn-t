@@ -2,7 +2,10 @@ package com.yifeng.commandcenter.data
 
 data class SetCompletionResult(
     val workout: ActiveWorkout,
+    val completedExerciseId: String,
+    val completedSetId: String,
     val completedExerciseName: String,
+    val restSeconds: Int,
     val nextTarget: NextSetTarget?,
 )
 
@@ -10,20 +13,64 @@ object ActiveWorkoutOperations {
     const val MIN_REST_SECONDS = 15
     const val MAX_REST_SECONDS = 15 * 60
 
-    fun updateRestSeconds(workout: ActiveWorkout, seconds: Int): ActiveWorkout =
-        workout.copy(restSeconds = seconds.coerceIn(MIN_REST_SECONDS, MAX_REST_SECONDS))
+    fun addExercise(workout: ActiveWorkout, exercise: ActiveExercise): ActiveWorkout =
+        workout.copy(exercises = workout.exercises + exercise)
+
+    fun removeExercise(workout: ActiveWorkout, exerciseId: String): ActiveWorkout? {
+        if (workout.exercises.none { it.id == exerciseId }) return null
+        return workout.copy(exercises = workout.exercises.filterNot { it.id == exerciseId })
+    }
+
+    fun updateExerciseName(workout: ActiveWorkout, exerciseId: String, name: String): ActiveWorkout? =
+        updateExercise(workout, exerciseId) { it.copy(name = name) }
+
+    fun updateExerciseNotes(workout: ActiveWorkout, exerciseId: String, notes: String): ActiveWorkout? =
+        updateExercise(workout, exerciseId) { it.copy(notes = notes) }
+
+    fun updateRestSeconds(
+        workout: ActiveWorkout,
+        exerciseId: String,
+        seconds: Int,
+    ): ActiveWorkout? = updateExercise(workout, exerciseId) {
+        it.copy(restSeconds = seconds.coerceIn(MIN_REST_SECONDS, MAX_REST_SECONDS))
+    }
+
+    fun updateSet(
+        workout: ActiveWorkout,
+        exerciseId: String,
+        setId: String,
+        transform: (WorkoutSet) -> WorkoutSet,
+    ): ActiveWorkout? = updateExercise(workout, exerciseId) { exercise ->
+        if (exercise.sets.none { it.id == setId }) return@updateExercise null
+        exercise.copy(sets = exercise.sets.map { set ->
+            if (set.id == setId) transform(set) else set
+        })
+    }
+
+    fun addSet(workout: ActiveWorkout, exerciseId: String): ActiveWorkout? =
+        updateExercise(workout, exerciseId) { exercise ->
+            val previous = exercise.sets.lastOrNull()
+            exercise.copy(
+                sets = exercise.sets + WorkoutSet(
+                    weight = previous?.weight.orEmpty(),
+                    reps = previous?.reps.orEmpty(),
+                )
+            )
+        }
 
     fun removeSet(workout: ActiveWorkout, exerciseId: String, setId: String): ActiveWorkout? {
-        val exerciseIndex = workout.exercises.indexOfFirst { it.id == exerciseId }
-        if (exerciseIndex < 0) return null
-        val exercise = workout.exercises[exerciseIndex]
-        if (exercise.sets.none { it.id == setId }) return null
-        val updatedExercise = exercise.copy(sets = exercise.sets.filterNot { it.id == setId })
-        return workout.copy(
-            exercises = workout.exercises.mapIndexed { index, current ->
-                if (index == exerciseIndex) updatedExercise else current
-            }
-        )
+        return updateExercise(workout, exerciseId) { exercise ->
+            if (exercise.sets.none { it.id == setId }) return@updateExercise null
+            exercise.copy(sets = exercise.sets.filterNot { it.id == setId })
+        }
+    }
+
+    fun uncompleteSet(workout: ActiveWorkout, exerciseId: String, setId: String): ActiveWorkout? {
+        val set = workout.exercises.firstOrNull { it.id == exerciseId }
+            ?.sets?.firstOrNull { it.id == setId }
+            ?: return null
+        if (!set.completed) return null
+        return updateSet(workout, exerciseId, setId) { it.copy(completed = false) }
     }
 
     fun completeSet(
@@ -49,8 +96,24 @@ object ActiveWorkoutOperations {
         )
         return SetCompletionResult(
             workout = updatedWorkout,
+            completedExerciseId = exercise.id,
+            completedSetId = exercise.sets[setIndex].id,
             completedExerciseName = exercise.name,
-            nextTarget = WorkoutProgress.nextSetAfter(updatedWorkout, exerciseIndex, setIndex),
+            restSeconds = exercise.restSeconds,
+            nextTarget = WorkoutProgress.nextSetAfter(updatedWorkout, exercise.id, setId),
         )
+    }
+
+    private fun updateExercise(
+        workout: ActiveWorkout,
+        exerciseId: String,
+        transform: (ActiveExercise) -> ActiveExercise?,
+    ): ActiveWorkout? {
+        val exerciseIndex = workout.exercises.indexOfFirst { it.id == exerciseId }
+        if (exerciseIndex < 0) return null
+        val updatedExercise = transform(workout.exercises[exerciseIndex]) ?: return null
+        return workout.copy(exercises = workout.exercises.toMutableList().apply {
+            this[exerciseIndex] = updatedExercise
+        })
     }
 }

@@ -16,6 +16,12 @@ fun releaseSigningProperty(name: String): String =
     releaseSigningProperties.getProperty(name)
         ?: error("Missing '$name' in ${releaseSigningFile.path}")
 
+// Java argfiles treat an unescaped apostrophe as a quote. Keep generated JVM test
+// classpaths outside such a project path until Gradle escapes it correctly.
+if ('\'' in rootProject.projectDir.path) {
+    layout.buildDirectory = rootProject.layout.projectDirectory.dir("../${rootProject.name}-build/app")
+}
+
 android {
     namespace = "com.yifeng.commandcenter"
     compileSdk {
@@ -28,8 +34,8 @@ android {
         applicationId = "com.yifeng.commandcenter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

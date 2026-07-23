@@ -21,7 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -73,9 +73,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.ActiveExercise
 import com.yifeng.commandcenter.data.ActiveWorkout
-import com.yifeng.commandcenter.data.ActiveWorkoutOperations
-import com.yifeng.commandcenter.data.NextSetTarget
-import com.yifeng.commandcenter.data.WorkoutProgress
 import com.yifeng.commandcenter.data.WorkoutSet
 import com.yifeng.commandcenter.ui.theme.LiftGreen
 import com.yifeng.commandcenter.ui.theme.LiftMuted
@@ -86,14 +83,20 @@ import kotlinx.coroutines.delay
 fun ActiveWorkoutScreen(
     workout: ActiveWorkout,
     isRoutineBuilder: Boolean = false,
-    onWorkoutChanged: (ActiveWorkout) -> Unit,
+    onAddExercise: () -> Unit,
+    onExerciseNameChanged: (String, String) -> Unit,
+    onExerciseNotesChanged: (String, String) -> Unit,
+    onExerciseRestChanged: (String, Int) -> Unit,
+    onExerciseRemoved: (String) -> Unit,
+    onSetChanged: (String, String, WorkoutSet) -> Unit,
+    onSetCompletionChanged: (String, String, Boolean) -> Unit,
     onSetRemoved: (String, String) -> Unit,
+    onSetAdded: (String) -> Unit,
     onFinish: () -> Unit,
     onMinimize: () -> Unit,
     onCancel: () -> Unit,
-    onStartRest: (String, NextSetTarget?) -> Unit,
 ) {
-    var showRestDialog by remember { mutableStateOf(false) }
+    var restExerciseId by remember { mutableStateOf<String?>(null) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(workout.startedAtMillis) {
         while (true) {
@@ -110,19 +113,15 @@ fun ActiveWorkoutScreen(
             (set.weight.toIntOrNull() ?: 0) * (set.reps.toIntOrNull() ?: 0)
         }
     }
-    if (showRestDialog) {
+    restExerciseId?.let { exerciseId ->
+        val exercise = workout.exercises.firstOrNull { it.id == exerciseId }
         RestDurationDialog(
-            initialSeconds = workout.restSeconds,
-            onDismiss = { showRestDialog = false },
+            initialSeconds = exercise?.restSeconds ?: 180,
+            onDismiss = { restExerciseId = null },
             onSave = { seconds ->
-                showRestDialog = false
-                onWorkoutChanged(ActiveWorkoutOperations.updateRestSeconds(workout, seconds))
+                restExerciseId = null
+                onExerciseRestChanged(exerciseId, seconds)
             },
-        )
-    }
-    fun addExercise() {
-        onWorkoutChanged(
-            workout.copy(exercises = workout.exercises + ActiveExercise(name = "New exercise"))
         )
     }
     LazyColumn(
@@ -184,43 +183,25 @@ fun ActiveWorkoutScreen(
             item {
                 EmptyWorkoutState(
                     isRoutineBuilder = isRoutineBuilder,
-                    onAddExercise = ::addExercise,
+                    onAddExercise = onAddExercise,
                     onDiscard = onCancel,
                 )
             }
         }
 
-        itemsIndexed(workout.exercises, key = { _, exercise -> exercise.id }) { index, exercise ->
+        items(workout.exercises, key = { exercise -> exercise.id }) { exercise ->
             ExerciseLogger(
                 exercise = exercise,
-                restSeconds = workout.restSeconds,
-                enableRestTimer = !isRoutineBuilder,
-                onExerciseChanged = { updatedExercise ->
-                    onWorkoutChanged(
-                        workout.copy(
-                            exercises = workout.exercises.mapIndexed { currentIndex, current ->
-                                if (currentIndex == index) updatedExercise else current
-                            }
-                        )
-                    )
+                onNameChanged = { onExerciseNameChanged(exercise.id, it) },
+                onNotesChanged = { onExerciseNotesChanged(exercise.id, it) },
+                onDelete = { onExerciseRemoved(exercise.id) },
+                onEditRest = { restExerciseId = exercise.id },
+                onSetChanged = { setId, updated -> onSetChanged(exercise.id, setId, updated) },
+                onSetCompletionChanged = { setId, completed ->
+                    onSetCompletionChanged(exercise.id, setId, completed)
                 },
-                onDelete = {
-                    onWorkoutChanged(
-                        workout.copy(
-                            exercises = workout.exercises.filterIndexed { currentIndex, _ ->
-                                currentIndex != index
-                            }
-                        )
-                    )
-                },
-                onEditRest = { showRestDialog = true },
                 onRemoveSet = { setId -> onSetRemoved(exercise.id, setId) },
-                onStartRest = { setIndex ->
-                    onStartRest(
-                        exercise.name,
-                        WorkoutProgress.nextSetAfter(workout, index, setIndex),
-                    )
-                },
+                onAddSet = { onSetAdded(exercise.id) },
             )
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
@@ -231,7 +212,7 @@ fun ActiveWorkoutScreen(
 
         if (workout.exercises.isNotEmpty()) item {
             TextButton(
-                onClick = ::addExercise,
+                onClick = onAddExercise,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(20.dp)
@@ -255,13 +236,14 @@ private fun WorkoutMetric(label: String, value: String, valueColor: Color) {
 @Composable
 private fun ExerciseLogger(
     exercise: ActiveExercise,
-    restSeconds: Int,
-    enableRestTimer: Boolean,
-    onExerciseChanged: (ActiveExercise) -> Unit,
+    onNameChanged: (String) -> Unit,
+    onNotesChanged: (String) -> Unit,
     onDelete: () -> Unit,
     onEditRest: () -> Unit,
+    onSetChanged: (String, WorkoutSet) -> Unit,
+    onSetCompletionChanged: (String, Boolean) -> Unit,
     onRemoveSet: (String) -> Unit,
-    onStartRest: (Int) -> Unit,
+    onAddSet: () -> Unit,
 ) {
     var setPendingDelete by remember { mutableStateOf<WorkoutSet?>(null) }
     setPendingDelete?.let { set ->
@@ -301,7 +283,7 @@ private fun ExerciseLogger(
             }
             OutlinedTextField(
                 value = exercise.name,
-                onValueChange = { onExerciseChanged(exercise.copy(name = it)) },
+                onValueChange = onNameChanged,
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 8.dp),
@@ -325,7 +307,7 @@ private fun ExerciseLogger(
         }
         OutlinedTextField(
             value = exercise.notes,
-            onValueChange = { onExerciseChanged(exercise.copy(notes = it)) },
+            onValueChange = onNotesChanged,
             placeholder = { Text("Add notes here…", color = LiftMuted) },
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
@@ -346,7 +328,7 @@ private fun ExerciseLogger(
                 tint = MaterialTheme.colorScheme.primary,
             )
             Text(
-                "Rest Timer: ${restSeconds / 60}min ${restSeconds % 60}s",
+                "Rest Timer: ${exercise.restSeconds / 60}min ${exercise.restSeconds % 60}s",
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 8.dp),
@@ -369,26 +351,10 @@ private fun ExerciseLogger(
                     SetRow(
                         index = index,
                         set = set,
-                        onChanged = { updatedSet ->
-                            onExerciseChanged(
-                                exercise.copy(
-                                    sets = exercise.sets.mapIndexed { setIndex, current ->
-                                        if (setIndex == index) updatedSet else current
-                                    }
-                                )
-                            )
-                        },
+                        onChanged = { updatedSet -> onSetChanged(set.id, updatedSet) },
                         onCompleted = {
                             val becomingComplete = !set.completed
-                            onExerciseChanged(
-                                exercise.copy(
-                                    sets = exercise.sets.mapIndexed { setIndex, current ->
-                                        if (setIndex == index) current.copy(completed = becomingComplete)
-                                        else current
-                                    }
-                                )
-                            )
-                            if (becomingComplete && enableRestTimer) onStartRest(index)
+                            onSetCompletionChanged(set.id, becomingComplete)
                         },
                         onDelete = {
                             if (set.completed) setPendingDelete = set else onRemoveSet(set.id)
@@ -398,17 +364,7 @@ private fun ExerciseLogger(
             }
         }
         Button(
-            onClick = {
-                val previous = exercise.sets.lastOrNull()
-                onExerciseChanged(
-                    exercise.copy(
-                        sets = exercise.sets + WorkoutSet(
-                            weight = previous?.weight.orEmpty(),
-                            reps = previous?.reps.orEmpty(),
-                        )
-                    )
-                )
-            },
+            onClick = onAddSet,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp)

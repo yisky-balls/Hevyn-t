@@ -1,6 +1,7 @@
 package com.yifeng.commandcenter
 
 import com.yifeng.commandcenter.data.Routine
+import com.yifeng.commandcenter.data.RoutineExercise
 import com.yifeng.commandcenter.data.RoutineFolder
 import com.yifeng.commandcenter.data.RoutineFolderOperations
 import org.junit.Assert.assertEquals
@@ -8,8 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoutineFolderOperationsTest {
-    private val upper = Routine(id = "upper", name = "Upper", exercises = listOf("Bench"))
-    private val leg = Routine(id = "leg", name = "Leg", exercises = listOf("Squat"))
+    private val upper = Routine(id = "upper", name = "Upper", exercises = listOf(RoutineExercise(name = "Bench")))
+    private val leg = Routine(id = "leg", name = "Leg", exercises = listOf(RoutineExercise(name = "Squat")))
     private val emptyFolder = RoutineFolder(id = "empty", name = "2b2d1s")
     private val programFolder = RoutineFolder(id = "program", name = "PPL UL", routines = listOf(upper))
 
@@ -27,7 +28,7 @@ class RoutineFolderOperationsTest {
 
     @Test
     fun `editing routine replaces it without changing its position`() {
-        val edited = upper.copy(name = "Upper A", exercises = listOf("Bench", "Row"))
+        val edited = upper.copy(name = "Upper A", exercises = listOf(RoutineExercise(name = "Bench"), RoutineExercise(name = "Row")))
         val result = RoutineFolderOperations.saveRoutine(
             folders = listOf(programFolder),
             folderId = programFolder.id,

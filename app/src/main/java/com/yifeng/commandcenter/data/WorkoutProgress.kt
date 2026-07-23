@@ -15,23 +15,48 @@ data class NextSetTarget(
 object WorkoutProgress {
     fun nextSetAfter(
         workout: ActiveWorkout,
-        completedExerciseIndex: Int,
-        completedSetIndex: Int,
+        completedExerciseId: String,
+        completedSetId: String,
     ): NextSetTarget? {
-        val currentExercise = workout.exercises.getOrNull(completedExerciseIndex) ?: return null
+        val completedExerciseIndex = workout.exercises.indexOfFirst { it.id == completedExerciseId }
+        if (completedExerciseIndex < 0) return firstUnfinishedSet(workout)
+        val currentExercise = workout.exercises[completedExerciseIndex]
+        val completedSetIndex = currentExercise.sets.indexOfFirst { it.id == completedSetId }
 
-        currentExercise.sets.drop(completedSetIndex + 1).forEachIndexed { offset, set ->
-            if (!set.completed) {
-                val setIndex = completedSetIndex + offset + 1
-                return target(currentExercise, completedExerciseIndex, set, setIndex)
+        if (completedSetIndex >= 0) {
+            currentExercise.sets.drop(completedSetIndex + 1).forEachIndexed { offset, set ->
+                if (!set.completed) {
+                    val setIndex = completedSetIndex + offset + 1
+                    return target(currentExercise, completedExerciseIndex, set, setIndex)
+                }
+            }
+
+            currentExercise.sets.take(completedSetIndex).forEachIndexed { setIndex, set ->
+                if (!set.completed) return target(currentExercise, completedExerciseIndex, set, setIndex)
+            }
+        } else {
+            currentExercise.sets.forEachIndexed { setIndex, set ->
+                if (!set.completed) return target(currentExercise, completedExerciseIndex, set, setIndex)
             }
         }
 
-        workout.exercises.drop(completedExerciseIndex + 1).forEachIndexed { offset, exercise ->
+        val followingExercises = workout.exercises.drop(completedExerciseIndex + 1)
+        val earlierExercises = workout.exercises.take(completedExerciseIndex)
+        (followingExercises + earlierExercises).forEach { exercise ->
+            val exerciseIndex = workout.exercises.indexOfFirst { it.id == exercise.id }
             exercise.sets.forEachIndexed { setIndex, set ->
                 if (!set.completed) {
-                    return target(exercise, completedExerciseIndex + offset + 1, set, setIndex)
+                    return target(exercise, exerciseIndex, set, setIndex)
                 }
+            }
+        }
+        return null
+    }
+
+    fun firstUnfinishedSet(workout: ActiveWorkout): NextSetTarget? {
+        workout.exercises.forEachIndexed { exerciseIndex, exercise ->
+            exercise.sets.forEachIndexed { setIndex, set ->
+                if (!set.completed) return target(exercise, exerciseIndex, set, setIndex)
             }
         }
         return null

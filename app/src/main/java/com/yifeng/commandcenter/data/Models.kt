@@ -5,7 +5,12 @@ import java.util.UUID
 data class Routine(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val exercises: List<String>,
+    val exercises: List<RoutineExercise>,
+)
+
+data class RoutineExercise(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
     val restSeconds: Int = 180,
 )
 
@@ -26,13 +31,13 @@ data class ActiveExercise(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val notes: String = "",
+    val restSeconds: Int = 180,
     val sets: List<WorkoutSet> = defaultSets(),
 )
 
 data class ActiveWorkout(
     val routineName: String,
     val startedAtMillis: Long = System.currentTimeMillis(),
-    val restSeconds: Int = 180,
     val exercises: List<ActiveExercise>,
 )
 

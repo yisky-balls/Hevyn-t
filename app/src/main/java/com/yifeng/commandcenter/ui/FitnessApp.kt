@@ -48,6 +48,7 @@ import com.yifeng.commandcenter.data.ActiveWorkoutOperations
 import com.yifeng.commandcenter.data.ActiveWorkoutRepository
 import com.yifeng.commandcenter.data.LastWorkoutSummary
 import com.yifeng.commandcenter.data.Routine
+import com.yifeng.commandcenter.data.RoutineExercise
 import com.yifeng.commandcenter.data.RoutineFolder
 import com.yifeng.commandcenter.data.RoutineFolderOperations
 import com.yifeng.commandcenter.data.RoutineRepository
@@ -122,8 +123,9 @@ fun FitnessApp() {
         routineBuildTarget = null
         activeWorkout = ActiveWorkout(
             routineName = routine.name,
-            restSeconds = routine.restSeconds,
-            exercises = routine.exercises.map { ActiveExercise(name = it) },
+            exercises = routine.exercises.map { exercise ->
+                ActiveExercise(name = exercise.name, restSeconds = exercise.restSeconds)
+            },
         )
         activeWorkoutRepository.save(activeWorkout!!)
         isWorkoutExpanded = true
@@ -146,8 +148,13 @@ fun FitnessApp() {
         routineBuildTarget = RoutineBuildTarget(folder.id, routine?.id)
         activeWorkout = ActiveWorkout(
             routineName = routine?.name.orEmpty(),
-            restSeconds = routine?.restSeconds ?: 180,
-            exercises = routine?.exercises.orEmpty().map { ActiveExercise(name = it) },
+            exercises = routine?.exercises.orEmpty().map { exercise ->
+                ActiveExercise(
+                    id = exercise.id,
+                    name = exercise.name,
+                    restSeconds = exercise.restSeconds,
+                )
+            },
         )
         activeWorkoutRepository.save(activeWorkout!!)
         isWorkoutExpanded = true
@@ -162,8 +169,15 @@ fun FitnessApp() {
         val routine = Routine(
             id = target.routineId ?: Routine(name = "", exercises = emptyList()).id,
             name = name,
-            exercises = workout.exercises.map { it.name.trim() }.filter { it.isNotEmpty() },
-            restSeconds = workout.restSeconds,
+            exercises = workout.exercises.mapNotNull { exercise ->
+                exercise.name.trim().takeIf { it.isNotEmpty() }?.let { exerciseName ->
+                    RoutineExercise(
+                        id = exercise.id,
+                        name = exerciseName,
+                        restSeconds = exercise.restSeconds,
+                    )
+                }
+            },
         )
         saveFolders(
             RoutineFolderOperations.saveRoutine(
@@ -203,6 +217,13 @@ fun FitnessApp() {
         activeWorkout = null
         activeWorkoutRepository.clear()
         activeWorkoutRevision = activeWorkoutRepository.revision()
+    }
+
+    fun updateActiveWorkout(transform: (ActiveWorkout) -> ActiveWorkout?) {
+        activeWorkoutRepository.update(transform)?.let { updated ->
+            activeWorkout = updated
+            activeWorkoutRevision = activeWorkoutRepository.revision()
+        }
     }
 
     val routines = folders.flatMap { it.routines }
@@ -298,19 +319,72 @@ fun FitnessApp() {
                 workout != null && contentState.workoutExpanded -> ActiveWorkoutScreen(
                     workout = workout,
                     isRoutineBuilder = routineBuildTarget != null,
-                    onWorkoutChanged = {
-                        activeWorkout = it
-                        activeWorkoutRepository.save(it)
-                        activeWorkoutRevision = activeWorkoutRepository.revision()
+                    onAddExercise = {
+                        updateActiveWorkout {
+                            ActiveWorkoutOperations.addExercise(it, ActiveExercise(name = "New exercise"))
+                        }
+                    },
+                    onExerciseNameChanged = { exerciseId, name ->
+                        updateActiveWorkout {
+                            ActiveWorkoutOperations.updateExerciseName(it, exerciseId, name)
+                        }
+                    },
+                    onExerciseNotesChanged = { exerciseId, notes ->
+                        updateActiveWorkout {
+                            ActiveWorkoutOperations.updateExerciseNotes(it, exerciseId, notes)
+                        }
+                    },
+                    onExerciseRestChanged = { exerciseId, seconds ->
+                        updateActiveWorkout {
+                            ActiveWorkoutOperations.updateRestSeconds(it, exerciseId, seconds)
+                        }
+                    },
+                    onExerciseRemoved = { exerciseId ->
+                        updateActiveWorkout {
+                            ActiveWorkoutOperations.removeExercise(it, exerciseId)
+                        }
+                    },
+                    onSetChanged = { exerciseId, setId, updatedSet ->
+                        updateActiveWorkout { latest ->
+                            ActiveWorkoutOperations.updateSet(latest, exerciseId, setId) { current ->
+                                current.copy(weight = updatedSet.weight, reps = updatedSet.reps)
+                            }
+                        }
+                    },
+                    onSetCompletionChanged = { exerciseId, setId, completed ->
+                        if (completed) {
+                            activeWorkoutRepository.completeSet(exerciseId, setId)?.let { result ->
+                                activeWorkout = result.workout
+                                activeWorkoutRevision = activeWorkoutRepository.revision()
+                                if (routineBuildTarget == null) {
+                                    RestTimerManager.start(
+                                        context = context,
+                                        durationSeconds = result.restSeconds,
+                                        completedExerciseId = result.completedExerciseId,
+                                        completedSetId = result.completedSetId,
+                                        exerciseName = result.completedExerciseName,
+                                    )
+                                    timerState = RestTimerManager.getState(context)
+                                }
+                            }
+                        } else {
+                            updateActiveWorkout {
+                                ActiveWorkoutOperations.uncompleteSet(it, exerciseId, setId)
+                            }
+                        }
                     },
                     onSetRemoved = { exerciseId, setId ->
-                        ActiveWorkoutOperations.removeSet(workout, exerciseId, setId)?.let { updated ->
+                        activeWorkoutRepository.update {
+                            ActiveWorkoutOperations.removeSet(it, exerciseId, setId)
+                        }?.let { updated ->
                             activeWorkout = updated
-                            activeWorkoutRepository.save(updated)
                             activeWorkoutRevision = activeWorkoutRepository.revision()
                             RestTimerManager.reconcileRemovedSet(context, setId)
                             timerState = RestTimerManager.getState(context)
                         }
+                    },
+                    onSetAdded = { exerciseId ->
+                        updateActiveWorkout { ActiveWorkoutOperations.addSet(it, exerciseId) }
                     },
                     onFinish = {
                         if (routineBuildTarget == null) {
@@ -330,17 +404,6 @@ fun FitnessApp() {
                         activeWorkout = null
                         activeWorkoutRepository.clear()
                         activeWorkoutRevision = activeWorkoutRepository.revision()
-                    },
-                    onStartRest = { exerciseName, target ->
-                        if (routineBuildTarget == null) {
-                            RestTimerManager.start(
-                                context = context,
-                                durationSeconds = workout.restSeconds,
-                                exerciseName = exerciseName,
-                                nextTarget = target,
-                            )
-                            timerState = RestTimerManager.getState(context)
-                        }
                     },
                 )
 

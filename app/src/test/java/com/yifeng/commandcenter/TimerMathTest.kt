@@ -26,7 +26,7 @@ class TimerMathTest {
     }
 
     @Test
-    fun `adding time after expiry restarts from now`() {
+    fun `adding time after expiry calculates from now`() {
         assertEquals(
             35_000L,
             TimerMath.adjustedRestEndTime(
