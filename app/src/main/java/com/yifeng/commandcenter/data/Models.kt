@@ -31,6 +31,7 @@ data class WorkoutSet(
 
 data class ActiveExercise(
     val id: String = UUID.randomUUID().toString(),
+    val sourceRoutineExerciseId: String? = null,
     val name: String,
     val notes: String = "",
     val restSeconds: Int = 180,
@@ -38,6 +39,8 @@ data class ActiveExercise(
 )
 
 data class ActiveWorkout(
+    val id: String = UUID.randomUUID().toString(),
+    val sourceRoutineId: String? = null,
     val routineName: String,
     val startedAtMillis: Long = System.currentTimeMillis(),
     val exercises: List<ActiveExercise>,

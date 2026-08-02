@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -140,13 +141,13 @@ fun WorkoutProgramsScreen(
                     Text(
                         "DELETE",
                         color = LiftRed,
-                        fontFamily = DisplayFont,
+                        fontWeight = FontWeight.Medium,
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { folderToDelete = null }) {
-                    Text("CANCEL", fontFamily = DisplayFont)
+                    Text("CANCEL", fontWeight = FontWeight.Medium)
                 }
             },
         )
@@ -241,9 +242,8 @@ fun WorkoutProgramsScreen(
                         .clickable { showCreateFolder = true }
                         .padding(vertical = 24.dp),
                     color = LiftMuted,
-                    fontFamily = DisplayFont,
                     fontSize = 12.sp,
-                    letterSpacing = 1.sp,
+                    letterSpacing = 0.6.sp,
                 )
             }
         }
@@ -267,9 +267,9 @@ private fun PrimaryActionRow(
         Text(
             label,
             modifier = Modifier.weight(1f).padding(start = 14.dp),
-            fontFamily = DisplayFont,
             fontSize = 15.sp,
-            letterSpacing = 1.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.5.sp,
         )
         Icon(
             Icons.AutoMirrored.Outlined.ArrowForward,
@@ -353,9 +353,9 @@ private fun FolderHeader(
             modifier = Modifier
                 .weight(1f)
                 .padding(start = 10.dp),
-            fontFamily = DisplayFont,
             fontSize = 18.sp,
-            letterSpacing = 1.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.2.sp,
         )
         LiftSectionLabel(
             text = "${folder.routines.size} ROUTINE${if (folder.routines.size == 1) "" else "S"}",
@@ -415,8 +415,8 @@ private fun RoutineRow(
             Text(
                 routine.name.uppercase(),
                 fontSize = 18.sp,
-                fontFamily = DisplayFont,
-                letterSpacing = 0.8.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.2.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -487,8 +487,8 @@ private fun FolderPickerDialog(
                         Text(
                             folder.name.uppercase(),
                             modifier = Modifier.fillMaxWidth(),
-                            fontFamily = DisplayFont,
-                            letterSpacing = 0.8.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.4.sp,
                         )
                     }
                     DottedDivider()
@@ -509,15 +509,15 @@ private fun FolderPickerDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 12.dp),
-                        fontFamily = DisplayFont,
-                        letterSpacing = 0.8.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.4.sp,
                     )
                 }
             }
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("CANCEL", fontFamily = DisplayFont) }
+            TextButton(onClick = onDismiss) { Text("CANCEL", fontWeight = FontWeight.Medium) }
         },
     )
 }
@@ -547,7 +547,7 @@ private fun NameDialog(
                 onValueChange = { value = it },
                 label = { Text("Folder name") },
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = DisplayFont),
+                textStyle = MaterialTheme.typography.bodyLarge,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
@@ -562,12 +562,12 @@ private fun NameDialog(
                 Text(
                     confirmLabel.uppercase(),
                     color = MaterialTheme.colorScheme.primary,
-                    fontFamily = DisplayFont,
+                    fontWeight = FontWeight.Medium,
                 )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("CANCEL", fontFamily = DisplayFont) }
+            TextButton(onClick = onDismiss) { Text("CANCEL", fontWeight = FontWeight.Medium) }
         },
     )
 }

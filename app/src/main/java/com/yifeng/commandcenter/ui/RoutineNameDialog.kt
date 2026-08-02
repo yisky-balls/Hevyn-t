@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.ui.theme.DisplayFont
 
@@ -39,7 +40,7 @@ fun RoutineNameDialog(
                 onValueChange = { name = it },
                 label = { Text("Routine name") },
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = DisplayFont),
+                textStyle = MaterialTheme.typography.bodyLarge,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
@@ -54,12 +55,12 @@ fun RoutineNameDialog(
                 Text(
                     "SAVE",
                     color = MaterialTheme.colorScheme.primary,
-                    fontFamily = DisplayFont,
+                    fontWeight = FontWeight.Medium,
                 )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("CANCEL", fontFamily = DisplayFont) }
+            TextButton(onClick = onDismiss) { Text("CANCEL", fontWeight = FontWeight.Medium) }
         },
     )
 }

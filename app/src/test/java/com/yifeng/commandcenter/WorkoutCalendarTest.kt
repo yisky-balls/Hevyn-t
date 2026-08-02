@@ -1,7 +1,9 @@
 package com.yifeng.commandcenter
 
 import com.yifeng.commandcenter.data.WorkoutCalendar
+import com.yifeng.commandcenter.history.WorkoutHistorySession
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Calendar
@@ -11,12 +13,21 @@ class WorkoutCalendarTest {
     private val utc = TimeZone.getTimeZone("UTC")
 
     @Test
-    fun july2026_hasCorrectOffsetAndDays() {
+    fun july2026_hasMondayFirstOffsetAndCorrectDays() {
         val month = WorkoutCalendar.month(date(2026, Calendar.JULY, 21), emptyList(), utc)
 
-        assertEquals(3, month.firstDayOffset)
+        assertEquals(2, month.firstDayOffset)
         assertEquals(31, month.daysInMonth)
         assertEquals(5, month.weekCount)
+    }
+
+    @Test
+    fun mondayAndSundayMonthStarts_useOffsetsZeroAndSix() {
+        val mondayStart = WorkoutCalendar.month(date(2026, Calendar.JUNE, 15), emptyList(), utc)
+        val sundayStart = WorkoutCalendar.month(date(2026, Calendar.NOVEMBER, 15), emptyList(), utc)
+
+        assertEquals(0, mondayStart.firstDayOffset)
+        assertEquals(6, sundayStart.firstDayOffset)
     }
 
     @Test
@@ -26,7 +37,7 @@ class WorkoutCalendarTest {
     }
 
     @Test
-    fun workoutDays_includeOnlyCurrentMonthAndDeduplicate() {
+    fun workoutCounts_includeOnlyCurrentMonthAndCountSameDaySessions() {
         val month = WorkoutCalendar.month(
             nowMillis = date(2026, Calendar.JULY, 21),
             completedAtMillis = listOf(
@@ -37,9 +48,76 @@ class WorkoutCalendarTest {
             timeZone = utc,
         )
 
+        assertEquals(mapOf(4 to 2), month.workoutCountsByDay)
         assertEquals(setOf(4), month.workoutDays)
         assertTrue(4 in month.workoutDays)
     }
+
+    @Test
+    fun viewedMonth_marksTodayOnlyWhenTodayIsInsideIt() {
+        val july = WorkoutCalendar.month(
+            nowMillis = date(2026, Calendar.JULY, 1),
+            completedAtMillis = emptyList(),
+            timeZone = utc,
+            todayMillis = date(2026, Calendar.AUGUST, 3),
+        )
+        val august = WorkoutCalendar.month(
+            nowMillis = date(2026, Calendar.AUGUST, 1),
+            completedAtMillis = emptyList(),
+            timeZone = utc,
+            todayMillis = date(2026, Calendar.AUGUST, 3),
+        )
+
+        assertNull(july.today)
+        assertEquals(3, august.today)
+    }
+
+    @Test
+    fun monthAndDayRanges_areStartInclusiveAndEndExclusive() {
+        val monthRange = WorkoutCalendar.monthRange(2026, Calendar.JULY, utc)
+        val dayRange = WorkoutCalendar.dayRange(2026, Calendar.JULY, 4, utc)
+
+        assertEquals(date(2026, Calendar.JULY, 1, 0), monthRange.startMillisInclusive)
+        assertEquals(date(2026, Calendar.AUGUST, 1, 0), monthRange.endMillisExclusive)
+        assertTrue(date(2026, Calendar.JULY, 4, 0) in dayRange)
+        assertTrue(date(2026, Calendar.JULY, 4, 23) in dayRange)
+        assertTrue(date(2026, Calendar.JULY, 5, 0) !in dayRange)
+    }
+
+    @Test
+    fun monthlyAggregate_includesOnlySessionsInsideRange() {
+        val range = WorkoutCalendar.monthRange(2026, Calendar.JULY, utc)
+        val aggregate = WorkoutCalendar.aggregate(
+            sessions = listOf(
+                session("july-1", date(2026, Calendar.JULY, 1, 0), 3, 120.5),
+                session("july-31", date(2026, Calendar.JULY, 31, 23), 4, 240.25),
+                session("august-1", date(2026, Calendar.AUGUST, 1, 0), 8, 999.0),
+            ),
+            range = range,
+        )
+
+        assertEquals(2, aggregate.workoutCount)
+        assertEquals(7, aggregate.completedSetCount)
+        assertEquals(360.75, aggregate.totalVolumeKg, 0.0)
+    }
+
+    private fun session(
+        id: String,
+        completedAtMillis: Long,
+        completedSetCount: Int,
+        totalVolumeKg: Double,
+    ) = WorkoutHistorySession(
+        id = id,
+        sourceRoutineId = null,
+        routineName = "Routine",
+        startedAtMillis = completedAtMillis - 1_000L,
+        completedAtMillis = completedAtMillis,
+        durationMillis = 1_000L,
+        note = "",
+        completedSetCount = completedSetCount,
+        totalVolumeKg = totalVolumeKg,
+        isLegacySummaryOnly = false,
+    )
 
     private fun date(year: Int, month: Int, day: Int, hour: Int = 12): Long =
         Calendar.getInstance(utc).apply {

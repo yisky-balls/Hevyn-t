@@ -76,13 +76,13 @@ fun MinimizedWorkoutBar(
                     Text(
                         "DISCARD",
                         color = MaterialTheme.colorScheme.error,
-                        fontFamily = DisplayFont,
+                        fontWeight = FontWeight.Medium,
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDiscardDialog = false }) {
-                    Text("KEEP WORKOUT", fontFamily = DisplayFont)
+                    Text("KEEP WORKOUT", fontWeight = FontWeight.Medium)
                 }
             },
         )
@@ -110,16 +110,12 @@ fun MinimizedWorkoutBar(
                     modifier = Modifier.weight(1f).padding(start = 6.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SignalDot(Modifier.size(5.dp))
-                        Text(
-                            "WORKOUT",
-                            modifier = Modifier.padding(start = 9.dp),
-                            fontFamily = DisplayFont,
-                            fontSize = 11.sp,
-                            letterSpacing = 1.2.sp,
-                        )
-                    }
+                    Text(
+                        "WORKOUT",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.6.sp,
+                    )
                     Text(
                         formatWorkoutElapsed(elapsedSeconds),
                         modifier = Modifier.padding(top = 5.dp),

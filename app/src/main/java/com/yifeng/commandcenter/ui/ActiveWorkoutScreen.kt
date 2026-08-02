@@ -71,6 +71,8 @@ import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.WorkoutMetricsCalculator
 import com.yifeng.commandcenter.data.WorkoutSet
 import com.yifeng.commandcenter.data.formatWeight
+import com.yifeng.commandcenter.history.PreviousSetPerformance
+import com.yifeng.commandcenter.history.PreviousSetResolver
 import com.yifeng.commandcenter.ui.theme.DisplayFont
 import com.yifeng.commandcenter.ui.theme.LiftBorder
 import com.yifeng.commandcenter.ui.theme.LiftMuted
@@ -79,6 +81,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun ActiveWorkoutScreen(
     workout: ActiveWorkout,
+    previousSets: Map<String, PreviousSetPerformance> = emptyMap(),
     isRoutineBuilder: Boolean = false,
     onAddExercise: () -> Unit,
     onExerciseNameChanged: (String, String) -> Unit,
@@ -143,9 +146,8 @@ fun ActiveWorkoutScreen(
                         Text(
                             workout.routineName.ifBlank { "New routine" }.uppercase(),
                             color = LiftMuted,
-                            fontSize = 11.sp,
-                            fontFamily = DisplayFont,
-                            letterSpacing = 1.sp,
+                            fontSize = 12.sp,
+                            letterSpacing = 0.6.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -161,9 +163,9 @@ fun ActiveWorkoutScreen(
                     ) {
                         Text(
                             if (isRoutineBuilder) "SAVE" else "FINISH",
-                            fontFamily = DisplayFont,
                             fontSize = 12.sp,
-                            letterSpacing = 1.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.6.sp,
                         )
                     }
                 }
@@ -198,6 +200,7 @@ fun ActiveWorkoutScreen(
         items(workout.exercises, key = { exercise -> exercise.id }) { exercise ->
             ExerciseLogger(
                 exercise = exercise,
+                previousSets = previousSets,
                 onNameChanged = { onExerciseNameChanged(exercise.id, it) },
                 onNotesChanged = { onExerciseNotesChanged(exercise.id, it) },
                 onDelete = { onExerciseRemoved(exercise.id) },
@@ -221,7 +224,7 @@ fun ActiveWorkoutScreen(
                     .height(50.dp),
             ) {
                 Icon(Icons.Outlined.Add, contentDescription = null)
-                Text("  ADD EXERCISE", fontFamily = DisplayFont, fontSize = 13.sp, letterSpacing = 1.sp)
+                Text("  ADD EXERCISE", fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
             }
         }
     }
@@ -233,9 +236,9 @@ private fun WorkoutMetric(label: String, value: String, modifier: Modifier = Mod
         Text(
             label,
             color = LiftMuted,
-            fontFamily = DisplayFont,
-            fontSize = 10.sp,
-            letterSpacing = 1.sp,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.5.sp,
         )
         Text(
             value,
@@ -250,6 +253,7 @@ private fun WorkoutMetric(label: String, value: String, modifier: Modifier = Mod
 @Composable
 private fun ExerciseLogger(
     exercise: ActiveExercise,
+    previousSets: Map<String, PreviousSetPerformance>,
     onNameChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
     onDelete: () -> Unit,
@@ -280,13 +284,13 @@ private fun ExerciseLogger(
                     Text(
                         "DELETE",
                         color = MaterialTheme.colorScheme.error,
-                        fontFamily = DisplayFont,
+                        fontWeight = FontWeight.Medium,
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { setPendingDelete = null }) {
-                    Text("CANCEL", fontFamily = DisplayFont)
+                    Text("CANCEL", fontWeight = FontWeight.Medium)
                 }
             },
         )
@@ -307,9 +311,8 @@ private fun ExerciseLogger(
                 singleLine = true,
                 textStyle = MaterialTheme.typography.titleMedium.copy(
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontFamily = DisplayFont,
                     fontWeight = FontWeight.Medium,
-                    letterSpacing = 1.sp,
+                    letterSpacing = 0.2.sp,
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             )
@@ -355,9 +358,9 @@ private fun ExerciseLogger(
                     .weight(1f)
                     .padding(start = 10.dp),
                 color = MaterialTheme.colorScheme.onSurface,
-                fontFamily = DisplayFont,
-                fontSize = 13.sp,
-                letterSpacing = 1.sp,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp,
             )
             Icon(
                 Icons.Outlined.Edit,
@@ -378,6 +381,7 @@ private fun ExerciseLogger(
                         SetRow(
                             index = index,
                             set = set,
+                            previous = previousSets[set.id],
                             onChanged = { updatedSet -> onSetChanged(set.id, updatedSet) },
                             onCompleted = {
                                 val becomingComplete = !set.completed
@@ -403,7 +407,7 @@ private fun ExerciseLogger(
             contentPadding = PaddingValues(horizontal = 14.dp),
         ) {
             Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(19.dp))
-            Text("  ADD SET", fontFamily = DisplayFont, fontSize = 12.sp, letterSpacing = 1.sp)
+            Text("  ADD SET", fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
         }
     }
 }
@@ -449,7 +453,7 @@ private fun EmptyWorkoutState(
                 .height(52.dp),
         ) {
             Icon(Icons.Outlined.Add, contentDescription = null)
-            Text("  ADD EXERCISE", fontFamily = DisplayFont, fontSize = 13.sp, letterSpacing = 1.sp)
+            Text("  ADD EXERCISE", fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
         }
         TextButton(
             onClick = onDiscard,
@@ -471,10 +475,10 @@ private fun SetHeader() {
             .padding(horizontal = 4.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("SET", modifier = Modifier.width(42.dp), color = LiftMuted, fontFamily = DisplayFont, fontSize = 11.sp)
-        Text("PREVIOUS", modifier = Modifier.weight(1f), color = LiftMuted, fontFamily = DisplayFont, fontSize = 11.sp)
-        Text("KG", modifier = Modifier.width(58.dp), color = LiftMuted, fontFamily = DisplayFont, fontSize = 11.sp)
-        Text("REPS", modifier = Modifier.width(58.dp), color = LiftMuted, fontFamily = DisplayFont, fontSize = 11.sp)
+        Text("SET", modifier = Modifier.width(42.dp), color = LiftMuted, fontSize = 12.sp)
+        Text("PREVIOUS", modifier = Modifier.weight(1f), color = LiftMuted, fontSize = 12.sp)
+        Text("KG", modifier = Modifier.width(58.dp), color = LiftMuted, fontSize = 12.sp)
+        Text("REPS", modifier = Modifier.width(58.dp), color = LiftMuted, fontSize = 12.sp)
         Spacer(Modifier.width(38.dp))
     }
 }
@@ -483,6 +487,7 @@ private fun SetHeader() {
 private fun SetRow(
     index: Int,
     set: WorkoutSet,
+    previous: PreviousSetPerformance?,
     onChanged: (WorkoutSet) -> Unit,
     onCompleted: () -> Unit,
     onDelete: () -> Unit,
@@ -535,16 +540,14 @@ private fun SetRow(
             (index + 1).toString(),
             modifier = Modifier.width(39.dp),
             textAlign = TextAlign.Center,
-            fontSize = 17.sp,
-            fontFamily = DisplayFont,
+            fontSize = 16.sp,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            "${set.weight.ifBlank { "—" }}kg × ${set.reps.ifBlank { "—" }}",
+            PreviousSetResolver.format(previous),
             modifier = Modifier.weight(1f),
             color = LiftMuted,
-            fontFamily = DisplayFont,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -613,10 +616,10 @@ private fun RestDurationDialog(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     OutlinedButton(onClick = { seconds = (seconds - 15).coerceAtLeast(15) }) {
-                        Text("−15 SEC", fontFamily = DisplayFont, fontSize = 12.sp)
+                        Text("−15 SEC", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                     OutlinedButton(onClick = { seconds = (seconds + 15).coerceAtMost(900) }) {
-                        Text("+15 SEC", fontFamily = DisplayFont, fontSize = 12.sp)
+                        Text("+15 SEC", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                 }
                 Row(
@@ -637,11 +640,11 @@ private fun RestDurationDialog(
         },
         confirmButton = {
             TextButton(onClick = { onSave(seconds) }) {
-                Text("SAVE", fontFamily = DisplayFont, color = MaterialTheme.colorScheme.primary)
+                Text("SAVE", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("CANCEL", fontFamily = DisplayFont) }
+            TextButton(onClick = onDismiss) { Text("CANCEL", fontWeight = FontWeight.Medium) }
         },
     )
 }
@@ -664,8 +667,7 @@ private fun CompactNumberField(
         textStyle = MaterialTheme.typography.bodyLarge.copy(
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
-            fontFamily = DisplayFont,
-            fontSize = 17.sp,
+            fontSize = 16.sp,
         ),
         keyboardOptions = KeyboardOptions(
             keyboardType = if (allowDecimal) KeyboardType.Decimal else KeyboardType.Number,

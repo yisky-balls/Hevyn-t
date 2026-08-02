@@ -74,9 +74,8 @@ fun RestTimerBar(
                     },
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 9.dp),
                     color = LiftMuted,
-                    fontFamily = DisplayFont,
-                    fontSize = 10.sp,
-                    letterSpacing = 0.8.sp,
+                    fontSize = 12.sp,
+                    letterSpacing = 0.4.sp,
                     maxLines = 1,
                 )
             }
@@ -105,9 +104,9 @@ fun RestTimerBar(
                     Text(
                         "SKIP",
                         color = MaterialTheme.colorScheme.primary,
-                        fontFamily = DisplayFont,
-                        fontSize = 11.sp,
-                        letterSpacing = 1.sp,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.6.sp,
                     )
                 }
             }
@@ -126,7 +125,7 @@ private fun TimerButton(label: String, onClick: () -> Unit) {
         border = BorderStroke(1.dp, LiftBorder),
         shape = MaterialTheme.shapes.small,
     ) {
-        Text(label, fontFamily = DisplayFont, fontSize = 12.sp)
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 

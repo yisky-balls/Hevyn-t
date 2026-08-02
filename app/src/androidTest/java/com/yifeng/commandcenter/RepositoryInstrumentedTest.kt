@@ -20,6 +20,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -58,8 +59,11 @@ class RepositoryInstrumentedTest {
         activePreferences().edit().putString("workout", raw.toString()).commit()
 
         val session = ActiveWorkoutRepository(context).loadSession()!!
+        val restoredAgain = ActiveWorkoutRepository(context).loadSession()!!
 
         assertNull(session.routineBuildTarget)
+        assertEquals(session.workout.id, restoredAgain.workout.id)
+        assertTrue(runCatching { java.util.UUID.fromString(session.workout.id) }.isSuccess)
         assertEquals("Legacy session", session.workout.routineName)
         assertEquals(75, session.workout.exercises.single().restSeconds)
         assertEquals("82.5", session.workout.exercises.single().sets.single().weight)
@@ -94,7 +98,51 @@ class RepositoryInstrumentedTest {
 
         repository.save(expected)
 
-        assertEquals(expected, repository.loadSession())
+        assertEquals(expected, ActiveWorkoutRepository(context).loadSession())
+    }
+
+    @Test
+    fun finishingWorkoutRejectsMutationsUntilCanceled() {
+        val repository = ActiveWorkoutRepository(context)
+        val session = ActiveWorkoutSession(
+            workout = ActiveWorkout(
+                id = "active-id",
+                routineName = "Upper",
+                exercises = listOf(
+                    ActiveExercise(
+                        id = "exercise-1",
+                        name = "Bench",
+                        sets = listOf(WorkoutSet(id = "set-1")),
+                    ),
+                ),
+            ),
+        )
+        repository.save(session)
+
+        assertTrue(repository.beginFinishing(session.workout))
+        assertNull(repository.update { it.copy(routineName = "Changed") })
+        assertNull(repository.completeSet("exercise-1", "set-1"))
+
+        repository.cancelFinishing(session.workout.id)
+        assertEquals("Changed", repository.update { it.copy(routineName = "Changed") }?.routineName)
+    }
+
+    @Test
+    fun clearFinishedRequiresMatchingDurableMarker() {
+        val repository = ActiveWorkoutRepository(context)
+        val workout = ActiveWorkout(
+            id = "active-id",
+            routineName = "Upper",
+            exercises = emptyList(),
+        )
+        repository.save(ActiveWorkoutSession(workout))
+
+        assertFalse(repository.clearFinished(workout.id))
+        assertEquals(workout, repository.load())
+
+        assertTrue(repository.beginFinishing(workout))
+        assertTrue(repository.clearFinished(workout.id))
+        assertNull(repository.load())
     }
 
     @Test

@@ -2,6 +2,39 @@
 
 All notable changes to Hevyn’t are documented here.
 
+## [1.6] - 2026-07-31
+
+### Added
+
+- Added durable completed-workout history backed by Room, including ordered exercises and sets, decimal performance values, notes, and app-owned progress photos.
+- Added a Journal destination with newest-first workout summaries, full workout details, legacy-summary support, and safe photo replacement and removal.
+- Added a post-workout recap for reviewing session metrics, saving a note, and attaching an image through Android’s Photo Picker.
+- Added a Monday-first Home calendar with daily workout counts, month navigation, monthly training totals, and direct routing to one or multiple completed sessions.
+- Added previous-set references that resolve the latest matching exercise before the active workout and preserve original set positions.
+
+### Improved
+
+- Expanded the bottom navigation to Home, Workout, and Journal while refining contrast, typography, icon sizing, dividers, and destructive-action styling across the app.
+- Completed workouts now save only finished sets and omit exercises without completed work, keeping history metrics aligned with the performed session.
+- Preserved compatibility with legacy workout summaries through a transactional one-time import while retaining the original preferences.
+
+### Reliability
+
+- Made workout finishing a guarded save-and-clear flow: history is committed before the active workout is cleared, failures retain the active session, and cancellation is propagated safely.
+- Added a durable finish marker and startup reconciliation so process interruption cannot silently lose an active workout or duplicate a committed session.
+- Blocked active-workout mutations during the finish transaction, including notification-driven set completion, to prevent edits from racing with the saved snapshot.
+- Made local workout-photo handling tolerant of missing or corrupt files and restricted deletion to validated files inside the app-owned photo directory.
+
+### Privacy
+
+- Excluded the workout-history database and local workout photos from cloud backup while keeping the app free of Internet and broad media permissions.
+- Kept workout history, notes, and photos local to the device without adding analytics, authentication, or network image dependencies.
+
+### Tests
+
+- Added unit coverage for completed-workout mapping, calendar boundaries and aggregates, previous-set matching, photo-path safety, and guarded completion behavior.
+- Added Room and repository instrumentation coverage for graph ordering, decimal values, legacy import, transaction rollback, persistence, finish markers, and photo lifecycle operations.
+
 ## [1.5.1] - 2026-07-23
 
 ### Added

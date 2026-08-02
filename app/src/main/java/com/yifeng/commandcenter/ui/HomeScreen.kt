@@ -1,8 +1,8 @@
 package com.yifeng.commandcenter.ui
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,14 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,31 +30,33 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yifeng.commandcenter.data.LastWorkoutSummary
 import com.yifeng.commandcenter.data.Routine
 import com.yifeng.commandcenter.data.RoutineExercise
 import com.yifeng.commandcenter.data.WorkoutCalendar
+import com.yifeng.commandcenter.data.WorkoutDateRange
 import com.yifeng.commandcenter.data.WorkoutMonth
 import com.yifeng.commandcenter.data.formatWeight
+import com.yifeng.commandcenter.history.MonthlyWorkoutAggregate
+import com.yifeng.commandcenter.history.WorkoutHistorySession
 import com.yifeng.commandcenter.ui.theme.DisplayFont
-import com.yifeng.commandcenter.ui.theme.LiftBorder
-import com.yifeng.commandcenter.ui.theme.LiftDivider
 import com.yifeng.commandcenter.ui.theme.LiftMuted
+import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 @Composable
 fun HomeScreen(
     routines: List<Routine>,
-    workoutHistory: List<LastWorkoutSummary>,
-    lastWorkout: LastWorkoutSummary?,
+    workoutHistory: List<WorkoutHistorySession>,
     onOpenPrograms: () -> Unit,
     onStartRoutine: (Routine) -> Unit,
+    onOpenSession: (String) -> Unit,
+    onOpenDay: (WorkoutDateRange) -> Unit,
 ) {
     val routine = routines.firstOrNull()
     var monthOffset by remember { mutableIntStateOf(0) }
@@ -64,7 +65,11 @@ fun HomeScreen(
         WorkoutCalendar.month(
             nowMillis = target.timeInMillis,
             completedAtMillis = workoutHistory.map { it.completedAtMillis },
-        ).let { if (monthOffset == 0) it else it.copy(today = null) }
+            todayMillis = System.currentTimeMillis(),
+        )
+    }
+    val monthlyAggregate = remember(month, workoutHistory) {
+        WorkoutCalendar.aggregate(workoutHistory, month.range)
     }
 
     Column(
@@ -82,6 +87,16 @@ fun HomeScreen(
             month = month,
             onPreviousMonth = { monthOffset-- },
             onNextMonth = { monthOffset++ },
+            onWorkoutDayClick = { day, workoutCount ->
+                val range = WorkoutCalendar.dayRange(month.year, month.month, day)
+                if (workoutCount == 1) {
+                    workoutHistory.firstOrNull { it.completedAtMillis in range }?.let { session ->
+                        onOpenSession(session.id)
+                    }
+                } else {
+                    onOpenDay(range)
+                }
+            },
         )
 
         Spacer(Modifier.height(22.dp))
@@ -92,20 +107,14 @@ fun HomeScreen(
         )
         DottedDivider()
         MonthlyTrainingRow(
-            count = month.workoutDays.size,
-            onClick = onOpenPrograms,
+            aggregate = monthlyAggregate,
         )
 
-        if (lastWorkout != null) {
-            Text(
-                "LAST SESSION  /  ${lastWorkout.name.uppercase(Locale.getDefault())}  /  " +
-                    "${lastWorkout.completedSets} SETS  /  ${formatWeight(lastWorkout.volumeKg)} KG",
-                modifier = Modifier.padding(top = 18.dp),
-                color = LiftMuted,
-                fontFamily = DisplayFont,
-                fontSize = 10.sp,
-                lineHeight = 15.sp,
-                letterSpacing = 0.8.sp,
+        workoutHistory.firstOrNull()?.let { lastWorkout ->
+            DottedDivider()
+            LastSessionRow(
+                session = lastWorkout,
+                onClick = { onOpenSession(lastWorkout.id) },
             )
         }
         Spacer(Modifier.height(10.dp))
@@ -125,6 +134,7 @@ private fun WorkoutCalendarPanel(
     month: WorkoutMonth,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
+    onWorkoutDayClick: (day: Int, workoutCount: Int) -> Unit,
 ) {
     val monthTitle = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(
         Calendar.getInstance().apply {
@@ -153,66 +163,69 @@ private fun WorkoutCalendarPanel(
         }
         IconButton(onClick = onNextMonth) {
             Icon(
-                Icons.AutoMirrored.Outlined.ArrowForward,
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = "Next month",
                 modifier = Modifier.size(18.dp),
             )
         }
     }
     Spacer(Modifier.height(10.dp))
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(1.dp, LiftBorder),
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Column(Modifier.padding(horizontal = 10.dp, vertical = 14.dp)) {
-            Row(Modifier.fillMaxWidth()) {
-                listOf("S", "M", "T", "W", "T", "F", "S").forEach { label ->
-                    Text(
-                        label,
-                        modifier = Modifier.weight(1f),
-                        color = LiftMuted,
-                        textAlign = TextAlign.Center,
-                        fontSize = 13.sp,
-                    )
-                }
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth()) {
+            listOf("MO", "TU", "WE", "TH", "FR", "SA", "SU").forEach { label ->
+                Text(
+                    label,
+                    modifier = Modifier.weight(1f),
+                    color = LiftMuted,
+                    textAlign = TextAlign.Center,
+                    fontSize = 12.sp,
+                    letterSpacing = 0.4.sp,
+                )
             }
-            Spacer(Modifier.height(8.dp))
-            repeat(month.weekCount) { week ->
-                Row(Modifier.fillMaxWidth()) {
-                    repeat(7) { weekday ->
-                        val day = week * 7 + weekday - month.firstDayOffset + 1
-                        val valid = day in 1..month.daysInMonth
-                        val workout = valid && day in month.workoutDays
-                        val today = valid && day == month.today
-                        Box(
-                            modifier = Modifier.weight(1f).height(40.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (valid) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .then(
-                                            if (today) Modifier.border(
-                                                1.dp,
-                                                MaterialTheme.colorScheme.primary,
-                                                CircleShape,
-                                            ) else Modifier
-                                        ),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(day.toString(), fontSize = 14.sp)
-                                    if (workout) {
-                                        SignalDot(
-                                            modifier = Modifier
-                                                .align(Alignment.BottomCenter)
-                                                .padding(bottom = 2.dp)
-                                                .size(5.dp),
-                                        )
-                                    }
+        }
+        Spacer(Modifier.height(8.dp))
+        repeat(month.weekCount) { week ->
+            Row(Modifier.fillMaxWidth()) {
+                repeat(7) { weekday ->
+                    val day = week * 7 + weekday - month.firstDayOffset + 1
+                    val valid = day in 1..month.daysInMonth
+                    val workoutCount = if (valid) month.workoutCountsByDay[day] ?: 0 else 0
+                    val today = valid && day == month.today
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .then(
+                                if (workoutCount > 0) {
+                                    Modifier.clickable { onWorkoutDayClick(day, workoutCount) }
+                                } else {
+                                    Modifier
                                 }
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (valid) {
+                            if (workoutCount > 0) {
+                                Box(
+                                    Modifier
+                                        .align(Alignment.CenterStart)
+                                        .width(2.dp)
+                                        .height(22.dp)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                )
+                            }
+                            Text(
+                                day.toString(),
+                                color = if (today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                fontSize = 14.sp,
+                            )
+                            if (workoutCount > 1) {
+                                Text(
+                                    "×$workoutCount",
+                                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 1.dp, bottom = 1.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 12.sp,
+                                )
                             }
                         }
                     }
@@ -245,16 +258,14 @@ private fun TodayTrainingRow(
             Text(
                 "TODAY'S TRAINING",
                 color = LiftMuted,
-                fontFamily = DisplayFont,
-                fontSize = 10.sp,
-                letterSpacing = 1.1.sp,
+                fontSize = 12.sp,
+                letterSpacing = 0.7.sp,
             )
             Text(
                 routine?.name?.uppercase(Locale.getDefault()) ?: "CREATE A ROUTINE",
                 modifier = Modifier.padding(top = 5.dp),
-                fontFamily = DisplayFont,
-                fontSize = 21.sp,
-                letterSpacing = 1.sp,
+                fontSize = 18.sp,
+                letterSpacing = 0.2.sp,
                 maxLines = 1,
             )
             Text(
@@ -272,9 +283,8 @@ private fun TodayTrainingRow(
             Text(
                 "START",
                 color = MaterialTheme.colorScheme.primary,
-                fontFamily = DisplayFont,
-                fontSize = 11.sp,
-                letterSpacing = 1.1.sp,
+                fontSize = 12.sp,
+                letterSpacing = 0.6.sp,
             )
             Icon(
                 Icons.AutoMirrored.Outlined.ArrowForward,
@@ -288,28 +298,71 @@ private fun TodayTrainingRow(
 
 @Composable
 private fun MonthlyTrainingRow(
-    count: Int,
+    aggregate: MonthlyWorkoutAggregate,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 16.dp),
+    ) {
+        Text(
+            "THIS MONTH",
+            color = LiftMuted,
+            fontSize = 12.sp,
+            letterSpacing = 0.8.sp,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            MonthlyMetric("WORKOUTS", aggregate.workoutCount.toString())
+            MonthlyMetric("SETS", aggregate.completedSetCount.toString())
+            MonthlyMetric("VOLUME", "${formatWeight(aggregate.totalVolumeKg)} kg")
+        }
+    }
+}
+
+@Composable
+private fun MonthlyMetric(label: String, value: String) {
+    Column {
+        Text(value, fontFamily = DisplayFont, fontSize = 20.sp)
+        Text(label, modifier = Modifier.padding(top = 3.dp), color = LiftMuted, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun LastSessionRow(
+    session: WorkoutHistorySession,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(58.dp)
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            "TRAINING DAYS  $count THIS MONTH",
-            modifier = Modifier.weight(1f),
-            fontFamily = DisplayFont,
-            fontSize = 12.sp,
-            letterSpacing = 1.1.sp,
-        )
+        Column(Modifier.weight(1f)) {
+            Text("LAST SESSION", color = LiftMuted, fontSize = 12.sp, letterSpacing = 0.8.sp)
+            Text(
+                session.routineName,
+                modifier = Modifier.padding(top = 5.dp),
+                fontSize = 16.sp,
+                maxLines = 1,
+            )
+            Text(
+                "${DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(session.completedAtMillis))} · " +
+                    "${session.completedSetCount} sets · ${formatWeight(session.totalVolumeKg)} kg",
+                modifier = Modifier.padding(top = 4.dp),
+                color = LiftMuted,
+                fontSize = 13.sp,
+            )
+        }
         Icon(
             Icons.AutoMirrored.Outlined.ArrowForward,
-            contentDescription = null,
-            modifier = Modifier.size(17.dp),
+            contentDescription = "Open last session",
+            tint = LiftMuted,
+            modifier = Modifier.size(18.dp),
         )
     }
 }

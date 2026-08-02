@@ -3,6 +3,8 @@ package com.yifeng.commandcenter.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import java.nio.charset.StandardCharsets
+import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -25,12 +27,74 @@ class ActiveWorkoutRepository(context: Context) {
 
     fun load(): ActiveWorkout? = loadSession()?.workout
 
+    fun beginFinishing(workout: ActiveWorkout): Boolean =
+        synchronized(WORKOUT_LOCK) {
+            val session = loadSession() ?: return@synchronized false
+            if (session.workout != workout || finishingWorkoutId() != null) {
+                return@synchronized false
+            }
+            preferences.edit()
+                .putString(KEY_FINISHING_WORKOUT_ID, workout.id)
+                .commit()
+        }
+
+    fun cancelFinishing(workoutId: String) {
+        synchronized(WORKOUT_LOCK) {
+            if (finishingWorkoutId() == workoutId) {
+                preferences.edit()
+                    .remove(KEY_FINISHING_WORKOUT_ID)
+                    .commit()
+            }
+        }
+    }
+
+    fun cancelFinishingIfUnchanged(workoutId: String, expectedMarker: String): Boolean =
+        synchronized(WORKOUT_LOCK) {
+            if (expectedMarker != workoutId || finishingWorkoutId() != expectedMarker) {
+                return@synchronized false
+            }
+            preferences.edit()
+                .remove(KEY_FINISHING_WORKOUT_ID)
+                .commit()
+        }
+
+    fun pendingFinishWorkoutId(): String? =
+        synchronized(WORKOUT_LOCK) { finishingWorkoutId() }
+
+    fun clearFinished(workoutId: String): Boolean =
+        synchronized(WORKOUT_LOCK) {
+            val session = loadSession()
+            if (session?.workout?.id != workoutId || finishingWorkoutId() != workoutId) {
+                return@synchronized false
+            }
+            val cleared = preferences.edit()
+                .remove(KEY_SESSION)
+                .remove(KEY_EXPANDED)
+                .remove(KEY_FINISHING_WORKOUT_ID)
+                .commit()
+            if (cleared) {
+                synchronized(cacheLock) { updateCache(null, null) }
+            }
+            cleared
+        }
+
+    fun clearStaleFinishingMarker() {
+        synchronized(WORKOUT_LOCK) {
+            if (loadSession() == null && finishingWorkoutId() != null) {
+                preferences.edit()
+                    .remove(KEY_FINISHING_WORKOUT_ID)
+                    .commit()
+            }
+        }
+    }
+
     fun save(session: ActiveWorkoutSession) {
         synchronized(WORKOUT_LOCK) { saveLocked(session) }
     }
 
     fun update(transform: (ActiveWorkout) -> ActiveWorkout?): ActiveWorkout? =
         synchronized(WORKOUT_LOCK) {
+            if (finishingWorkoutId() != null) return@synchronized null
             val session = loadSession() ?: return@synchronized null
             val updated = transform(session.workout) ?: return@synchronized null
             saveLocked(session.copy(workout = updated))
@@ -39,6 +103,7 @@ class ActiveWorkoutRepository(context: Context) {
 
     fun completeSet(exerciseId: String, setId: String): SetCompletionResult? =
         synchronized(WORKOUT_LOCK) {
+            if (finishingWorkoutId() != null) return@synchronized null
             val session = loadSession() ?: return@synchronized null
             val result = ActiveWorkoutOperations.completeSet(session.workout, exerciseId, setId)
                 ?: return@synchronized null
@@ -52,6 +117,7 @@ class ActiveWorkoutRepository(context: Context) {
             preferences.edit {
                 remove(KEY_SESSION)
                 remove(KEY_EXPANDED)
+                remove(KEY_FINISHING_WORKOUT_ID)
             }
         }
     }
@@ -76,6 +142,9 @@ class ActiveWorkoutRepository(context: Context) {
         preferences.edit { putString(KEY_SESSION, raw) }
     }
 
+    private fun finishingWorkoutId(): String? =
+        preferences.getString(KEY_FINISHING_WORKOUT_ID, null)
+
     private fun updateCache(raw: String?, session: ActiveWorkoutSession?) {
         cachedRawSession = raw
         cachedSession = session
@@ -88,12 +157,18 @@ class ActiveWorkoutRepository(context: Context) {
                 .put("folderId", target.folderId)
                 .put("routineId", target.routineId ?: JSONObject.NULL)
         } ?: JSONObject.NULL)
+        .put("id", session.workout.id)
+        .put("sourceRoutineId", session.workout.sourceRoutineId ?: JSONObject.NULL)
         .put("routineName", session.workout.routineName)
         .put("startedAtMillis", session.workout.startedAtMillis)
         .put("exercises", JSONArray().apply {
             session.workout.exercises.forEach { exercise ->
                 put(JSONObject()
                     .put("id", exercise.id)
+                                .put(
+                                    "sourceRoutineExerciseId",
+                                    exercise.sourceRoutineExerciseId ?: JSONObject.NULL,
+                                )
                     .put("name", exercise.name)
                     .put("notes", exercise.notes)
                     .put("restSeconds", exercise.restSeconds)
@@ -128,7 +203,15 @@ class ActiveWorkoutRepository(context: Context) {
     private fun decodeWorkout(json: JSONObject): ActiveWorkout {
         val exercises = json.getJSONArray("exercises")
         val legacyRestSeconds = json.optInt("restSeconds", 180)
+        val generatedWorkoutId = UUID.nameUUIDFromBytes(
+            json.toString().toByteArray(StandardCharsets.UTF_8),
+        ).toString()
         return ActiveWorkout(
+            id = json.optString("id").ifBlank { generatedWorkoutId },
+            sourceRoutineId = json.opt("sourceRoutineId")
+                .takeUnless { value -> value == null || value == JSONObject.NULL }
+                ?.toString()
+                ?.takeIf(String::isNotBlank),
             routineName = json.getString("routineName"),
             startedAtMillis = json.getLong("startedAtMillis"),
             exercises = buildList {
@@ -137,6 +220,11 @@ class ActiveWorkoutRepository(context: Context) {
                     val sets = exercise.getJSONArray("sets")
                     add(ActiveExercise(
                         id = exercise.getString("id"),
+                        sourceRoutineExerciseId = exercise.opt("sourceRoutineExerciseId")
+                            .takeUnless { value -> value == null || value == JSONObject.NULL }
+                            ?.toString()
+                            ?.takeIf(String::isNotBlank)
+                            ?: exercise.optString("id").takeIf(String::isNotBlank),
                         name = exercise.getString("name"),
                         notes = exercise.optString("notes"),
                         restSeconds = exercise.optInt("restSeconds", legacyRestSeconds),
@@ -162,5 +250,6 @@ class ActiveWorkoutRepository(context: Context) {
         const val PREFERENCES = "active_workout"
         const val KEY_SESSION = "workout"
         const val KEY_EXPANDED = "expanded"
+        const val KEY_FINISHING_WORKOUT_ID = "finishing_workout_id"
     }
 }
