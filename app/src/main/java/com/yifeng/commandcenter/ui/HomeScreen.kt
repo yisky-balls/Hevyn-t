@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -27,22 +28,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yifeng.commandcenter.data.Routine
 import com.yifeng.commandcenter.data.RoutineExercise
+import com.yifeng.commandcenter.data.RoutineSummary
 import com.yifeng.commandcenter.data.WorkoutCalendar
 import com.yifeng.commandcenter.data.WorkoutDateRange
 import com.yifeng.commandcenter.data.WorkoutMonth
 import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.history.MonthlyWorkoutAggregate
 import com.yifeng.commandcenter.history.WorkoutHistorySession
-import com.yifeng.commandcenter.ui.theme.DisplayFont
-import com.yifeng.commandcenter.ui.theme.LiftMuted
+import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
+import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -51,15 +53,16 @@ import java.util.Locale
 
 @Composable
 fun HomeScreen(
-    routines: List<Routine>,
+    routines: List<RoutineSummary>,
     workoutHistory: List<WorkoutHistorySession>,
+    scrollState: ScrollState = rememberScrollState(),
     onOpenPrograms: () -> Unit,
-    onStartRoutine: (Routine) -> Unit,
+    onStartRoutine: (String) -> Unit,
     onOpenSession: (String) -> Unit,
     onOpenDay: (WorkoutDateRange) -> Unit,
 ) {
     val routine = routines.firstOrNull()
-    var monthOffset by remember { mutableIntStateOf(0) }
+    var monthOffset by rememberSaveable { mutableIntStateOf(0) }
     val month = remember(monthOffset, workoutHistory) {
         val target = Calendar.getInstance().apply { add(Calendar.MONTH, monthOffset) }
         WorkoutCalendar.month(
@@ -75,12 +78,12 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = LiftPageHorizontalPadding, vertical = 20.dp),
+            .verticalScroll(scrollState)
+            .padding(horizontal = HevyntPageHorizontalPadding, vertical = 20.dp),
     ) {
         HomeMasthead()
         Spacer(Modifier.height(20.dp))
-        DottedDivider()
+        HevyntDottedRule()
         Spacer(Modifier.height(20.dp))
 
         WorkoutCalendarPanel(
@@ -100,18 +103,18 @@ fun HomeScreen(
         )
 
         Spacer(Modifier.height(22.dp))
-        DottedDivider()
+        HevyntDottedRule()
         TodayTrainingRow(
             routine = routine,
-            onStart = { routine?.let(onStartRoutine) ?: onOpenPrograms() },
+            onStart = { routine?.id?.let(onStartRoutine) ?: onOpenPrograms() },
         )
-        DottedDivider()
+        HevyntDottedRule()
         MonthlyTrainingRow(
             aggregate = monthlyAggregate,
         )
 
         workoutHistory.firstOrNull()?.let { lastWorkout ->
-            DottedDivider()
+            HevyntDottedRule()
             LastSessionRow(
                 session = lastWorkout,
                 onClick = { onOpenSession(lastWorkout.id) },
@@ -123,7 +126,7 @@ fun HomeScreen(
 
 @Composable
 private fun HomeMasthead() {
-    LiftPageHeader(
+    HevyntPageHeader(
         title = "HOME",
         subtitle = "Build consistency, one set at a time.",
     )
@@ -150,7 +153,7 @@ private fun WorkoutCalendarPanel(
         Text(
             monthTitle,
             modifier = Modifier.weight(1f),
-            fontFamily = DisplayFont,
+            fontFamily = HevyntDisplayFont,
             fontSize = 25.sp,
             letterSpacing = 1.2.sp,
         )
@@ -176,7 +179,7 @@ private fun WorkoutCalendarPanel(
                 Text(
                     label,
                     modifier = Modifier.weight(1f),
-                    color = LiftMuted,
+                    color = HevyntTextSecondary,
                     textAlign = TextAlign.Center,
                     fontSize = 12.sp,
                     letterSpacing = 0.4.sp,
@@ -237,7 +240,7 @@ private fun WorkoutCalendarPanel(
 
 @Composable
 private fun TodayTrainingRow(
-    routine: Routine?,
+    routine: RoutineSummary?,
     onStart: () -> Unit,
 ) {
     Row(
@@ -252,12 +255,12 @@ private fun TodayTrainingRow(
             modifier = Modifier.size(52.dp),
             contentAlignment = Alignment.Center,
         ) {
-            IndustrialDumbbell(Modifier.size(width = 44.dp, height = 26.dp))
+            HevyntDotGrid(Modifier.size(32.dp))
         }
         Column(Modifier.weight(1f).padding(start = 12.dp, end = 10.dp)) {
             Text(
                 "TODAY'S TRAINING",
-                color = LiftMuted,
+                color = HevyntTextSecondary,
                 fontSize = 12.sp,
                 letterSpacing = 0.7.sp,
             )
@@ -269,9 +272,11 @@ private fun TodayTrainingRow(
                 maxLines = 1,
             )
             Text(
-                formatRoutineExercisePreview(routine?.exercises.orEmpty()),
+                routine?.let {
+                    "${it.exerciseCount} exercise${if (it.exerciseCount == 1) "" else "s"}"
+                } ?: "Create a reusable workout structure.",
                 modifier = Modifier.padding(top = 4.dp),
-                color = LiftMuted,
+                color = HevyntTextSecondary,
                 fontSize = 12.sp,
                 maxLines = 1,
             )
@@ -307,7 +312,7 @@ private fun MonthlyTrainingRow(
     ) {
         Text(
             "THIS MONTH",
-            color = LiftMuted,
+            color = HevyntTextSecondary,
             fontSize = 12.sp,
             letterSpacing = 0.8.sp,
         )
@@ -325,8 +330,8 @@ private fun MonthlyTrainingRow(
 @Composable
 private fun MonthlyMetric(label: String, value: String) {
     Column {
-        Text(value, fontFamily = DisplayFont, fontSize = 20.sp)
-        Text(label, modifier = Modifier.padding(top = 3.dp), color = LiftMuted, fontSize = 12.sp)
+        Text(value, fontFamily = HevyntDisplayFont, fontSize = 20.sp)
+        Text(label, modifier = Modifier.padding(top = 3.dp), color = HevyntTextSecondary, fontSize = 12.sp)
     }
 }
 
@@ -343,7 +348,7 @@ private fun LastSessionRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("LAST SESSION", color = LiftMuted, fontSize = 12.sp, letterSpacing = 0.8.sp)
+            Text("LAST SESSION", color = HevyntTextSecondary, fontSize = 12.sp, letterSpacing = 0.8.sp)
             Text(
                 session.routineName,
                 modifier = Modifier.padding(top = 5.dp),
@@ -354,14 +359,14 @@ private fun LastSessionRow(
                 "${DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(session.completedAtMillis))} · " +
                     "${session.completedSetCount} sets · ${formatWeight(session.totalVolumeKg)} kg",
                 modifier = Modifier.padding(top = 4.dp),
-                color = LiftMuted,
+                color = HevyntTextSecondary,
                 fontSize = 13.sp,
             )
         }
         Icon(
             Icons.AutoMirrored.Outlined.ArrowForward,
             contentDescription = "Open last session",
-            tint = LiftMuted,
+            tint = HevyntTextSecondary,
             modifier = Modifier.size(18.dp),
         )
     }

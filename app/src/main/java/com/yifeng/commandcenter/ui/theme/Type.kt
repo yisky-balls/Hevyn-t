@@ -10,7 +10,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.R
 
-private const val DotoRoundness = 100f
+private const val HevyntDotoRoundness = 100f
 
 @OptIn(ExperimentalTextApi::class)
 private fun dotoFont(weight: FontWeight) = Font(
@@ -18,11 +18,11 @@ private fun dotoFont(weight: FontWeight) = Font(
     weight = weight,
     variationSettings = FontVariation.Settings(
         FontVariation.weight(weight.weight),
-        FontVariation.Setting("ROND", DotoRoundness),
+        FontVariation.Setting("ROND", HevyntDotoRoundness),
     ),
 )
 
-val DisplayFont = FontFamily(
+val HevyntDisplayFont = FontFamily(
     dotoFont(FontWeight.Light),
     dotoFont(FontWeight.Normal),
     dotoFont(FontWeight.Medium),
@@ -30,7 +30,7 @@ val DisplayFont = FontFamily(
     dotoFont(FontWeight.Bold),
 )
 
-val Typography = Typography(
+val HevyntTypography = Typography(
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
@@ -53,7 +53,7 @@ val Typography = Typography(
         letterSpacing = 0.15.sp,
     ),
     titleLarge = TextStyle(
-        fontFamily = DisplayFont,
+        fontFamily = HevyntDisplayFont,
         fontWeight = FontWeight.Medium,
         fontSize = 22.sp,
         lineHeight = 28.sp,
@@ -72,5 +72,19 @@ val Typography = Typography(
         fontSize = 12.sp,
         lineHeight = 16.sp,
         letterSpacing = 0.5.sp,
+    ),
+    displayLarge = TextStyle(
+        fontFamily = HevyntDisplayFont,
+        fontWeight = FontWeight.Medium,
+        fontSize = 44.sp,
+        lineHeight = 46.sp,
+        letterSpacing = 2.sp,
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = HevyntDisplayFont,
+        fontWeight = FontWeight.Medium,
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
+        letterSpacing = 1.2.sp,
     ),
 )

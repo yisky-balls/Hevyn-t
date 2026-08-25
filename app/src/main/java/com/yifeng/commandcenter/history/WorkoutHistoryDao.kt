@@ -33,6 +33,51 @@ abstract class WorkoutHistoryDao {
     @Query("SELECT * FROM workout_sessions ORDER BY completed_at_millis DESC, id DESC")
     abstract suspend fun sessions(): List<WorkoutSessionEntity>
 
+    @Query(
+        """
+        SELECT
+            workout_exercises.id AS workoutExerciseId,
+            workout_exercises.source_routine_exercise_id AS sourceRoutineExerciseId,
+            workout_exercises.name AS exerciseName,
+            workout_sessions.completed_at_millis AS completedAtMillis,
+            workout_sets.position AS setPosition,
+            workout_sets.weight_kg AS weightKg,
+            workout_sets.repetitions AS repetitions
+        FROM workout_exercises
+        INNER JOIN workout_sessions
+            ON workout_sessions.id = workout_exercises.session_id
+        INNER JOIN workout_sets
+            ON workout_sets.workout_exercise_id = workout_exercises.id
+        WHERE workout_sessions.completed_at_millis < :completedAtExclusive
+          AND workout_sessions.is_legacy_summary_only = 0
+          AND workout_sets.completed = 1
+        ORDER BY workout_sessions.completed_at_millis DESC,
+                 workout_exercises.position ASC,
+                 workout_sets.position ASC,
+                 workout_sets.id ASC
+        """,
+    )
+    abstract suspend fun completedExerciseSetsBefore(
+        completedAtExclusive: Long,
+    ): List<HistoricalExerciseSetRow>
+
+    @Query(
+        """
+        SELECT id FROM workout_sessions
+        WHERE is_legacy_summary_only = 0
+          AND EXISTS (
+              SELECT 1 FROM workout_exercises
+              WHERE workout_exercises.session_id = workout_sessions.id
+          )
+        ORDER BY completed_at_millis DESC, id DESC
+        LIMIT 1
+        """,
+    )
+    protected abstract suspend fun latestDetailedSessionId(): String?
+
+    @Query("DELETE FROM workout_history_metadata WHERE `key` = :key")
+    protected abstract suspend fun deleteMetadata(key: String): Int
+
     @Query("SELECT * FROM workout_photos ORDER BY session_id ASC, position ASC, created_at_millis ASC, id ASC")
     abstract fun observePhotos(): Flow<List<WorkoutPhotoEntity>>
 
@@ -69,6 +114,10 @@ abstract class WorkoutHistoryDao {
         insertExercises(graph.exercises.map { it.exercise.toEntity() })
         insertSets(graph.exercises.flatMap { exercise -> exercise.sets.map { it.toEntity() } })
         insertPhotos(graph.photos.map { it.toEntity() })
+        if (!graph.session.isLegacySummaryOnly) {
+            // Room commits this replace only after every graph row above inserted successfully.
+            putMetadata(WorkoutHistoryMetadataEntity(LAST_WORKOUT_SESSION_KEY, graph.session.id))
+        }
     }
 
     @Transaction
@@ -96,6 +145,18 @@ abstract class WorkoutHistoryDao {
     }
 
     @Transaction
+    open suspend fun latestRepeatableGraph(): WorkoutHistoryGraph? {
+        metadataValue(LAST_WORKOUT_SESSION_KEY)?.let { sessionId ->
+            graph(sessionId)?.let { return it }
+        }
+        // Databases created before the dedicated pointer still retain detailed history.
+        val fallbackId = latestDetailedSessionId() ?: return null
+        val fallback = graph(fallbackId) ?: return null
+        putMetadata(WorkoutHistoryMetadataEntity(LAST_WORKOUT_SESSION_KEY, fallbackId))
+        return fallback
+    }
+
+    @Transaction
     open suspend fun replaceVisiblePhoto(photo: WorkoutHistoryPhoto): List<String> {
         val replacedPaths = sessionPhotoPaths(photo.sessionId)
         deleteSessionPhotoRows(photo.sessionId)
@@ -113,13 +174,20 @@ abstract class WorkoutHistoryDao {
     @Transaction
     open suspend fun deleteSession(sessionId: String): List<String> {
         val removedPaths = sessionPhotoPaths(sessionId)
+        val removedLastWorkout = metadataValue(LAST_WORKOUT_SESSION_KEY) == sessionId
         deleteSessionRow(sessionId)
+        if (removedLastWorkout) {
+            latestDetailedSessionId()?.let { replacementId ->
+                putMetadata(WorkoutHistoryMetadataEntity(LAST_WORKOUT_SESSION_KEY, replacementId))
+            } ?: deleteMetadata(LAST_WORKOUT_SESSION_KEY)
+        }
         return removedPaths
     }
 
     private companion object {
         const val LEGACY_IMPORT_KEY = "legacy_summary_import_v1"
         const val LEGACY_IMPORT_COMPLETE = "complete"
+        const val LAST_WORKOUT_SESSION_KEY = "last_workout_session_id"
     }
 }
 
@@ -175,6 +243,7 @@ internal fun WorkoutHistorySet.toEntity() = WorkoutSetEntity(
     position = position,
     weightKg = weightKg,
     repetitions = repetitions,
+    completed = completed,
 )
 
 internal fun WorkoutSetEntity.toModel() = WorkoutHistorySet(
@@ -183,6 +252,7 @@ internal fun WorkoutSetEntity.toModel() = WorkoutHistorySet(
     position = position,
     weightKg = weightKg,
     repetitions = repetitions,
+    completed = completed,
 )
 
 internal fun WorkoutHistoryPhoto.toEntity() = WorkoutPhotoEntity(

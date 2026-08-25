@@ -14,6 +14,8 @@ keystore.properties
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
+/.kotlin
+*.code-workspace
 /build
 /captures
 .externalNativeBuild

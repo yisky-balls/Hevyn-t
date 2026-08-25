@@ -3,13 +3,15 @@ package com.yifeng.commandcenter.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.yifeng.commandcenter.widget.WorkoutWidgetUpdateDispatcher
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 
 class ActiveWorkoutRepository(context: Context) {
-    private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext ?: context
+    private val preferences = appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     private val cacheLock = Any()
     private var cacheInitialized = false
     private var cachedRawSession: String? = null
@@ -74,6 +76,7 @@ class ActiveWorkoutRepository(context: Context) {
                 .commit()
             if (cleared) {
                 synchronized(cacheLock) { updateCache(null, null) }
+                WorkoutWidgetUpdateDispatcher.request(appContext)
             }
             cleared
         }
@@ -91,6 +94,15 @@ class ActiveWorkoutRepository(context: Context) {
     fun save(session: ActiveWorkoutSession) {
         synchronized(WORKOUT_LOCK) { saveLocked(session) }
     }
+
+    fun startIfIdle(session: ActiveWorkoutSession): Boolean =
+        synchronized(WORKOUT_LOCK) {
+            if (finishingWorkoutId() != null || preferences.contains(KEY_SESSION)) {
+                return@synchronized false
+            }
+            saveLocked(session)
+            true
+        }
 
     fun update(transform: (ActiveWorkout) -> ActiveWorkout?): ActiveWorkout? =
         synchronized(WORKOUT_LOCK) {
@@ -119,6 +131,7 @@ class ActiveWorkoutRepository(context: Context) {
                 remove(KEY_EXPANDED)
                 remove(KEY_FINISHING_WORKOUT_ID)
             }
+            WorkoutWidgetUpdateDispatcher.request(appContext)
         }
     }
 
@@ -140,6 +153,7 @@ class ActiveWorkoutRepository(context: Context) {
         val raw = encode(session).toString()
         synchronized(cacheLock) { updateCache(raw, session) }
         preferences.edit { putString(KEY_SESSION, raw) }
+        WorkoutWidgetUpdateDispatcher.request(appContext)
     }
 
     private fun finishingWorkoutId(): String? =
@@ -220,11 +234,14 @@ class ActiveWorkoutRepository(context: Context) {
                     val sets = exercise.getJSONArray("sets")
                     add(ActiveExercise(
                         id = exercise.getString("id"),
-                        sourceRoutineExerciseId = exercise.opt("sourceRoutineExerciseId")
-                            .takeUnless { value -> value == null || value == JSONObject.NULL }
-                            ?.toString()
-                            ?.takeIf(String::isNotBlank)
-                            ?: exercise.optString("id").takeIf(String::isNotBlank),
+                        sourceRoutineExerciseId = if (exercise.has("sourceRoutineExerciseId")) {
+                            exercise.opt("sourceRoutineExerciseId")
+                                .takeUnless { value -> value == null || value == JSONObject.NULL }
+                                ?.toString()
+                                ?.takeIf(String::isNotBlank)
+                        } else {
+                            exercise.optString("id").takeIf(String::isNotBlank)
+                        },
                         name = exercise.getString("name"),
                         notes = exercise.optString("notes"),
                         restSeconds = exercise.optInt("restSeconds", legacyRestSeconds),

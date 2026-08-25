@@ -1,16 +1,21 @@
 package com.yifeng.commandcenter.history
 
 import android.content.Context
+import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.LastWorkoutSummary
+import com.yifeng.commandcenter.widget.WorkoutWidgetUpdateDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 class WorkoutHistoryRepository private constructor(
     private val dao: WorkoutHistoryDao,
+    private val onHistoryChanged: () -> Unit,
 ) {
     constructor(context: Context) : this(
-        WorkoutHistoryDatabase.getInstance(context).workoutHistoryDao(),
+        WorkoutHistoryDatabase.getInstance(context.applicationContext ?: context)
+            .workoutHistoryDao(),
+        widgetRefreshCallback(context),
     )
 
     fun observeSessions(): Flow<List<WorkoutHistorySession>> =
@@ -34,6 +39,8 @@ class WorkoutHistoryRepository private constructor(
 
     suspend fun graph(sessionId: String): WorkoutHistoryGraph? = dao.graph(sessionId)
 
+    suspend fun latestRepeatableGraph(): WorkoutHistoryGraph? = dao.latestRepeatableGraph()
+
     suspend fun graphsCompletedBefore(completedAtExclusive: Long): List<WorkoutHistoryGraph> {
         val graphs = mutableListOf<WorkoutHistoryGraph>()
         dao.sessions()
@@ -42,7 +49,16 @@ class WorkoutHistoryRepository private constructor(
         return graphs
     }
 
-    suspend fun saveCompletedWorkout(graph: WorkoutHistoryGraph) = dao.insertGraph(graph)
+    suspend fun previousSets(workout: ActiveWorkout): Map<String, PreviousSetPerformance> =
+        PreviousSetResolver.resolveRows(
+            workout = workout,
+            rows = dao.completedExerciseSetsBefore(workout.startedAtMillis),
+        )
+
+    suspend fun saveCompletedWorkout(graph: WorkoutHistoryGraph) {
+        dao.insertGraph(graph)
+        notifyHistoryChanged()
+    }
 
     suspend fun updateNote(sessionId: String, note: String): Boolean =
         dao.updateNote(sessionId, note) == 1
@@ -53,14 +69,37 @@ class WorkoutHistoryRepository private constructor(
     suspend fun removeVisiblePhoto(sessionId: String): List<String> =
         dao.removeVisiblePhoto(sessionId)
 
-    suspend fun deleteSession(sessionId: String): List<String> = dao.deleteSession(sessionId)
+    suspend fun deleteSession(sessionId: String): List<String> {
+        val removedPaths = dao.deleteSession(sessionId)
+        notifyHistoryChanged()
+        return removedPaths
+    }
 
-    suspend fun importLegacySummaries(summaries: List<LastWorkoutSummary>): Boolean =
-        dao.importLegacyOnce(summaries.mapIndexed { index, summary ->
+    suspend fun importLegacySummaries(summaries: List<LastWorkoutSummary>): Boolean {
+        val imported = dao.importLegacyOnce(summaries.mapIndexed { index, summary ->
             CompletedWorkoutMapper.legacy(summary, index)
         })
+        if (imported) notifyHistoryChanged()
+        return imported
+    }
+
+    private fun notifyHistoryChanged() {
+        try {
+            onHistoryChanged()
+        } catch (_: Exception) {
+            // Room is authoritative; an ancillary widget refresh must not undo a committed mutation.
+        }
+    }
 
     internal companion object {
-        fun forTesting(dao: WorkoutHistoryDao) = WorkoutHistoryRepository(dao)
+        private fun widgetRefreshCallback(context: Context): () -> Unit {
+            val appContext = context.applicationContext ?: context
+            return { WorkoutWidgetUpdateDispatcher.request(appContext) }
+        }
+
+        fun forTesting(
+            dao: WorkoutHistoryDao,
+            onHistoryChanged: () -> Unit = {},
+        ) = WorkoutHistoryRepository(dao, onHistoryChanged)
     }
 }

@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -25,10 +25,10 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,9 +41,9 @@ import com.yifeng.commandcenter.data.WorkoutDateRange
 import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.history.WorkoutHistoryGraph
 import com.yifeng.commandcenter.history.WorkoutJournalEntry
-import com.yifeng.commandcenter.ui.theme.DisplayFont
-import com.yifeng.commandcenter.ui.theme.LiftMuted
-import com.yifeng.commandcenter.ui.theme.LiftSurfaceRaised
+import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
+import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
+import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
@@ -53,24 +53,28 @@ fun JournalScreen(
     entries: List<WorkoutJournalEntry>,
     photoFiles: Map<String, File>,
     filter: WorkoutDateRange?,
+    listState: LazyListState,
     onClearFilter: () -> Unit,
     onOpenSession: (String) -> Unit,
 ) {
-    val visibleEntries = filter?.let { range ->
-        entries.filter { it.session.completedAtMillis in range }
-    } ?: entries
+    val visibleEntries = remember(entries, filter) {
+        filter?.let { range ->
+            entries.filter { it.session.completedAtMillis in range }
+        } ?: entries
+    }
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = LiftPageHorizontalPadding,
-            end = LiftPageHorizontalPadding,
+            start = HevyntPageHorizontalPadding,
+            end = HevyntPageHorizontalPadding,
             top = 20.dp,
             bottom = 24.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            LiftPageHeader(
+            HevyntPageHeader(
                 title = "JOURNAL",
                 subtitle = if (filter == null) {
                     "Completed training, newest first."
@@ -86,7 +90,7 @@ fun JournalScreen(
                 }
             }
         }
-        item { DottedDivider() }
+        item { HevyntDottedRule() }
         if (visibleEntries.isEmpty()) {
             item { JournalEmptyState(filter != null) }
         } else {
@@ -96,7 +100,7 @@ fun JournalScreen(
                     photoFile = entry.photo?.let { photoFiles[it.id] },
                     onClick = { onOpenSession(entry.session.id) },
                 )
-                DottedDivider(Modifier.padding(top = 14.dp))
+                HevyntDottedRule(Modifier.padding(top = 14.dp))
             }
         }
     }
@@ -127,14 +131,14 @@ private fun JournalEntryRow(
                 DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
                     .format(Date(entry.session.completedAtMillis)),
                 modifier = Modifier.padding(top = 4.dp),
-                color = LiftMuted,
+                color = HevyntTextSecondary,
                 fontSize = 13.sp,
             )
             Text(
                 "${entry.session.completedSetCount} sets · ${formatWeight(entry.session.totalVolumeKg)} kg · " +
                     formatHistoryDuration(entry.session.durationMillis),
                 modifier = Modifier.padding(top = 4.dp),
-                color = LiftMuted,
+                color = HevyntTextSecondary,
                 fontSize = 13.sp,
                 maxLines = 1,
             )
@@ -151,7 +155,7 @@ private fun JournalEntryRow(
         Icon(
             Icons.AutoMirrored.Outlined.ArrowForward,
             contentDescription = "Open workout",
-            tint = LiftMuted,
+            tint = HevyntTextSecondary,
             modifier = Modifier.size(18.dp),
         )
     }
@@ -167,8 +171,8 @@ fun JournalDetailScreen(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = LiftPageHorizontalPadding,
-            end = LiftPageHorizontalPadding,
+            start = HevyntPageHorizontalPadding,
+            end = HevyntPageHorizontalPadding,
             top = 10.dp,
             bottom = 28.dp,
         ),
@@ -179,7 +183,7 @@ fun JournalDetailScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back to journal")
                 }
-                Text("SESSION DETAIL", fontFamily = DisplayFont, fontSize = 24.sp, letterSpacing = 1.sp)
+                Text("SESSION DETAIL", fontFamily = HevyntDisplayFont, fontSize = 24.sp, letterSpacing = 1.sp)
             }
         }
         item {
@@ -189,12 +193,12 @@ fun JournalDetailScreen(
             )
         }
         item {
-            Text(graph.session.routineName, fontFamily = DisplayFont, fontSize = 28.sp)
+            Text(graph.session.routineName, fontFamily = HevyntDisplayFont, fontSize = 28.sp)
             Text(
                 DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT)
                     .format(Date(graph.session.completedAtMillis)),
                 modifier = Modifier.padding(top = 5.dp),
-                color = LiftMuted,
+                color = HevyntTextSecondary,
                 fontSize = 14.sp,
             )
         }
@@ -207,31 +211,31 @@ fun JournalDetailScreen(
         }
         graph.session.note.takeIf(String::isNotBlank)?.let { note ->
             item {
-                DottedDivider()
-                Text("NOTE", modifier = Modifier.padding(top = 14.dp), color = LiftMuted, fontSize = 12.sp)
+                HevyntDottedRule()
+                Text("NOTE", modifier = Modifier.padding(top = 14.dp), color = HevyntTextSecondary, fontSize = 12.sp)
                 Text(note, modifier = Modifier.padding(top = 6.dp), fontSize = 15.sp, lineHeight = 22.sp)
             }
         }
         if (graph.session.isLegacySummaryOnly) {
             item {
-                DottedDivider()
+                HevyntDottedRule()
                 Text(
                     "Detailed sets unavailable for workouts saved by an older version",
                     modifier = Modifier.padding(top = 14.dp),
-                    color = LiftMuted,
+                    color = HevyntTextSecondary,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                 )
             }
         } else {
             items(graph.exercises, key = { it.exercise.id }) { exerciseGraph ->
-                DottedDivider()
+                HevyntDottedRule()
                 Column(Modifier.padding(top = 14.dp)) {
                     Text(exerciseGraph.exercise.name, fontSize = 17.sp)
                     exerciseGraph.exercise.note.takeIf(String::isNotBlank)?.let { note ->
-                        Text(note, modifier = Modifier.padding(top = 4.dp), color = LiftMuted, fontSize = 14.sp)
+                        Text(note, modifier = Modifier.padding(top = 4.dp), color = HevyntTextSecondary, fontSize = 14.sp)
                     }
-                    exerciseGraph.sets.forEach { set ->
+                    exerciseGraph.sets.filter { it.completed }.forEach { set ->
                         Row(
                             modifier = Modifier.fillMaxWidth().height(42.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -239,7 +243,7 @@ fun JournalDetailScreen(
                             Text(
                                 (set.position + 1).toString(),
                                 modifier = Modifier.width(38.dp),
-                                color = LiftMuted,
+                                color = HevyntTextSecondary,
                                 fontSize = 14.sp,
                             )
                             Text(
@@ -257,8 +261,8 @@ fun JournalDetailScreen(
             }
         }
         item {
-            DottedDivider()
-            OutlinedButton(
+            HevyntDottedRule()
+            HevyntOutlineButton(
                 onClick = onDelete,
                 modifier = Modifier.fillMaxWidth().height(50.dp).padding(top = 10.dp),
             ) {
@@ -277,13 +281,13 @@ fun JournalDetailScreen(
 @Composable
 private fun JournalPhoto(photoFile: File?, modifier: Modifier) {
     Box(
-        modifier = modifier.clip(RoundedCornerShape(7.dp)).background(LiftSurfaceRaised),
+        modifier = modifier.clip(MaterialTheme.shapes.medium).background(HevyntSurfaceRaised),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             Icons.AutoMirrored.Outlined.List,
             contentDescription = null,
-            tint = LiftMuted,
+            tint = HevyntTextSecondary,
             modifier = Modifier.size(28.dp),
         )
         photoFile?.let {
@@ -300,8 +304,8 @@ private fun JournalPhoto(photoFile: File?, modifier: Modifier) {
 @Composable
 private fun JournalMetric(label: String, value: String) {
     Column {
-        Text(value, fontFamily = DisplayFont, fontSize = 20.sp)
-        Text(label, modifier = Modifier.padding(top = 3.dp), color = LiftMuted, fontSize = 12.sp)
+        Text(value, fontFamily = HevyntDisplayFont, fontSize = 20.sp)
+        Text(label, modifier = Modifier.padding(top = 3.dp), color = HevyntTextSecondary, fontSize = 12.sp)
     }
 }
 
@@ -314,7 +318,7 @@ private fun JournalEmptyState(filtered: Boolean) {
         Icon(
             Icons.AutoMirrored.Outlined.List,
             contentDescription = null,
-            tint = LiftMuted,
+            tint = HevyntTextSecondary,
             modifier = Modifier.size(38.dp),
         )
         Text(
@@ -325,7 +329,7 @@ private fun JournalEmptyState(filtered: Boolean) {
         Text(
             if (filtered) "Clear the date filter to see your full journal." else "Completed sessions will appear here.",
             modifier = Modifier.padding(top = 5.dp),
-            color = LiftMuted,
+            color = HevyntTextSecondary,
             fontSize = 14.sp,
         )
     }

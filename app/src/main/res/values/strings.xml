@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Hevyn’t</string>
+    <string name="workout_widget_compact_name">Hevyn’t Workout · Compact</string>
+    <string name="workout_widget_main_name">Hevyn’t Workout · Main</string>
 </resources>

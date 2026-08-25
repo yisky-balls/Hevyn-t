@@ -1,158 +1,113 @@
 package com.yifeng.commandcenter.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 
-class RoutineRepository(context: Context) {
-    private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+sealed interface RoutineLibraryImportResult {
+    data object Imported : RoutineLibraryImportResult
+    data object AlreadyImported : RoutineLibraryImportResult
+    data class CorruptLegacyData(val cause: Throwable) : RoutineLibraryImportResult
+}
 
-    fun loadFolders(): List<RoutineFolder> {
-        val savedFolders = preferences.getString(KEY_FOLDERS, null)
-        if (savedFolders != null) {
-            return runCatching { decodeFolders(savedFolders) }.getOrElse { defaultFolders() }
-        }
+class RoutineRepository private constructor(
+    private val dao: RoutineLibraryDao,
+    private val legacySource: LegacyRoutineLibrarySource,
+    private val legacyPreferences: SharedPreferences?,
+) {
+    constructor(context: Context) : this(
+        dao = RoutineLibraryDatabase.getInstance(context.applicationContext ?: context)
+            .routineLibraryDao(),
+        legacySource = SharedPreferencesRoutineLibrarySource(context),
+        legacyPreferences = (context.applicationContext ?: context)
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE),
+    )
 
-        val legacyRoutines = preferences.getString(KEY_ROUTINES, null)?.let { raw ->
-            runCatching { decodeRoutines(JSONArray(raw)) }.getOrNull()
-        }
-        val migrated = if (legacyRoutines != null) {
-            listOf(
-                RoutineFolder(name = "2b2d1s"),
-                RoutineFolder(name = "PPL UL", routines = legacyRoutines),
-            )
-        } else {
-            defaultFolders()
-        }
-        saveFolders(migrated)
-        return migrated
+    /** Lightweight reactive projection used by Home and the Workout launcher. */
+    fun observeSummaries(): Flow<List<RoutineFolderSummary>> =
+        dao.observeSummaries().map(List<RoutineLibrarySummaryRow>::toSummaryModels)
+
+    /** Complete hierarchy for editors, mutations, and exercise selection only. */
+    fun observeFolders(): Flow<List<RoutineFolder>> = dao.observeLibrary().map { folders ->
+        folders
+            .sortedWith(compareBy({ it.folder.position }, { it.folder.id }))
+            .map(RoutineFolderWithRoutines::toModel)
     }
 
-    fun saveFolders(folders: List<RoutineFolder>) {
-        val array = JSONArray()
-        folders.forEach { folder ->
-            array.put(
-                JSONObject()
-                    .put("id", folder.id)
-                    .put("name", folder.name)
-                    .put("routines", encodeRoutines(folder.routines))
-            )
-        }
-        preferences.edit {
-            putString(KEY_FOLDERS, array.toString())
-            remove(KEY_ROUTINES)
-        }
-    }
+    /**
+     * Imports SharedPreferences exactly once. A corrupt payload is left untouched and the Room
+     * completion marker is not written, so a repaired payload can be retried on the next launch.
+     */
+    suspend fun initialize(): RoutineLibraryImportResult {
+        if (dao.isLegacyImportComplete()) return RoutineLibraryImportResult.AlreadyImported
+        return when (val legacy = legacySource.read()) {
+            is LegacyRoutineLibraryResult.Corrupt ->
+                RoutineLibraryImportResult.CorruptLegacyData(legacy.cause)
 
-    private fun decodeFolders(raw: String): List<RoutineFolder> {
-        val array = JSONArray(raw)
-        return runCatching {
-            buildList {
-                for (index in 0 until array.length()) {
-                    val item = array.getJSONObject(index)
-                    add(
-                        RoutineFolder(
-                            id = item.getString("id"),
-                            name = item.getString("name"),
-                            routines = decodeRoutines(item.getJSONArray("routines")),
-                        )
-                    )
+            is LegacyRoutineLibraryResult.Ready -> {
+                if (dao.importLegacyOnce(legacy.folders)) {
+                    RoutineLibraryImportResult.Imported
+                } else {
+                    RoutineLibraryImportResult.AlreadyImported
                 }
             }
-        }.getOrElse { throw it }
-    }
-
-    private fun encodeRoutines(routines: List<Routine>): JSONArray {
-        val array = JSONArray()
-        routines.forEach { routine ->
-            array.put(
-                JSONObject()
-                    .put("id", routine.id)
-                    .put("name", routine.name)
-                    .put("exercises", JSONArray().apply {
-                        routine.exercises.forEach { exercise ->
-                            put(JSONObject()
-                                .put("id", exercise.id)
-                                .put("name", exercise.name)
-                                .put("notes", exercise.notes)
-                                .put("restSeconds", exercise.restSeconds)
-                                .put("sets", encodeSets(exercise.sets)))
-                        }
-                    })
-            )
-        }
-        return array
-    }
-
-    private fun decodeRoutines(array: JSONArray): List<Routine> = buildList {
-        for (index in 0 until array.length()) {
-            val item = array.getJSONObject(index)
-            val exerciseArray = item.getJSONArray("exercises")
-            val legacyRestSeconds = item.optInt("restSeconds", 180)
-            add(
-                Routine(
-                    id = item.getString("id"),
-                    name = item.getString("name"),
-                    exercises = buildList {
-                        for (exerciseIndex in 0 until exerciseArray.length()) {
-                            val rawExercise = exerciseArray.get(exerciseIndex)
-                            add(
-                                if (rawExercise is JSONObject) {
-                                    RoutineExercise(
-                                        id = rawExercise.optString("id").ifBlank {
-                                            RoutineExercise(name = "").id
-                                        },
-                                        name = rawExercise.optString("name"),
-                                        notes = rawExercise.optString("notes"),
-                                        restSeconds = rawExercise.optInt("restSeconds", legacyRestSeconds),
-                                        sets = rawExercise.optJSONArray("sets")?.let(::decodeSets) ?: defaultSets(),
-                                    )
-                                } else {
-                                    RoutineExercise(
-                                        name = rawExercise.toString(),
-                                        restSeconds = legacyRestSeconds,
-                                    )
-                                }
-                            )
-                        }
-                    },
-                )
-            )
         }
     }
 
+    suspend fun folders(): List<RoutineFolder> = dao.library()
+        .sortedWith(compareBy({ it.folder.position }, { it.folder.id }))
+        .map(RoutineFolderWithRoutines::toModel)
+
+    suspend fun routine(routineId: String): Routine? = dao.routine(routineId)?.toModel()
+
+    suspend fun replaceFolders(folders: List<RoutineFolder>) {
+        dao.replaceLibrary(folders)
+    }
+
+    /** Compatibility for repository instrumentation; production orchestration uses suspend APIs. */
+    fun loadFolders(): List<RoutineFolder> = runBlocking(Dispatchers.IO) {
+        when (val result = initialize()) {
+            is RoutineLibraryImportResult.CorruptLegacyData -> throw result.cause
+            RoutineLibraryImportResult.AlreadyImported,
+            RoutineLibraryImportResult.Imported,
+            -> folders()
+        }
+    }
+
+    /** Compatibility for repository instrumentation; production orchestration uses suspend APIs. */
+    fun saveFolders(folders: List<RoutineFolder>) = runBlocking(Dispatchers.IO) {
+        replaceFolders(folders)
+    }
+
+    /** Legacy history is read-only input for the independent history-v2 transactional import. */
     fun loadWorkoutHistory(): List<LastWorkoutSummary> {
+        val preferences = legacyPreferences ?: return emptyList()
         preferences.getString(KEY_WORKOUT_HISTORY, null)?.let { raw ->
             return runCatching { decodeWorkoutHistory(JSONArray(raw)) }.getOrDefault(emptyList())
         }
-        val legacy = loadLegacyLastWorkout() ?: return emptyList()
-        saveWorkoutHistory(listOf(legacy))
-        return listOf(legacy)
-    }
-
-    private fun loadLegacyLastWorkout(): LastWorkoutSummary? {
-        val name = preferences.getString(KEY_LAST_NAME, null) ?: return null
-        return LastWorkoutSummary(
-            name = name,
-            completedAtMillis = preferences.getLong(KEY_LAST_DATE, 0L),
-            completedSets = preferences.getInt(KEY_LAST_SETS, 0),
-            volumeKg = preferences.getInt(KEY_LAST_VOLUME, 0).toDouble(),
-        )
+        return loadLegacyLastWorkout(preferences)?.let(::listOf).orEmpty()
     }
 
     fun saveLastWorkout(summary: LastWorkoutSummary) {
-        saveWorkoutHistory(loadWorkoutHistory() + summary)
-    }
-
-    private fun saveWorkoutHistory(history: List<LastWorkoutSummary>) {
+        val preferences = checkNotNull(legacyPreferences) {
+            "Legacy history preferences are unavailable in this repository."
+        }
+        val history = loadWorkoutHistory() + summary
         val array = JSONArray().apply {
-            history.forEach { summary ->
-                put(JSONObject()
-                    .put("name", summary.name)
-                    .put("completedAtMillis", summary.completedAtMillis)
-                    .put("completedSets", summary.completedSets)
-                    .put("volumeKg", summary.volumeKg))
+            history.forEach { item ->
+                put(
+                    JSONObject()
+                        .put("name", item.name)
+                        .put("completedAtMillis", item.completedAtMillis)
+                        .put("completedSets", item.completedSets)
+                        .put("volumeKg", item.volumeKg),
+                )
             }
         }
         preferences.edit {
@@ -164,69 +119,42 @@ class RoutineRepository(context: Context) {
         }
     }
 
+    private fun loadLegacyLastWorkout(preferences: SharedPreferences): LastWorkoutSummary? {
+        val name = preferences.getString(KEY_LAST_NAME, null) ?: return null
+        return LastWorkoutSummary(
+            name = name,
+            completedAtMillis = preferences.getLong(KEY_LAST_DATE, 0L),
+            completedSets = preferences.getInt(KEY_LAST_SETS, 0),
+            volumeKg = when (val value = preferences.all[KEY_LAST_VOLUME]) {
+                is Float -> value.toDouble()
+                is Int -> value.toDouble()
+                is Long -> value.toDouble()
+                else -> 0.0
+            },
+        )
+    }
+
     private fun decodeWorkoutHistory(array: JSONArray): List<LastWorkoutSummary> = buildList {
         for (index in 0 until array.length()) {
             val item = array.getJSONObject(index)
-            add(LastWorkoutSummary(
-                name = item.getString("name"),
-                completedAtMillis = item.getLong("completedAtMillis"),
-                completedSets = item.optInt("completedSets"),
-                volumeKg = item.optDouble("volumeKg"),
-            ))
-        }
-    }
-
-    private fun encodeSets(sets: List<WorkoutSet>): JSONArray = JSONArray().apply {
-        sets.forEach { set ->
-            put(JSONObject()
-                .put("id", set.id)
-                .put("weight", set.weight)
-                .put("reps", set.reps))
-        }
-    }
-
-    private fun decodeSets(array: JSONArray): List<WorkoutSet> = buildList {
-        for (index in 0 until array.length()) {
-            val set = array.getJSONObject(index)
-            add(WorkoutSet(
-                id = set.getString("id"),
-                weight = set.optString("weight"),
-                reps = set.optString("reps"),
-            ))
-        }
-    }
-
-    private fun defaultFolders() = listOf(
-        RoutineFolder(name = "2b2d1s"),
-        RoutineFolder(
-            name = "PPL UL",
-            routines = listOf(
-                Routine(
-                    name = "Upper",
-                    exercises = listOf(
-                        RoutineExercise(name = "Bench Press - Wide Grip (Barbell)"),
-                        RoutineExercise(name = "Incline Bench Press (Dumbbell)"),
-                        RoutineExercise(name = "Lat Pulldown (Cable)"),
-                        RoutineExercise(name = "Seated Shoulder Press"),
-                    ),
+            add(
+                LastWorkoutSummary(
+                    name = item.getString("name"),
+                    completedAtMillis = item.getLong("completedAtMillis"),
+                    completedSets = item.optInt("completedSets"),
+                    volumeKg = item.optDouble("volumeKg"),
                 ),
-                Routine(
-                    name = "Leg",
-                    exercises = listOf(
-                        RoutineExercise(name = "Squat (Barbell)", restSeconds = 150),
-                        RoutineExercise(name = "Leg Extension (Machine)", restSeconds = 150),
-                        RoutineExercise(name = "Lying Leg Curl (Machine)", restSeconds = 150),
-                        RoutineExercise(name = "Cable Crunch", restSeconds = 150),
-                    ),
-                ),
-            ),
-        ),
-    )
+            )
+        }
+    }
 
-    companion object {
+    internal companion object {
+        fun forTesting(
+            dao: RoutineLibraryDao,
+            legacySource: LegacyRoutineLibrarySource,
+        ) = RoutineRepository(dao, legacySource, legacyPreferences = null)
+
         private const val PREFERENCES = "lift_programs"
-        private const val KEY_FOLDERS = "routine_folders"
-        private const val KEY_ROUTINES = "routines"
         private const val KEY_LAST_NAME = "last_name"
         private const val KEY_LAST_DATE = "last_date"
         private const val KEY_LAST_SETS = "last_sets"

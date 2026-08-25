@@ -21,6 +21,7 @@ import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.ActiveWorkoutRepository
 import com.yifeng.commandcenter.data.NextSetTarget
 import com.yifeng.commandcenter.data.WorkoutProgress
+import com.yifeng.commandcenter.widget.WorkoutWidgetUpdateDispatcher
 
 data class RestTimerState(
     val endMillis: Long,
@@ -223,9 +224,11 @@ object RestTimerManager {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ACTIVE)
             .setSmallIcon(R.drawable.ic_timer_notification)
-            .setContentTitle(state.exerciseName)
+            .setContentTitle(NotificationText.plain(state.exerciseName))
             .setContentText(
-                state.nextTarget?.let { "Next: ${it.exerciseName} • ${targetDescription(it)}" }
+                state.nextTarget?.let {
+                    "Next: ${NotificationText.plain(it.exerciseName)} • ${targetDescription(it)}"
+                }
                     ?: "Final rest"
             )
             .setContentIntent(launchIntent)
@@ -268,6 +271,7 @@ object RestTimerManager {
             putString(KEY_EXERCISE, state.exerciseName)
             writeTarget(this, null)
         }
+        WorkoutWidgetUpdateDispatcher.request(context)
     }
 
     private fun clearState(context: Context) {
@@ -285,6 +289,7 @@ object RestTimerManager {
             remove(KEY_NEXT_WEIGHT)
             remove(KEY_NEXT_REPS)
         }
+        WorkoutWidgetUpdateDispatcher.request(context)
     }
 
     @SuppressLint("MissingPermission")
@@ -316,7 +321,11 @@ object RestTimerManager {
             if (restComplete) CHANNEL_COMPLETE else CHANNEL_ACTIVE,
         )
             .setSmallIcon(R.drawable.ic_timer_notification)
-            .setContentTitle(if (restComplete) "Rest complete — ${target.exerciseName}" else target.exerciseName)
+            .setContentTitle(
+                NotificationText.plain(target.exerciseName).let { exerciseName ->
+                    if (restComplete) "Rest complete — $exerciseName" else exerciseName
+                }
+            )
             .setContentText("${targetDescription(target)} • Complete when finished")
             .setContentIntent(launchIntent)
             .setOngoing(true)
@@ -480,4 +489,44 @@ object RestTimerManager {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
+}
+
+internal object NotificationText {
+    fun plain(value: String): String {
+        var hasVisibleContent = false
+        val normalized = buildString(value.length) {
+            var previousWasSpace = false
+            val codePoints = value.codePoints().iterator()
+            while (codePoints.hasNext()) {
+                val codePoint = codePoints.nextInt()
+                when {
+                    Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint) -> {
+                        if (!previousWasSpace && isNotEmpty()) append(' ')
+                        previousWasSpace = true
+                    }
+                    Character.isISOControl(codePoint) ||
+                        codePoint in Character.MIN_SURROGATE.code..Character.MAX_SURROGATE.code -> {
+                            if (!previousWasSpace && isNotEmpty()) append(' ')
+                            previousWasSpace = true
+                        }
+                    Character.getType(codePoint) == Character.FORMAT.toInt() &&
+                        codePoint != ZERO_WIDTH_NON_JOINER && codePoint != ZERO_WIDTH_JOINER -> {
+                            if (!previousWasSpace && isNotEmpty()) append(' ')
+                            previousWasSpace = true
+                        }
+                    else -> {
+                        appendCodePoint(codePoint)
+                        previousWasSpace = false
+                        if (Character.getType(codePoint) != Character.FORMAT.toInt()) {
+                            hasVisibleContent = true
+                        }
+                    }
+                }
+            }
+        }
+        return normalized.trim().takeIf { hasVisibleContent }.orEmpty().ifEmpty { "Exercise" }
+    }
+
+    private const val ZERO_WIDTH_NON_JOINER = 0x200C
+    private const val ZERO_WIDTH_JOINER = 0x200D
 }

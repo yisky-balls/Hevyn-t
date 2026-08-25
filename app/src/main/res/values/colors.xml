@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="hevynt_accent">#FFFF3B30</color>
+    <color name="hevynt_canvas">#FF050505</color>
+    <color name="hevynt_surface_raised">#FF101010</color>
+    <color name="hevynt_text_primary">#FFF4F1EC</color>
+    <color name="hevynt_text_secondary">#CCA7A39E</color>
+    <color name="hevynt_outline">#FF383838</color>
+    <color name="hevynt_widget_background">#F2050505</color>
+    <color name="hevynt_widget_action_fill">#26FF3B30</color>
+    <color name="hevynt_widget_action_outline">#CCFF3B30</color>
+    <color name="hevynt_widget_control_fill">#FF161616</color>
+</resources>

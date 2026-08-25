@@ -1,9 +1,7 @@
 package com.yifeng.commandcenter.ui
 
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -11,10 +9,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.yifeng.commandcenter.ui.theme.DisplayFont
+import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 
 @Composable
 fun RoutineNameDialog(
@@ -24,12 +21,12 @@ fun RoutineNameDialog(
     onSave: (String) -> Unit,
 ) {
     var name by remember(initialName) { mutableStateOf(initialName) }
-    AlertDialog(
+    HevyntDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
                 if (isEditing) "SAVE ROUTINE" else "NAME YOUR ROUTINE",
-                fontFamily = DisplayFont,
+                fontFamily = HevyntDisplayFont,
                 fontSize = 20.sp,
                 letterSpacing = 1.sp,
             )
@@ -41,10 +38,7 @@ fun RoutineNameDialog(
                 label = { Text("Routine name") },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                ),
+                colors = hevyntTextFieldColors(),
             )
         },
         confirmButton = {

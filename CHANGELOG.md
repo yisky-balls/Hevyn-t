@@ -2,6 +2,35 @@
 
 All notable changes to Hevyn’t are documented here.
 
+## [1.9.0] - 2026-08-25
+
+### Added
+
+- Added a shared Repeat Last Workout flow for the app and widgets that copies the latest detailed workout into a fresh active session without mutating history.
+- Added compact 2×1 and main 4×2 local-first workout widgets with active-set controls and launcher-hosted rest countdowns.
+- Added a Room-backed routine library with transactional legacy migration, ordered routine templates, and durable exercise identities.
+- Added likely-next routine recommendations and searchable exercise suggestions informed by the routine library and completed history.
+
+### Improved
+
+- Made the main Compose UI available immediately after the existing Android splash while history observation, legacy import, and pending-finish recovery continue asynchronously.
+- Rebuilt the shared interface around the Hevynt near-black, thin-outline, restrained-red, Doto-led design system across Home, Workout, Journal, dialogs, recap, and timer surfaces.
+- Redesigned active workout logging as a dense instrument panel with a unified stats header, compact collapsed exercises, on-demand notes and rest controls, aligned set columns, one-tap previous-value copy, efficient numeric replacement, and circular completion actions.
+- Refined the workout launcher with lightweight routine summaries, clearer folder hierarchy, routine metadata, and separated open, start, and overflow actions.
+- Corrected exercise-name editing and notification formatting so legitimate Unicode, punctuation, accents, and emoji are preserved while malformed control text is removed safely.
+
+### Reliability
+
+- Made repeated-workout startup atomic so existing, finishing, or temporarily undecodable active sessions cannot be overwritten.
+- Added event-driven widget refreshes backed by the existing Room, active-workout, and timer stores, with bounded receiver work and no polling jobs.
+- Kept committed workout mutations authoritative when ancillary widget refreshes fail, preserving the save-before-clear completion contract.
+- Moved routine and previous-performance loading away from hot composable paths, retained stable workout-list keys, isolated timer recomposition, and removed unnecessary active-workout layout animations.
+
+### Tests
+
+- Added repeat mapping and race coverage, Unicode notification sanitization tests, routine migration and repository instrumentation, launcher layout coverage, and a four-exercise active-workout interaction fixture.
+- Validated the release changes with unit tests, Android instrumentation tests, debug and signed release assembly, lint, installed-app visual inspection, and a ten-exercise scroll profile.
+
 ## [1.6] - 2026-07-31
 
 ### Added

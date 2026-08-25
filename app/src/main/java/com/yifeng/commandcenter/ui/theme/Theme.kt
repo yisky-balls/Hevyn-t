@@ -7,38 +7,42 @@ import androidx.compose.runtime.Composable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 
-private val DarkColorScheme = darkColorScheme(
-    primary = LiftBlue,
-    onPrimary = LiftOnSurface,
-    primaryContainer = LiftBlueDark,
-    background = LiftBackground,
-    onBackground = LiftOnSurface,
-    surface = LiftSurface,
-    onSurface = LiftOnSurface,
-    surfaceVariant = LiftSurfaceRaised,
-    onSurfaceVariant = LiftMuted,
-    outline = LiftBorder,
-    outlineVariant = LiftDivider,
-    error = LiftRed,
-    onError = LiftOnSurface,
+private val HevyntDarkColorScheme = darkColorScheme(
+    primary = HevyntAccent,
+    onPrimary = HevyntCanvas,
+    primaryContainer = HevyntAccentContainer,
+    onPrimaryContainer = HevyntTextPrimary,
+    background = HevyntCanvas,
+    onBackground = HevyntTextPrimary,
+    surface = HevyntSurface,
+    onSurface = HevyntTextPrimary,
+    surfaceVariant = HevyntSurfaceRaised,
+    onSurfaceVariant = HevyntTextSecondary,
+    outline = HevyntOutline,
+    outlineVariant = HevyntDivider,
+    error = HevyntError,
+    onError = HevyntCanvas,
 )
 
-private val BalancedShapes = Shapes(
-    extraSmall = RoundedCornerShape(2.dp),
-    small = RoundedCornerShape(4.dp),
-    medium = RoundedCornerShape(6.dp),
-    large = RoundedCornerShape(8.dp),
-    extraLarge = RoundedCornerShape(10.dp),
+private val HevyntShapes = Shapes(
+    extraSmall = RoundedCornerShape(0.dp),
+    small = RoundedCornerShape(2.dp),
+    medium = RoundedCornerShape(4.dp),
+    large = RoundedCornerShape(6.dp),
+    extraLarge = RoundedCornerShape(8.dp),
 )
 
 @Composable
-fun CommandcenterTheme(
+fun HevyntTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = DarkColorScheme,
-        typography = Typography,
-        shapes = BalancedShapes,
+        colorScheme = HevyntDarkColorScheme,
+        typography = HevyntTypography,
+        shapes = HevyntShapes,
         content = content
     )
 }
+
+@Composable
+fun CommandcenterTheme(content: @Composable () -> Unit) = HevyntTheme(content)

@@ -35,6 +35,7 @@ data class WorkoutHistorySet(
     val position: Int,
     val weightKg: Double?,
     val repetitions: Int?,
+    val completed: Boolean = true,
 )
 
 data class WorkoutHistoryPhoto(
@@ -77,6 +78,17 @@ data class PreviousSetPerformance(
     val repetitions: Int?,
 )
 
+/** Compact joined history row used by the active logger; no complete workout graph is hydrated. */
+data class HistoricalExerciseSetRow(
+    val workoutExerciseId: String,
+    val sourceRoutineExerciseId: String?,
+    val exerciseName: String,
+    val completedAtMillis: Long,
+    val setPosition: Int,
+    val weightKg: Double?,
+    val repetitions: Int?,
+)
+
 data class CompletedWorkoutDraft(
     val graph: WorkoutHistoryGraph,
     val unfinishedSetCount: Int,
@@ -89,33 +101,32 @@ object CompletedWorkoutMapper {
         note: String = "",
     ): CompletedWorkoutDraft {
         val metrics = WorkoutMetricsCalculator.calculate(workout)
-        val exercises = workout.exercises.mapIndexedNotNull { exercisePosition, exercise ->
+        // A finished workout is also the reusable Last Workout source. Persist the complete
+        // immutable snapshot; filtering unchecked rows here used to silently remove whole
+        // exercises from Repeat Last Workout.
+        val exercises = workout.exercises.mapIndexed { exercisePosition, exercise ->
             val historyExerciseId = UUID.randomUUID().toString()
-            val completedSets = exercise.sets.mapIndexedNotNull { setPosition, set ->
-                set.takeIf { it.completed }?.let {
+            WorkoutHistoryExerciseGraph(
+                exercise = WorkoutHistoryExercise(
+                    id = historyExerciseId,
+                    sessionId = workout.id,
+                    sourceRoutineExerciseId = exercise.sourceRoutineExerciseId,
+                    name = exercise.name,
+                    note = exercise.notes,
+                    restSeconds = exercise.restSeconds,
+                    position = exercisePosition,
+                ),
+                sets = exercise.sets.mapIndexed { setPosition, set ->
                     WorkoutHistorySet(
                         id = UUID.randomUUID().toString(),
                         workoutExerciseId = historyExerciseId,
                         position = setPosition,
-                        weightKg = it.weight.toDoubleOrNull(),
-                        repetitions = it.reps.toIntOrNull(),
+                        weightKg = set.weight.toDoubleOrNull(),
+                        repetitions = set.reps.toIntOrNull(),
+                        completed = set.completed,
                     )
-                }
-            }
-            completedSets.takeIf(List<*>::isNotEmpty)?.let {
-                WorkoutHistoryExerciseGraph(
-                    exercise = WorkoutHistoryExercise(
-                        id = historyExerciseId,
-                        sessionId = workout.id,
-                        sourceRoutineExerciseId = exercise.sourceRoutineExerciseId,
-                        name = exercise.name,
-                        note = exercise.notes,
-                        restSeconds = exercise.restSeconds,
-                        position = exercisePosition,
-                    ),
-                    sets = completedSets,
-                )
-            }
+                },
+            )
         }
         return CompletedWorkoutDraft(
             graph = WorkoutHistoryGraph(

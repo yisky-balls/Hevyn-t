@@ -5,6 +5,11 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yifeng.commandcenter.data.LastWorkoutSummary
+import com.yifeng.commandcenter.data.ActiveExercise
+import com.yifeng.commandcenter.data.ActiveWorkout
+import com.yifeng.commandcenter.data.RepeatedWorkoutMapper
+import com.yifeng.commandcenter.data.WorkoutSet
+import com.yifeng.commandcenter.history.CompletedWorkoutMapper
 import com.yifeng.commandcenter.history.WorkoutHistoryDatabase
 import com.yifeng.commandcenter.history.WorkoutHistoryExercise
 import com.yifeng.commandcenter.history.WorkoutHistoryExerciseGraph
@@ -15,6 +20,7 @@ import com.yifeng.commandcenter.history.WorkoutHistorySession
 import com.yifeng.commandcenter.history.WorkoutHistorySet
 import com.yifeng.commandcenter.history.WorkoutPhotoManager
 import com.yifeng.commandcenter.history.WorkoutPhotoStore
+import com.yifeng.commandcenter.history.PreviousSetPerformance
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -66,6 +72,75 @@ class WorkoutHistoryRepositoryInstrumentedTest {
     }
 
     @Test
+    fun previousSetsComeFromLastWorkoutContainingThatExercise() = runBlocking {
+        val benchWorkout = repeatableGraph("bench-workout", 10_000L).let { graph ->
+            graph.copy(
+                exercises = listOf(
+                    WorkoutHistoryExerciseGraph(
+                        WorkoutHistoryExercise(
+                            id = "historic-bench",
+                            sessionId = graph.session.id,
+                            sourceRoutineExerciseId = "old-routine-bench",
+                            name = "Incline DB Press",
+                            note = "",
+                            restSeconds = 90,
+                            position = 0,
+                        ),
+                        listOf(
+                            WorkoutHistorySet("bench-0", "historic-bench", 0, 30.0, 10),
+                            WorkoutHistorySet("bench-1", "historic-bench", 1, 30.0, 9),
+                            WorkoutHistorySet("bench-2", "historic-bench", 2, 28.0, 10),
+                        ),
+                    ),
+                ),
+            )
+        }
+        val interveningWorkout = repeatableGraph("lower-workout", 20_000L).let { graph ->
+            graph.copy(
+                exercises = listOf(
+                    WorkoutHistoryExerciseGraph(
+                        WorkoutHistoryExercise(
+                            id = "historic-squat",
+                            sessionId = graph.session.id,
+                            sourceRoutineExerciseId = "squat",
+                            name = "Squat",
+                            note = "",
+                            restSeconds = 120,
+                            position = 0,
+                        ),
+                        listOf(WorkoutHistorySet("squat-0", "historic-squat", 0, 100.0, 5)),
+                    ),
+                ),
+            )
+        }
+        repository.saveCompletedWorkout(benchWorkout)
+        repository.saveCompletedWorkout(interveningWorkout)
+        val active = ActiveWorkout(
+            id = "active",
+            routineName = "Different routine",
+            startedAtMillis = 30_000L,
+            exercises = listOf(
+                ActiveExercise(
+                    id = "active-bench",
+                    sourceRoutineExerciseId = "new-routine-bench",
+                    name = "  incline db press ",
+                    sets = listOf(
+                        WorkoutSet("active-0"),
+                        WorkoutSet("active-1"),
+                        WorkoutSet("active-2"),
+                    ),
+                ),
+            ),
+        )
+
+        val previous = repository.previousSets(active)
+
+        assertEquals(PreviousSetPerformance(30.0, 10), previous["active-0"])
+        assertEquals(PreviousSetPerformance(30.0, 9), previous["active-1"])
+        assertEquals(PreviousSetPerformance(28.0, 10), previous["active-2"])
+    }
+
+    @Test
     fun legacyImportRunsExactlyOnceAndSurvivesReopen() = runBlocking {
         val summary = LastWorkoutSummary("Legacy", 1234L, 3, 456.75)
 
@@ -114,6 +189,82 @@ class WorkoutHistoryRepositoryInstrumentedTest {
     }
 
     @Test
+    fun failedReplacementDoesNotChangeLastWorkoutPointer() = runBlocking {
+        repository.saveCompletedWorkout(repeatableGraph("previous", 10_000L))
+        val invalid = repeatableGraph("failed", 20_000L).let { graph ->
+            graph.copy(
+                exercises = graph.exercises.map { exercise ->
+                    exercise.copy(
+                        sets = listOf(
+                            WorkoutHistorySet("duplicate", exercise.exercise.id, 0, 60.0, 8),
+                            WorkoutHistorySet("duplicate", exercise.exercise.id, 1, 60.0, 8),
+                        ),
+                    )
+                },
+            )
+        }
+
+        assertTrue(runCatching { repository.saveCompletedWorkout(invalid) }.isFailure)
+
+        assertNull(repository.graph("failed"))
+        assertEquals("previous", repository.latestRepeatableGraph()?.session?.id)
+    }
+
+    @Test
+    fun successfulSaveReplacesSingleLastWorkoutPointer() = runBlocking {
+        repository.saveCompletedWorkout(repeatableGraph("first", 10_000L))
+        repository.saveCompletedWorkout(repeatableGraph("second", 20_000L))
+
+        assertEquals("second", repository.latestRepeatableGraph()?.session?.id)
+        assertEquals(2, repository.sessions().size)
+
+        repository.deleteSession("second")
+
+        assertEquals("first", repository.latestRepeatableGraph()?.session?.id)
+    }
+
+    @Test
+    fun fourExerciseSnapshotRoundTripsIntoLastWorkoutWithEveryOrderedSet() = runBlocking {
+        val active = ActiveWorkout(
+            id = "complete-four",
+            routineName = "Upper A",
+            startedAtMillis = 1_000L,
+            exercises = List(4) { exerciseIndex ->
+                ActiveExercise(
+                    id = "active-$exerciseIndex",
+                    sourceRoutineExerciseId = "source-$exerciseIndex",
+                    name = "Exercise ${exerciseIndex + 1}",
+                    sets = List(if (exerciseIndex < 3) 4 else 3) { setIndex ->
+                        WorkoutSet(
+                            id = "active-$exerciseIndex-$setIndex",
+                            weight = "${30 + exerciseIndex * 10 + setIndex}.5",
+                            reps = "${10 - setIndex}",
+                            completed = setIndex != 2,
+                        )
+                    },
+                )
+            },
+        )
+        repository.saveCompletedWorkout(
+            CompletedWorkoutMapper.fromActiveWorkout(active, 10_000L).graph,
+        )
+
+        val repeated = RepeatedWorkoutMapper.fromHistory(repository.latestRepeatableGraph()!!)
+
+        assertEquals(active.exercises.map { it.name }, repeated.exercises.map { it.name })
+        assertEquals(active.exercises.map { it.sets.size }, repeated.exercises.map { it.sets.size })
+        assertEquals(
+            active.exercises.map { exercise -> exercise.sets.map { it.weight } },
+            repeated.exercises.map { exercise -> exercise.sets.map { it.weight } },
+        )
+        assertEquals(
+            active.exercises.map { exercise -> exercise.sets.map { it.reps } },
+            repeated.exercises.map { exercise -> exercise.sets.map { it.reps } },
+        )
+        assertFalse(repeated.exercises.flatMap { it.sets }.any { it.completed })
+    }
+
+    @Test
     fun photoMetadataCanBeReplacedAndRemoved() = runBlocking {
         repository.saveCompletedWorkout(sampleGraph())
         val replacement = WorkoutHistoryPhoto(
@@ -151,6 +302,101 @@ class WorkoutHistoryRepositoryInstrumentedTest {
         assertNull(repository.graph(graph.session.id))
         assertFalse(photoFile.exists())
     }
+
+    @Test
+    fun latestRepeatableGraphSkipsNewerLegacyRowsAndSelectsNewestDetailedSession() = runBlocking {
+        repository.saveCompletedWorkout(repeatableGraph("older", 10_000L))
+        repository.saveCompletedWorkout(repeatableGraph("newest", 20_000L))
+        repository.saveCompletedWorkout(
+            WorkoutHistoryGraph(
+                session = WorkoutHistorySession(
+                    id = "legacy",
+                    sourceRoutineId = null,
+                    routineName = "Legacy summary",
+                    startedAtMillis = 25_000L,
+                    completedAtMillis = 30_000L,
+                    durationMillis = 5_000L,
+                    note = "",
+                    completedSetCount = 3,
+                    totalVolumeKg = 300.0,
+                    isLegacySummaryOnly = true,
+                ),
+                exercises = emptyList(),
+                photos = emptyList(),
+            ),
+        )
+
+        assertEquals("newest", repository.latestRepeatableGraph()?.session?.id)
+    }
+
+    @Test
+    fun completedHistoryMutationsRequestWidgetRefreshAfterCommit() = runBlocking {
+        var refreshCount = 0
+        repository = WorkoutHistoryRepository.forTesting(database.workoutHistoryDao()) {
+            refreshCount += 1
+        }
+
+        repository.saveCompletedWorkout(sampleGraph())
+        assertEquals(1, refreshCount)
+        assertTrue(repository.graph("session") != null)
+
+        repository.deleteSession("session")
+        assertEquals(2, refreshCount)
+        assertNull(repository.graph("session"))
+    }
+
+    @Test
+    fun completedWorkoutSaveIgnoresPostCommitWidgetRefreshFailure() = runBlocking {
+        var refreshAttempts = 0
+        repository = WorkoutHistoryRepository.forTesting(database.workoutHistoryDao()) {
+            refreshAttempts += 1
+            error("Widget refresh failed")
+        }
+
+        val result = runCatching { repository.saveCompletedWorkout(sampleGraph()) }
+
+        assertTrue(result.isSuccess)
+        assertEquals(1, refreshAttempts)
+        assertEquals("session", repository.graph("session")?.session?.id)
+    }
+
+    private fun repeatableGraph(id: String, completedAtMillis: Long) = WorkoutHistoryGraph(
+        session = WorkoutHistorySession(
+            id = id,
+            sourceRoutineId = "routine-$id",
+            routineName = id,
+            startedAtMillis = completedAtMillis - 1_000L,
+            completedAtMillis = completedAtMillis,
+            durationMillis = 1_000L,
+            note = "",
+            completedSetCount = 1,
+            totalVolumeKg = 50.0,
+            isLegacySummaryOnly = false,
+        ),
+        exercises = listOf(
+            WorkoutHistoryExerciseGraph(
+                exercise = WorkoutHistoryExercise(
+                    id = "exercise-$id",
+                    sessionId = id,
+                    sourceRoutineExerciseId = "source-$id",
+                    name = "Press",
+                    note = "",
+                    restSeconds = 90,
+                    position = 0,
+                ),
+                sets = listOf(
+                    WorkoutHistorySet(
+                        id = "set-$id",
+                        workoutExerciseId = "exercise-$id",
+                        position = 0,
+                        weightKg = 50.0,
+                        repetitions = 5,
+                    ),
+                ),
+            ),
+        ),
+        photos = emptyList(),
+    )
 
     private fun sampleGraph() = WorkoutHistoryGraph(
         session = WorkoutHistorySession(

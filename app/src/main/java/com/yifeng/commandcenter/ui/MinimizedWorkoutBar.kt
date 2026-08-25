@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,9 +31,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.ActiveWorkout
-import com.yifeng.commandcenter.ui.theme.DisplayFont
-import com.yifeng.commandcenter.ui.theme.LiftDivider
-import com.yifeng.commandcenter.ui.theme.LiftMuted
+import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
+import com.yifeng.commandcenter.ui.theme.HevyntDivider
+import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import kotlinx.coroutines.delay
 
 @Composable
@@ -57,12 +56,12 @@ fun MinimizedWorkoutBar(
     }?.name ?: workout.exercises.lastOrNull()?.name ?: workout.routineName
 
     if (showDiscardDialog) {
-        AlertDialog(
+        HevyntDialog(
             onDismissRequest = { showDiscardDialog = false },
             title = {
                 Text(
                     "DISCARD WORKOUT?",
-                    fontFamily = DisplayFont,
+                    fontFamily = HevyntDisplayFont,
                     fontSize = 20.sp,
                     letterSpacing = 1.sp,
                 )
@@ -90,7 +89,7 @@ fun MinimizedWorkoutBar(
 
     Surface(color = MaterialTheme.colorScheme.background) {
         Column {
-            DottedDivider(color = LiftDivider)
+            HevyntDottedRule(color = HevyntDivider)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -119,7 +118,7 @@ fun MinimizedWorkoutBar(
                     Text(
                         formatWorkoutElapsed(elapsedSeconds),
                         modifier = Modifier.padding(top = 5.dp),
-                        fontFamily = DisplayFont,
+                        fontFamily = HevyntDisplayFont,
                         fontSize = 23.sp,
                         fontWeight = FontWeight.Medium,
                         letterSpacing = 1.sp,
@@ -127,7 +126,7 @@ fun MinimizedWorkoutBar(
                     Text(
                         currentExercise.ifBlank { "Active workout" },
                         modifier = Modifier.padding(top = 2.dp),
-                        color = LiftMuted,
+                        color = HevyntTextSecondary,
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

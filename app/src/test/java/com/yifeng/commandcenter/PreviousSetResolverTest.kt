@@ -5,6 +5,7 @@ import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.WorkoutSet
 import com.yifeng.commandcenter.history.PreviousSetPerformance
 import com.yifeng.commandcenter.history.PreviousSetResolver
+import com.yifeng.commandcenter.history.HistoricalExerciseSetRow
 import com.yifeng.commandcenter.history.WorkoutHistoryExercise
 import com.yifeng.commandcenter.history.WorkoutHistoryExerciseGraph
 import com.yifeng.commandcenter.history.WorkoutHistoryGraph
@@ -55,7 +56,7 @@ class PreviousSetResolverTest {
     }
 
     @Test
-    fun sourceIdMatchBeatsNewerNameOnlyMatchAcrossHistory() {
+    fun latestActualNameMatchAcrossAnotherRoutineBeatsOlderSourceIdMatch() {
         val current = workout(1_000L, "routine-exercise", "Bench press")
 
         val resolved = PreviousSetResolver.resolve(
@@ -67,9 +68,25 @@ class PreviousSetResolverTest {
         )
 
         assertEquals(
-            PreviousSetPerformance(80.0, 5),
+            PreviousSetPerformance(100.0, 1),
             resolved[current.exercises.single().sets.first().id],
         )
+    }
+
+    @Test
+    fun compactRowsResolveAllSetsFromLatestActualExercisePerformance() {
+        val current = workout(1_000L, "routine-a-press", "Incline DB Press")
+        val resolved = PreviousSetResolver.resolveRows(
+            current,
+            listOf(
+                HistoricalExerciseSetRow("older", "routine-a-press", "Old name", 700L, 0, 25.0, 12),
+                HistoricalExerciseSetRow("latest", "routine-b-press", "incline db press", 900L, 0, 30.0, 10),
+                HistoricalExerciseSetRow("latest", "routine-b-press", "incline db press", 900L, 1, 30.0, 9),
+            ),
+        )
+
+        assertEquals(PreviousSetPerformance(30.0, 10), resolved["active-set-0"])
+        assertEquals(PreviousSetPerformance(30.0, 9), resolved["active-set-1"])
     }
 
     @Test
@@ -89,9 +106,23 @@ class PreviousSetResolverTest {
 
     @Test
     fun formatsNullableValuesAndMissingPerformanceAsDashes() {
-        assertEquals("— kg × 10", PreviousSetResolver.format(PreviousSetPerformance(null, 10)))
-        assertEquals("62.5 kg × —", PreviousSetResolver.format(PreviousSetPerformance(62.5, null)))
+        assertEquals("— × 10", PreviousSetResolver.format(PreviousSetPerformance(null, 10)))
+        assertEquals("62.5 × —", PreviousSetResolver.format(PreviousSetPerformance(62.5, null)))
         assertEquals("—", PreviousSetResolver.format(null))
+    }
+
+    @Test
+    fun uncheckedSnapshotRowsAreNotSuggestedAsPreviousPerformance() {
+        val current = workout(1_000L, null, "Lat pull down")
+        val history = graph(900L, null, "LAT PULLDOWN", 0, 70.0, 8).let { graph ->
+            graph.copy(exercises = graph.exercises.map { exercise ->
+                exercise.copy(sets = exercise.sets.map { it.copy(completed = false) })
+            })
+        }
+
+        val resolved = PreviousSetResolver.resolve(current, listOf(history))
+
+        assertFalse(current.exercises.single().sets.first().id in resolved)
     }
 
     private fun workout(startedAtMillis: Long, sourceId: String?, name: String) = ActiveWorkout(

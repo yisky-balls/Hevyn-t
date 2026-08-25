@@ -1,5 +1,7 @@
 package com.yifeng.commandcenter.data
 
+import com.yifeng.commandcenter.history.PreviousSetPerformance
+
 data class SetCompletionResult(
     val workout: ActiveWorkout,
     val completedExerciseId: String,
@@ -46,6 +48,14 @@ object ActiveWorkoutOperations {
             if (set.id == setId) transform(set) else set
         })
     }
+
+    fun copyPreviousSet(
+        set: WorkoutSet,
+        previous: PreviousSetPerformance,
+    ): WorkoutSet = set.copy(
+        weight = previous.weightKg?.let(::formatWeight) ?: set.weight,
+        reps = previous.repetitions?.toString() ?: set.reps,
+    )
 
     fun addSet(workout: ActiveWorkout, exerciseId: String): ActiveWorkout? =
         updateExercise(workout, exerciseId) { exercise ->

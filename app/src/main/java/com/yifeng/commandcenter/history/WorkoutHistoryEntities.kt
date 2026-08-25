@@ -60,6 +60,7 @@ data class WorkoutSetEntity(
     val position: Int,
     @ColumnInfo(name = "weight_kg") val weightKg: Double?,
     val repetitions: Int?,
+    @ColumnInfo(defaultValue = "1") val completed: Boolean,
 )
 
 @Entity(

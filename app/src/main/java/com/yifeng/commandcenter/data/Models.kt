@@ -22,6 +22,21 @@ data class RoutineFolder(
     val routines: List<Routine> = emptyList(),
 )
 
+/** Lightweight launcher data. Full exercise/set templates are loaded only when needed. */
+data class RoutineSummary(
+    val id: String,
+    val folderId: String,
+    val name: String,
+    val exerciseCount: Int,
+    val lastPerformedAtMillis: Long? = null,
+)
+
+data class RoutineFolderSummary(
+    val id: String,
+    val name: String,
+    val routines: List<RoutineSummary> = emptyList(),
+)
+
 data class WorkoutSet(
     val id: String = UUID.randomUUID().toString(),
     val weight: String = "",

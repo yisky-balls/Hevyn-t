@@ -12,6 +12,7 @@ import com.yifeng.commandcenter.data.Routine
 import com.yifeng.commandcenter.data.RoutineBuildTarget
 import com.yifeng.commandcenter.data.RoutineExercise
 import com.yifeng.commandcenter.data.RoutineFolder
+import com.yifeng.commandcenter.data.RoutineLibraryDatabase
 import com.yifeng.commandcenter.data.RoutineRepository
 import com.yifeng.commandcenter.data.WorkoutSet
 import org.json.JSONArray
@@ -31,7 +32,7 @@ class RepositoryInstrumentedTest {
 
     @Before
     fun setUp() {
-        context = InstrumentationRegistry.getInstrumentation().context
+        context = InstrumentationRegistry.getInstrumentation().targetContext
         clearPreferences()
     }
 
@@ -66,6 +67,7 @@ class RepositoryInstrumentedTest {
         assertTrue(runCatching { java.util.UUID.fromString(session.workout.id) }.isSuccess)
         assertEquals("Legacy session", session.workout.routineName)
         assertEquals(75, session.workout.exercises.single().restSeconds)
+        assertEquals("exercise-1", session.workout.exercises.single().sourceRoutineExerciseId)
         assertEquals("82.5", session.workout.exercises.single().sets.single().weight)
     }
 
@@ -98,7 +100,9 @@ class RepositoryInstrumentedTest {
 
         repository.save(expected)
 
-        assertEquals(expected, ActiveWorkoutRepository(context).loadSession())
+        val restored = ActiveWorkoutRepository(context).loadSession()
+        assertEquals(expected, restored)
+        assertNull(restored?.workout?.exercises?.single()?.sourceRoutineExerciseId)
     }
 
     @Test
@@ -143,6 +147,45 @@ class RepositoryInstrumentedTest {
         assertTrue(repository.beginFinishing(workout))
         assertTrue(repository.clearFinished(workout.id))
         assertNull(repository.load())
+    }
+
+    @Test
+    fun startIfIdleNeverReplacesAnActiveOrFinishingWorkout() {
+        val repository = ActiveWorkoutRepository(context)
+        val first = ActiveWorkout(
+            id = "first",
+            routineName = "First",
+            exercises = emptyList(),
+        )
+        val second = ActiveWorkout(
+            id = "second",
+            routineName = "Second",
+            exercises = emptyList(),
+        )
+
+        assertTrue(repository.startIfIdle(ActiveWorkoutSession(first)))
+        assertFalse(repository.startIfIdle(ActiveWorkoutSession(second)))
+        assertEquals(first, repository.load())
+
+        assertTrue(repository.beginFinishing(first))
+        assertFalse(repository.startIfIdle(ActiveWorkoutSession(second)))
+        assertEquals(first, repository.load())
+    }
+
+    @Test
+    fun startIfIdleNeverOverwritesAnUndecodablePersistedSession() {
+        val rawSession = "{not-valid-json"
+        activePreferences().edit().putString("workout", rawSession).commit()
+        val repository = ActiveWorkoutRepository(context)
+        val replacement = ActiveWorkout(
+            id = "replacement",
+            routineName = "Replacement",
+            exercises = emptyList(),
+        )
+
+        assertFalse(repository.startIfIdle(ActiveWorkoutSession(replacement)))
+        assertEquals(rawSession, activePreferences().getString("workout", null))
+        assertNull(repository.loadSession())
     }
 
     @Test
@@ -242,6 +285,7 @@ class RepositoryInstrumentedTest {
         context.getSharedPreferences("lift_programs", Context.MODE_PRIVATE)
 
     private fun clearPreferences() {
+        RoutineLibraryDatabase.resetForTesting(context)
         activePreferences().edit().clear().commit()
         routinePreferences().edit().clear().commit()
     }

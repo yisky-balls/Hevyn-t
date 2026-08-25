@@ -16,7 +16,7 @@ object PreviousSetResolver {
             ) ?: return@forEach
             activeExercise.sets.forEachIndexed { setPosition, set ->
                 historicalExercise.sets
-                    .firstOrNull { it.position == setPosition }
+                    .firstOrNull { it.position == setPosition && it.completed }
                     ?.let { previousSet ->
                         put(
                             set.id,
@@ -30,23 +30,43 @@ object PreviousSetResolver {
         }
     }
 
+    fun resolveRows(
+        workout: ActiveWorkout,
+        rows: List<HistoricalExerciseSetRow>,
+    ): Map<String, PreviousSetPerformance> = buildMap {
+        val latestFirst = rows.sortedByDescending(HistoricalExerciseSetRow::completedAtMillis)
+        workout.exercises.forEach { activeExercise ->
+            val normalizedName = normalizeExerciseName(activeExercise.name)
+            val matchedExerciseId = latestFirst.firstOrNull { row ->
+                (activeExercise.sourceRoutineExerciseId != null &&
+                    row.sourceRoutineExerciseId == activeExercise.sourceRoutineExerciseId) ||
+                    (normalizedName.isNotEmpty() && normalizeExerciseName(row.exerciseName) == normalizedName)
+            }?.workoutExerciseId ?: return@forEach
+            val matchedRows = latestFirst.filter { it.workoutExerciseId == matchedExerciseId }
+            activeExercise.sets.forEachIndexed { setPosition, set ->
+                matchedRows.firstOrNull { it.setPosition == setPosition }?.let { previousSet ->
+                    put(
+                        set.id,
+                        PreviousSetPerformance(previousSet.weightKg, previousSet.repetitions),
+                    )
+                }
+            }
+        }
+    }
+
     private fun latestMatchingExercise(
         activeExercise: ActiveExercise,
         history: List<WorkoutHistoryGraph>,
     ): WorkoutHistoryExerciseGraph? {
         val latestFirst = history.sortedByDescending { it.session.completedAtMillis }
-        activeExercise.sourceRoutineExerciseId?.let { sourceId ->
-            latestFirst.forEach { graph ->
-                graph.exercises.firstOrNull {
-                    it.exercise.sourceRoutineExerciseId == sourceId
-                }?.let { return it }
-            }
-        }
         val normalizedName = normalizeExerciseName(activeExercise.name)
-        if (normalizedName.isEmpty()) return null
         latestFirst.forEach { graph ->
             graph.exercises.firstOrNull {
-                normalizeExerciseName(it.exercise.name) == normalizedName
+                ((activeExercise.sourceRoutineExerciseId != null &&
+                    it.exercise.sourceRoutineExerciseId == activeExercise.sourceRoutineExerciseId) ||
+                    (normalizedName.isNotEmpty() &&
+                        normalizeExerciseName(it.exercise.name) == normalizedName)) &&
+                    it.sets.any(WorkoutHistorySet::completed)
             }?.let { return it }
         }
         return null
@@ -56,9 +76,13 @@ object PreviousSetResolver {
         if (performance == null) return "—"
         val weight = performance.weightKg?.let(::formatWeight) ?: "—"
         val repetitions = performance.repetitions?.toString() ?: "—"
-        return "$weight kg × $repetitions"
+        return "$weight × $repetitions"
     }
 
-    internal fun normalizeExerciseName(name: String): String =
-        name.trim().lowercase().replace(Regex("\\s+"), " ")
+}
+
+internal fun normalizeExerciseName(name: String): String = buildString {
+    name.trim().lowercase().forEach { character ->
+        if (character.isLetterOrDigit()) append(character)
+    }
 }

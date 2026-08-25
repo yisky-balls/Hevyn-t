@@ -1,6 +1,5 @@
 package com.yifeng.commandcenter.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,9 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.timer.RestTimerState
 import com.yifeng.commandcenter.timer.TimerMath
-import com.yifeng.commandcenter.ui.theme.DisplayFont
-import com.yifeng.commandcenter.ui.theme.LiftBorder
-import com.yifeng.commandcenter.ui.theme.LiftMuted
+import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
+import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import kotlinx.coroutines.delay
 
 @Composable
@@ -73,7 +70,7 @@ fun RestTimerBar(
                         if (target.reps.isNotBlank()) append(" × ${target.reps}")
                     },
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 9.dp),
-                    color = LiftMuted,
+                    color = HevyntTextSecondary,
                     fontSize = 12.sp,
                     letterSpacing = 0.4.sp,
                     maxLines = 1,
@@ -91,7 +88,7 @@ fun RestTimerBar(
                     formatTimer(remaining),
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
-                    fontFamily = DisplayFont,
+                    fontFamily = HevyntDisplayFont,
                     fontSize = 28.sp,
                     letterSpacing = 1.2.sp,
                 )
@@ -116,14 +113,12 @@ fun RestTimerBar(
 
 @Composable
 private fun TimerButton(label: String, onClick: () -> Unit) {
-    OutlinedButton(
+    HevyntOutlineButton(
         onClick = onClick,
         modifier = Modifier
             .width(54.dp)
             .height(44.dp),
         contentPadding = PaddingValues(0.dp),
-        border = BorderStroke(1.dp, LiftBorder),
-        shape = MaterialTheme.shapes.small,
     ) {
         Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }

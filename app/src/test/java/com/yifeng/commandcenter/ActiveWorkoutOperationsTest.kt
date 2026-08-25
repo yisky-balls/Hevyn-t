@@ -4,6 +4,7 @@ import com.yifeng.commandcenter.data.ActiveExercise
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.ActiveWorkoutOperations
 import com.yifeng.commandcenter.data.WorkoutSet
+import com.yifeng.commandcenter.history.PreviousSetPerformance
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -99,6 +100,33 @@ class ActiveWorkoutOperationsTest {
         )
 
         assertNull(ActiveWorkoutOperations.completeSet(workout, "bench", "one")?.nextTarget)
+    }
+
+    @Test
+    fun `copying previous performance fills both values without completing set`() {
+        val current = WorkoutSet(id = "today", weight = "", reps = "", completed = false)
+
+        val copied = ActiveWorkoutOperations.copyPreviousSet(
+            current,
+            PreviousSetPerformance(weightKg = 32.5, repetitions = 11),
+        )
+
+        assertEquals("32.5", copied.weight)
+        assertEquals("11", copied.reps)
+        assertFalse(copied.completed)
+    }
+
+    @Test
+    fun `copying partial previous performance preserves entered current value`() {
+        val current = WorkoutSet(weight = "40", reps = "8")
+
+        val copied = ActiveWorkoutOperations.copyPreviousSet(
+            current,
+            PreviousSetPerformance(weightKg = null, repetitions = 10),
+        )
+
+        assertEquals("40", copied.weight)
+        assertEquals("10", copied.reps)
     }
 
     private fun workout(firstCompleted: Boolean = false) = ActiveWorkout(
