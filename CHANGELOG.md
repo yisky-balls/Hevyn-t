@@ -2,6 +2,33 @@
 
 All notable changes to Hevyn’t are documented here.
 
+## [1.9.2] - 2026-09-22
+
+### Added
+
+- Added haptic confirmation feedback on set completion, copying previous set values, and rest timer adjustments.
+- Added direct "Repeat Last Workout" action access points to the Home screen and Workout Programs launcher.
+- Added idle widget routing to open the Workout Programs page directly.
+
+### Improved
+
+- Overhauled the design system following Apple Human Interface Guidelines principles (clarity, deference, intentional visual hierarchy, reduced visual noise): calm obsidian canvas (`#0A0A0C`), subtle card surfaces (`#131316`, `#1A1A20`), and gentle hairlines (`#2C2C34`, `#1E1E24`).
+- Streamlined typography across all screens with clean system Sans-serif for buttons, headers, dialogs, and labels, reserving the Doto font exclusively for numeric chronometers and hero timers.
+- Elevated active workout logging: solid red checkmark circles for completed sets, subdued visual calm on finished rows to draw focus to the next active set, and 54dp × 42dp numeric fields that preserve cursor positions during edits.
+- Modernized the Home monthly calendar with clean activity indicator dots instead of harsh edge bars, and enclosed session previews in cohesive 12dp rounded panels.
+- Upgraded the bottom navigation bar to 64dp content height with haptic tab switching and refined indicator tints.
+- Redesigned the minimized floating workout bar into a compact 68dp container with a live pulsing signal dot.
+- Replaced brutalist Doto dialog headers with clean, readable Sans-serif titles.
+
+### Reliability
+
+- Replaced full-library wipe-and-reinsert operations with granular Room DAO updates, preventing destructive cascade deletes during routine and folder editing.
+- Eliminated Android Studio `StaticFieldLeak` warnings across view models by properly scoping application context access.
+
+### Tests
+
+- Preserved 100% of test contracts across unit tests and Compose instrumentation tests.
+
 ## [1.9.0] - 2026-08-25
 
 ### Added

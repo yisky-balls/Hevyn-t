@@ -7,17 +7,11 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
 import com.yifeng.commandcenter.MainActivity
 import com.yifeng.commandcenter.R
-import com.yifeng.commandcenter.data.ActiveWorkoutRepository
-import com.yifeng.commandcenter.history.PreviousSetResolver
-import com.yifeng.commandcenter.history.WorkoutHistoryRepository
-import com.yifeng.commandcenter.timer.RestTimerManager
-import com.yifeng.commandcenter.timer.RestTimerReceiver
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -157,207 +151,107 @@ internal object WorkoutWidgetUpdater {
 
     private fun compact(context: Context, state: WorkoutWidgetState): RemoteViews =
         RemoteViews(context.packageName, R.layout.widget_workout_compact).apply {
-            bindRoot(context)
             setVisible(R.id.widget_compact_idle, state is WorkoutWidgetState.Idle)
             setVisible(R.id.widget_compact_active, state is WorkoutWidgetState.Active)
-            setVisible(R.id.widget_compact_rest, state is WorkoutWidgetState.Rest)
             when (state) {
                 is WorkoutWidgetState.Idle -> {
+                    val routine = state.recommendation?.routine
+                    setTextViewText(R.id.widget_compact_idle_title, routine?.name ?: "CHOOSE A ROUTINE")
                     setTextViewText(
-                        R.id.widget_compact_idle_title,
-                        state.lastWorkout?.session?.routineName ?: "NO WORKOUT YET",
+                        R.id.widget_compact_idle_metadata,
+                        routine?.let(::routineMetadata) ?: "Open Hevynt to get started",
                     )
-                    setTextViewText(R.id.widget_compact_idle_action, "OPEN WORKOUT")
-                    setOnClickPendingIntent(R.id.widget_compact_idle_action, launchApp(context))
+                    val action = openWorkout(context)
+                    setTextViewText(R.id.widget_compact_idle_action, "OPEN")
+                    setOnClickPendingIntent(R.id.widget_compact_idle_action, action)
+                    setOnClickPendingIntent(R.id.widget_root, action)
                 }
                 is WorkoutWidgetState.Active -> {
-                    val target = state.target
+                    setTextViewText(R.id.widget_compact_active_routine, state.workout.routineName)
                     setTextViewText(
-                        R.id.widget_compact_active_exercise,
-                        target?.exerciseName ?: state.workout.routineName,
+                        R.id.widget_compact_active_progress,
+                        "${state.completedSets} / ${state.totalSets} sets",
                     )
-                    setTextViewText(
-                        R.id.widget_compact_active_load,
-                        target?.let(::loadDescription) ?: "ALL SETS COMPLETE",
-                    )
-                    if (target == null) {
-                        setViewVisibility(R.id.widget_compact_complete, View.GONE)
-                    } else {
-                        setViewVisibility(R.id.widget_compact_complete, View.VISIBLE)
-                        setOnClickPendingIntent(
-                            R.id.widget_compact_complete,
-                            completeSet(context, target.exerciseId, target.setId),
-                        )
-                    }
+                    bindElapsedChronometer(R.id.widget_compact_active_timer, state.workout.startedAtMillis)
+                    val action = continueWorkout(context)
+                    setOnClickPendingIntent(R.id.widget_compact_continue, action)
+                    setOnClickPendingIntent(R.id.widget_root, action)
                 }
-                is WorkoutWidgetState.Rest -> bindCompactRest(context, state.timer)
             }
         }
 
     private fun main(context: Context, state: WorkoutWidgetState): RemoteViews =
         RemoteViews(context.packageName, R.layout.widget_workout_main).apply {
-            bindRoot(context)
             setVisible(R.id.widget_main_idle, state is WorkoutWidgetState.Idle)
             setVisible(R.id.widget_main_active, state is WorkoutWidgetState.Active)
-            setVisible(R.id.widget_main_rest, state is WorkoutWidgetState.Rest)
             when (state) {
                 is WorkoutWidgetState.Idle -> {
-                    val graph = state.lastWorkout
+                    val routine = state.recommendation?.routine
+                    setTextViewText(R.id.widget_main_idle_routine, routine?.name ?: "CHOOSE A ROUTINE")
                     setTextViewText(
-                        R.id.widget_main_idle_last,
-                        graph?.session?.routineName?.let { "Last: $it" } ?: "No completed workout yet",
+                        R.id.widget_main_idle_metadata,
+                        routine?.let(::routineMetadata) ?: "Open Hevynt to select a workout",
                     )
-                    setTextViewText(
-                        R.id.widget_main_idle_count,
-                        graph?.exercises?.size?.let { "$it exercise${if (it == 1) "" else "s"}" }
-                            ?: "Start in the app to create local history",
-                    )
-                    setTextViewText(R.id.widget_main_idle_action, "OPEN WORKOUT")
-                    setOnClickPendingIntent(R.id.widget_main_idle_action, launchApp(context))
+                    val action = openWorkout(context)
+                    setTextViewText(R.id.widget_main_idle_action, "OPEN")
+                    setOnClickPendingIntent(R.id.widget_main_idle_action, action)
+                    setOnClickPendingIntent(R.id.widget_root, action)
                 }
                 is WorkoutWidgetState.Active -> {
-                    val target = state.target
                     setTextViewText(R.id.widget_main_active_routine, state.workout.routineName)
                     setTextViewText(
                         R.id.widget_main_active_progress,
-                        target?.let { "${it.exerciseIndex + 1} / ${state.workout.exercises.size}" } ?: "DONE",
+                        "${state.completedSets} / ${state.totalSets} sets",
                     )
-                    setTextViewText(
-                        R.id.widget_main_active_exercise,
-                        target?.exerciseName ?: "ALL SETS COMPLETE",
-                    )
-                    setTextViewText(
-                        R.id.widget_main_active_set,
-                        target?.let { "Set ${it.setNumber}" } ?: "Finish in the app",
-                    )
-                    setTextViewText(
-                        R.id.widget_main_active_load,
-                        target?.let(::loadDescription) ?: "Workout ready to finish",
-                    )
-                    setTextViewText(
-                        R.id.widget_main_active_previous,
-                        "Previous: ${PreviousSetResolver.format(state.previous)}",
-                    )
-                    if (target == null) {
-                        setViewVisibility(R.id.widget_main_complete, View.GONE)
-                    } else {
-                        setViewVisibility(R.id.widget_main_complete, View.VISIBLE)
-                        setOnClickPendingIntent(
-                            R.id.widget_main_complete,
-                            completeSet(context, target.exerciseId, target.setId),
-                        )
-                    }
+                    bindElapsedChronometer(R.id.widget_main_active_timer, state.workout.startedAtMillis)
+                    val action = continueWorkout(context)
+                    setOnClickPendingIntent(R.id.widget_main_continue, action)
+                    setOnClickPendingIntent(R.id.widget_root, action)
                 }
-                is WorkoutWidgetState.Rest -> bindMainRest(context, state.timer)
             }
         }
 
-    private fun RemoteViews.bindCompactRest(context: Context, timer: com.yifeng.commandcenter.timer.RestTimerState) {
-        bindChronometer(R.id.widget_compact_rest_timer, timer.endMillis)
-        bindTimerActions(
-            context,
-            subtractViewId = R.id.widget_compact_subtract,
-            skipViewId = R.id.widget_compact_skip,
-            addViewId = R.id.widget_compact_add,
-        )
+    private fun RemoteViews.bindElapsedChronometer(viewId: Int, startedAtMillis: Long) {
+        val elapsed = (System.currentTimeMillis() - startedAtMillis).coerceAtLeast(0L)
+        setChronometer(viewId, SystemClock.elapsedRealtime() - elapsed, null, true)
+        setChronometerCountDown(viewId, false)
     }
 
-    private fun RemoteViews.bindMainRest(context: Context, timer: com.yifeng.commandcenter.timer.RestTimerState) {
-        bindChronometer(R.id.widget_main_rest_timer, timer.endMillis)
-        val next = timer.nextTarget
-        setTextViewText(
-            R.id.widget_main_rest_next,
-            next?.let { "${it.exerciseName} · Set ${it.setNumber}" } ?: "Final rest",
-        )
-        setTextViewText(
-            R.id.widget_main_rest_load,
-            next?.let(::loadDescription) ?: "Finish workout in the app",
-        )
-        bindTimerActions(
-            context,
-            subtractViewId = R.id.widget_main_subtract,
-            skipViewId = R.id.widget_main_skip,
-            addViewId = R.id.widget_main_add,
-        )
+    private fun routineMetadata(routine: com.yifeng.commandcenter.data.RoutineSummary): String {
+        val count = routine.exerciseCount
+        val age = routine.lastPerformedAtMillis?.let { completedAt ->
+            val days = ((System.currentTimeMillis() - completedAt).coerceAtLeast(0L) / 86_400_000L)
+            "last ${days}d ago"
+        } ?: "not performed yet"
+        return "$count exercise${if (count == 1) "" else "s"} · $age"
     }
 
-    private fun RemoteViews.bindRoot(context: Context) {
-        setOnClickPendingIntent(R.id.widget_root, launchApp(context))
-    }
+    private fun openWorkout(context: Context): PendingIntent = activityIntent(
+        context = context,
+        requestCode = 703,
+        intent = Intent(context, MainActivity::class.java)
+            .setAction(MainActivity.ACTION_OPEN_WORKOUT),
+    )
 
-    private fun RemoteViews.bindChronometer(viewId: Int, endMillis: Long) {
-        val elapsedEnd = SystemClock.elapsedRealtime() +
-            (endMillis - System.currentTimeMillis()).coerceAtLeast(0L)
-        setChronometer(viewId, elapsedEnd, null, true)
-        setChronometerCountDown(viewId, true)
-    }
+    private fun continueWorkout(context: Context): PendingIntent = activityIntent(
+        context = context,
+        requestCode = 702,
+        intent = Intent(context, MainActivity::class.java)
+            .setAction(MainActivity.ACTION_CONTINUE_WORKOUT),
+    )
 
-    private fun RemoteViews.bindTimerActions(
+    private fun activityIntent(
         context: Context,
-        subtractViewId: Int,
-        skipViewId: Int,
-        addViewId: Int,
-    ) {
-        setOnClickPendingIntent(
-            subtractViewId,
-            timerAction(context, RestTimerManager.ACTION_SUBTRACT, 710),
-        )
-        setOnClickPendingIntent(
-            skipViewId,
-            timerAction(context, RestTimerManager.ACTION_SKIP, 711),
-        )
-        setOnClickPendingIntent(
-            addViewId,
-            timerAction(context, RestTimerManager.ACTION_ADD, 712),
-        )
-    }
+        requestCode: Int,
+        intent: Intent,
+    ): PendingIntent = PendingIntent.getActivity(
+        context,
+        requestCode,
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
 
     private fun RemoteViews.setVisible(viewId: Int, visible: Boolean) {
         setViewVisibility(viewId, if (visible) View.VISIBLE else View.GONE)
     }
-
-    private fun loadDescription(target: com.yifeng.commandcenter.data.NextSetTarget): String = when {
-        target.weight.isNotBlank() && target.reps.isNotBlank() ->
-            "${target.weight} kg × ${target.reps}"
-        target.reps.isNotBlank() -> "${target.reps} reps"
-        target.weight.isNotBlank() -> "${target.weight} kg"
-        else -> "ENTER LOAD IN APP"
-    }
-
-    private fun launchApp(context: Context): PendingIntent = PendingIntent.getActivity(
-        context,
-        700,
-        Intent(context, MainActivity::class.java),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
-
-    private fun completeSet(
-        context: Context,
-        exerciseId: String,
-        setId: String,
-    ): PendingIntent = PendingIntent.getBroadcast(
-        context,
-        setId.hashCode(),
-        Intent(context, RestTimerReceiver::class.java)
-            .setAction(RestTimerManager.ACTION_COMPLETE_SET)
-            .setData(
-                Uri.Builder()
-                    .scheme(context.packageName)
-                    .authority("complete-set")
-                    .appendPath(exerciseId)
-                    .appendPath(setId)
-                    .build(),
-            )
-            .putExtra(RestTimerManager.EXTRA_EXERCISE_ID, exerciseId)
-            .putExtra(RestTimerManager.EXTRA_SET_ID, setId),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
-
-    private fun timerAction(context: Context, action: String, requestCode: Int): PendingIntent =
-        PendingIntent.getBroadcast(
-            context,
-            requestCode,
-            Intent(context, RestTimerReceiver::class.java).setAction(action),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
 }

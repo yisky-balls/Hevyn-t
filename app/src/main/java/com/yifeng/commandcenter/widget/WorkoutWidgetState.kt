@@ -3,47 +3,39 @@ package com.yifeng.commandcenter.widget
 import android.content.Context
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.ActiveWorkoutRepository
-import com.yifeng.commandcenter.data.NextSetTarget
-import com.yifeng.commandcenter.data.WorkoutProgress
-import com.yifeng.commandcenter.history.PreviousSetPerformance
-import com.yifeng.commandcenter.history.PreviousSetResolver
-import com.yifeng.commandcenter.history.WorkoutHistoryGraph
+import com.yifeng.commandcenter.data.LikelyNextRoutineResolver
+import com.yifeng.commandcenter.data.RoutineRecommendation
+import com.yifeng.commandcenter.data.RoutineRepository
 import com.yifeng.commandcenter.history.WorkoutHistoryRepository
-import com.yifeng.commandcenter.timer.RestTimerManager
-import com.yifeng.commandcenter.timer.RestTimerState
 
 internal sealed interface WorkoutWidgetState {
-    data class Idle(val lastWorkout: WorkoutHistoryGraph?) : WorkoutWidgetState
+    data class Idle(val recommendation: RoutineRecommendation?) : WorkoutWidgetState
 
     data class Active(
         val workout: ActiveWorkout,
-        val target: NextSetTarget?,
-        val previous: PreviousSetPerformance?,
-    ) : WorkoutWidgetState
-
-    data class Rest(
-        val workout: ActiveWorkout,
-        val timer: RestTimerState,
+        val completedSets: Int,
+        val totalSets: Int,
     ) : WorkoutWidgetState
 }
 
 internal object WorkoutWidgetStateLoader {
     suspend fun load(context: Context): WorkoutWidgetState {
-        val workout = ActiveWorkoutRepository(context).load()
-            ?: return WorkoutWidgetState.Idle(
-                WorkoutHistoryRepository(context).latestRepeatableGraph(),
-            )
-        val timer = RestTimerManager.getState(context)
-        if (timer != null) {
-            return WorkoutWidgetState.Rest(
+        ActiveWorkoutRepository(context).load()?.let { workout ->
+            val sets = workout.exercises.flatMap { it.sets }
+            return WorkoutWidgetState.Active(
                 workout = workout,
-                timer = RestTimerManager.resolveState(timer, workout),
+                completedSets = sets.count { it.completed },
+                totalSets = sets.size,
             )
         }
-        val target = WorkoutProgress.firstUnfinishedSet(workout)
-        val previous = target?.let {
-            WorkoutHistoryRepository(context).previousSets(workout)[target.setId]
-        }
-        return WorkoutWidgetState.Active(workout, target, previous)
+
+        val routineRepository = RoutineRepository(context)
+        routineRepository.initialize()
+        val history = WorkoutHistoryRepository(context).sessions()
+        val recommendation = LikelyNextRoutineResolver.resolve(
+            folders = routineRepository.summaries(),
+            history = history,
+        ).recommendation
+        return WorkoutWidgetState.Idle(recommendation)
     }
 }

@@ -1,6 +1,7 @@
 package com.yifeng.commandcenter.ui
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,7 +10,9 @@ import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.ActiveWorkoutOperations
 import com.yifeng.commandcenter.data.ActiveWorkoutRepository
 import com.yifeng.commandcenter.data.ActiveWorkoutSession
-import com.yifeng.commandcenter.data.LikelyNextRoutinePredictor
+import com.yifeng.commandcenter.data.LikelyNextRoutineResolver
+import com.yifeng.commandcenter.data.RepeatLastWorkout
+import com.yifeng.commandcenter.data.RepeatLastWorkoutResult
 import com.yifeng.commandcenter.data.Routine
 import com.yifeng.commandcenter.data.RoutineBuildTarget
 import com.yifeng.commandcenter.data.RoutineExercise
@@ -93,13 +96,13 @@ data class HevyntAppUiState(
 }
 
 class HevyntAppViewModel(application: Application) : AndroidViewModel(application) {
-    private val context = application.applicationContext
-    private val routineRepository = RoutineRepository(context)
-    private val activeWorkoutRepository = ActiveWorkoutRepository(context)
-    private val workoutHistoryRepository = WorkoutHistoryRepository(context)
+    private val context: Context get() = getApplication<Application>().applicationContext
+    private val routineRepository = RoutineRepository(application.applicationContext)
+    private val activeWorkoutRepository = ActiveWorkoutRepository(application.applicationContext)
+    private val workoutHistoryRepository = WorkoutHistoryRepository(application.applicationContext)
     private val workoutPhotoManager = WorkoutPhotoManager(
         workoutHistoryRepository,
-        WorkoutPhotoStore(context),
+        WorkoutPhotoStore(application.applicationContext),
     )
     private val routineMutationMutex = Mutex()
     private val routineInitialization: Deferred<RoutineLibraryImportResult> = viewModelScope.async(
@@ -108,6 +111,8 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         routineRepository.initialize()
     }
     private var previousSetsJob: Job? = null
+    private var workoutStartJob: Job? = null
+    @Volatile private var preparedRoutineStart: PreparedRoutineStart? = null
     private var suggestionsJob: Job? = null
     private var timerCompletionJob: Job? = null
     private var lastPreviousLookupKey: PreviousLookupKey? = null
@@ -128,13 +133,19 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
     val effects: SharedFlow<HevyntAppEffect> = _effects.asSharedFlow()
 
     private val unregisterWorkoutListener = activeWorkoutRepository.registerSessionListener { session ->
+        val prepared = preparedRoutineStart?.takeIf { it.workoutId == session?.workout?.id }
+        if (prepared != null) {
+            previousSetsJob?.cancel()
+            lastPreviousLookupKey = PreviousLookupKey.from(session?.workout)
+        }
         _uiState.update {
             it.copy(
                 activeWorkout = session?.workout,
                 routineBuildTarget = session?.routineBuildTarget,
+                previousSets = prepared?.previousSets ?: it.previousSets,
             )
         }
-        refreshDerivedWorkoutState()
+        if (prepared == null) refreshDerivedWorkoutState()
     }
     private val unregisterTimerListener = RestTimerManager.registerStateListener(context) { state ->
         setTimerState(state)
@@ -159,7 +170,9 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(selectedPage = page) }
     }
 
-    fun openPrograms() = selectPage(AppPage.Workout)
+    fun openPrograms() {
+        _uiState.update { it.copy(selectedPage = AppPage.Workout, selectedHistoryGraph = null) }
+    }
 
     fun openDay(range: WorkoutDateRange) {
         _uiState.update {
@@ -176,20 +189,33 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun startRoutine(routineId: String) {
-        if (resumeExistingWorkoutIfPresent()) return
-        viewModelScope.launch {
-            runCatching {
-                ensureRoutineLibraryReady()
-                val routine = checkNotNull(routineRepository.routine(routineId))
-                val workout = RoutineWorkoutMapper.fromRoutine(routine)
-                val started = withContext(Dispatchers.IO) {
-                    activeWorkoutRepository.startIfIdle(ActiveWorkoutSession(workout))
+        if (resumeExistingWorkoutIfPresent() || workoutStartJob?.isActive == true) return
+        workoutStartJob = viewModelScope.launch {
+            try {
+                runCatching {
+                    ensureRoutineLibraryReady()
+                    val routine = checkNotNull(routineRepository.routine(routineId))
+                    val workout = RoutineWorkoutMapper.fromRoutine(routine)
+                    val previousSets = withContext(Dispatchers.IO) {
+                        workoutHistoryRepository.previousSets(workout)
+                    }
+                    preparedRoutineStart = PreparedRoutineStart(workout.id, previousSets)
+                    val started = withContext(Dispatchers.IO) {
+                        activeWorkoutRepository.startIfIdle(ActiveWorkoutSession(workout))
+                    }
+                    Triple(workout, previousSets, started)
+                }.onSuccess { (workout, previousSets, started) ->
+                    if (started) {
+                        openStartedSession(workout, target = null, preparedPreviousSets = previousSets)
+                    } else {
+                        resumePersistedWorkout()
+                    }
+                }.onFailure { failure ->
+                    if (failure is CancellationException) throw failure
+                    showError("This routine could not be started. Your saved routines were not changed.")
                 }
-                workout to started
-            }.onSuccess { (workout, started) ->
-                if (started) openStartedSession(workout, target = null) else resumePersistedWorkout()
-            }.onFailure {
-                showError("This routine could not be started. Your saved routines were not changed.")
+            } finally {
+                preparedRoutineStart = null
             }
         }
     }
@@ -205,6 +231,33 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun repeatLastWorkout() {
+        if (resumeExistingWorkoutIfPresent() || workoutStartJob?.isActive == true) return
+        workoutStartJob = viewModelScope.launch {
+            try {
+                val repeat = RepeatLastWorkout(workoutHistoryRepository, activeWorkoutRepository)
+                when (val result = repeat()) {
+                    is RepeatLastWorkoutResult.Started -> {
+                        val previousSets = withContext(Dispatchers.IO) {
+                            workoutHistoryRepository.previousSets(result.workout)
+                        }
+                        openStartedSession(result.workout, target = null, preparedPreviousSets = previousSets)
+                    }
+                    RepeatLastWorkoutResult.ActiveWorkoutExists -> {
+                        resumePersistedWorkout()
+                    }
+                    RepeatLastWorkoutResult.NoHistory -> {
+                        showError("No previous workout to repeat.")
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                showError("The previous workout could not be repeated.")
+            }
+        }
+    }
+
     fun buildRoutine(folderId: String, routineId: String?) {
         if (_uiState.value.activeWorkout != null) {
             showError("Finish or discard the active workout before editing a routine.")
@@ -215,7 +268,7 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 ensureRoutineLibraryReady()
                 val routine = routineId?.let { checkNotNull(routineRepository.routine(it)) }
                 val target = RoutineBuildTarget(folderId, routineId)
-                val workout = routine?.let(RoutineWorkoutMapper::fromRoutine)
+                val workout = routine?.let(RoutineWorkoutMapper::forEditing)
                     ?: ActiveWorkout(routineName = "", exercises = emptyList())
                 val started = withContext(Dispatchers.IO) {
                     activeWorkoutRepository.startIfIdle(ActiveWorkoutSession(workout, target))
@@ -251,13 +304,11 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
             runCatching {
                 routineMutationMutex.withLock {
                     ensureRoutineLibraryReady()
-                    val updated = RoutineFolderOperations.saveRoutine(
-                        folders = routineRepository.folders(),
+                    routineRepository.saveRoutine(
                         folderId = target.folderId,
                         routine = routine,
                         existingRoutineId = target.routineId,
                     )
-                    routineRepository.replaceFolders(updated)
                 }
             }.onSuccess {
                 clearSession()
@@ -267,22 +318,48 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun createFolder(name: String) = mutateFolders(
-        failureMessage = "The folder could not be created.",
-    ) { folders -> folders + RoutineFolder(name = name) }
+    fun createFolder(name: String) {
+        viewModelScope.launch {
+            runCatching {
+                routineMutationMutex.withLock {
+                    ensureRoutineLibraryReady()
+                    routineRepository.createFolder(name)
+                }
+            }.onFailure { showError("The folder could not be created.") }
+        }
+    }
 
-    fun renameFolder(folderId: String, name: String) = mutateFolders(
-        failureMessage = "The folder could not be renamed.",
-    ) { folders -> folders.map { if (it.id == folderId) it.copy(name = name) else it } }
+    fun renameFolder(folderId: String, name: String) {
+        viewModelScope.launch {
+            runCatching {
+                routineMutationMutex.withLock {
+                    ensureRoutineLibraryReady()
+                    routineRepository.renameFolder(folderId, name)
+                }
+            }.onFailure { showError("The folder could not be renamed.") }
+        }
+    }
 
-    fun deleteFolder(folderId: String) = mutateFolders(
-        failureMessage = "The folder could not be deleted.",
-    ) { folders -> folders.filterNot { it.id == folderId } }
+    fun deleteFolder(folderId: String) {
+        viewModelScope.launch {
+            runCatching {
+                routineMutationMutex.withLock {
+                    ensureRoutineLibraryReady()
+                    routineRepository.deleteFolder(folderId)
+                }
+            }.onFailure { showError("The folder could not be deleted.") }
+        }
+    }
 
-    fun deleteRoutine(folderId: String, routineId: String) = mutateFolders(
-        failureMessage = "The routine could not be deleted.",
-    ) { folders ->
-        RoutineFolderOperations.deleteRoutine(folders, folderId, routineId)
+    fun deleteRoutine(folderId: String, routineId: String) {
+        viewModelScope.launch {
+            runCatching {
+                routineMutationMutex.withLock {
+                    ensureRoutineLibraryReady()
+                    routineRepository.deleteRoutine(routineId)
+                }
+            }.onFailure { showError("The routine could not be deleted.") }
+        }
     }
 
     fun requestExerciseSuggestions() {
@@ -320,6 +397,10 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun removeExercise(exerciseId: String) = updateActiveWorkout {
         ActiveWorkoutOperations.removeExercise(it, exerciseId)
+    }
+
+    fun moveExercise(exerciseId: String, offset: Int) = updateActiveWorkout {
+        ActiveWorkoutOperations.moveExercise(it, exerciseId, offset)
     }
 
     fun changeSet(exerciseId: String, setId: String, updatedSet: WorkoutSet) =
@@ -555,16 +636,13 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             routineRepository.observeSummaries().collectLatest { folders ->
                 _uiState.update { state ->
-                    val withLastPerformed = LikelyNextRoutinePredictor.attachLastPerformed(
+                    val resolved = LikelyNextRoutineResolver.resolve(
                         folders = folders,
                         history = state.workoutHistory,
                     )
                     state.copy(
-                        routineFolders = withLastPerformed,
-                        likelyNextRoutine = LikelyNextRoutinePredictor.predict(
-                            withLastPerformed,
-                            state.workoutHistory,
-                        ),
+                        routineFolders = resolved.folders,
+                        likelyNextRoutine = resolved.recommendation,
                     )
                 }
                 suggestionsStale = true
@@ -599,16 +677,13 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 }
                 val sessions = entries.map(WorkoutJournalEntry::session)
                 _uiState.update { state ->
-                    val withLastPerformed = LikelyNextRoutinePredictor.attachLastPerformed(
+                    val resolved = LikelyNextRoutineResolver.resolve(
                         folders = state.routineFolders,
                         history = sessions,
                     )
                     state.copy(
-                        routineFolders = withLastPerformed,
-                        likelyNextRoutine = LikelyNextRoutinePredictor.predict(
-                            withLastPerformed,
-                            sessions,
-                        ),
+                        routineFolders = resolved.folders,
+                        likelyNextRoutine = resolved.recommendation,
                         workoutHistory = sessions,
                         journalEntries = entries,
                         journalPhotoFiles = files,
@@ -707,31 +782,26 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    private fun mutateFolders(
-        failureMessage: String,
-        transform: (List<RoutineFolder>) -> List<RoutineFolder>,
+    private fun openStartedSession(
+        workout: ActiveWorkout,
+        target: RoutineBuildTarget?,
+        preparedPreviousSets: Map<String, PreviousSetPerformance>? = null,
     ) {
-        viewModelScope.launch {
-            runCatching {
-                routineMutationMutex.withLock {
-                    ensureRoutineLibraryReady()
-                    routineRepository.replaceFolders(transform(routineRepository.folders()))
-                }
-            }.onFailure { showError(failureMessage) }
-        }
-    }
-
-    private fun openStartedSession(workout: ActiveWorkout, target: RoutineBuildTarget?) {
         activeWorkoutRepository.setExpanded(true)
+        if (preparedPreviousSets != null) {
+            previousSetsJob?.cancel()
+            lastPreviousLookupKey = PreviousLookupKey.from(workout)
+        }
         _uiState.update {
             it.copy(
                 activeWorkout = workout,
                 routineBuildTarget = target,
                 isWorkoutExpanded = true,
                 selectedPage = AppPage.Workout,
+                previousSets = preparedPreviousSets ?: it.previousSets,
             )
         }
-        refreshDerivedWorkoutState()
+        if (preparedPreviousSets == null) refreshDerivedWorkoutState()
     }
 
     private fun resumePersistedWorkout() {
@@ -839,6 +909,11 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         if (result is RoutineLibraryImportResult.CorruptLegacyData) throw result.cause
     }
 }
+
+private data class PreparedRoutineStart(
+    val workoutId: String,
+    val previousSets: Map<String, PreviousSetPerformance>,
+)
 
 private data class PreviousLookupKey(
     val workoutId: String,

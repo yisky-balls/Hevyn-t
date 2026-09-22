@@ -28,6 +28,25 @@ abstract class RoutineLibraryDao {
     )
     abstract fun observeSummaries(): Flow<List<RoutineLibrarySummaryRow>>
 
+    @Query(
+        """
+        SELECT
+            folders.id AS folder_id,
+            folders.name AS folder_name,
+            routines.id AS routine_id,
+            routines.name AS routine_name,
+            COUNT(routine_exercises.id) AS exercise_count
+        FROM routine_folders AS folders
+        LEFT JOIN routines ON routines.folder_id = folders.id
+        LEFT JOIN routine_exercises ON routine_exercises.routine_id = routines.id
+        GROUP BY folders.id, folders.name, folders.position,
+                 routines.id, routines.name, routines.position
+        ORDER BY folders.position ASC, folders.id ASC,
+                 routines.position ASC, routines.id ASC
+        """,
+    )
+    abstract suspend fun summaries(): List<RoutineLibrarySummaryRow>
+
     @Transaction
     @Query("SELECT * FROM routine_folders ORDER BY position ASC, id ASC")
     abstract fun observeLibrary(): Flow<List<RoutineFolderWithRoutines>>
@@ -60,6 +79,62 @@ abstract class RoutineLibraryDao {
 
     suspend fun isLegacyImportComplete(): Boolean =
         metadataValue(LEGACY_IMPORT_KEY) == IMPORT_COMPLETE
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertFolder(folder: RoutineFolderEntity)
+
+    @Query("UPDATE routine_folders SET name = :name WHERE id = :folderId")
+    abstract suspend fun updateFolderName(folderId: String, name: String): Int
+
+    @Query("DELETE FROM routine_folders WHERE id = :folderId")
+    abstract suspend fun deleteFolderById(folderId: String): Int
+
+    @Query("DELETE FROM routines WHERE id = :routineId")
+    abstract suspend fun deleteRoutineById(routineId: String): Int
+
+    @Query("SELECT MAX(position) FROM routine_folders")
+    abstract suspend fun maxFolderPosition(): Int?
+
+    @Query("SELECT MAX(position) FROM routines WHERE folder_id = :folderId")
+    abstract suspend fun maxRoutinePosition(folderId: String): Int?
+
+    @Query("SELECT position FROM routines WHERE id = :routineId")
+    abstract suspend fun routinePosition(routineId: String): Int?
+
+    @Transaction
+    open suspend fun upsertRoutine(
+        folderId: String,
+        routine: Routine,
+        existingRoutineId: String? = null,
+    ) {
+        val targetRoutineId = existingRoutineId ?: routine.id
+        val position = routinePosition(targetRoutineId) ?: ((maxRoutinePosition(folderId) ?: -1) + 1)
+        deleteRoutineById(targetRoutineId)
+        insertRoutines(listOf(RoutineEntity(routine.id, folderId, routine.name, position)))
+        val exerciseRows = mutableListOf<RoutineExerciseEntity>()
+        val setRows = mutableListOf<RoutineSetEntity>()
+        routine.exercises.forEachIndexed { exercisePosition, exercise ->
+            exerciseRows += RoutineExerciseEntity(
+                id = exercise.id,
+                routineId = routine.id,
+                name = exercise.name,
+                notes = exercise.notes,
+                restSeconds = exercise.restSeconds,
+                position = exercisePosition,
+            )
+            exercise.sets.forEachIndexed { setPosition, set ->
+                setRows += RoutineSetEntity(
+                    id = set.id,
+                    exerciseId = exercise.id,
+                    weight = set.weight,
+                    repetitions = set.reps,
+                    position = setPosition,
+                )
+            }
+        }
+        if (exerciseRows.isNotEmpty()) insertExercises(exerciseRows)
+        if (setRows.isNotEmpty()) insertSets(setRows)
+    }
 
     @Query("DELETE FROM routine_folders")
     protected abstract suspend fun deleteFolders()

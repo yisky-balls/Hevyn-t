@@ -40,7 +40,9 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yifeng.commandcenter.timer.RestTimerManager
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntSurface
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import kotlinx.coroutines.flow.collectLatest
@@ -210,6 +213,7 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                         onExerciseNotesChanged = viewModel::changeExerciseNotes,
                         onExerciseRestChanged = viewModel::changeExerciseRest,
                         onExerciseRemoved = viewModel::removeExercise,
+                        onExerciseMoved = viewModel::moveExercise,
                         onSetChanged = viewModel::changeSet,
                         onSetCompletionChanged = { exerciseId, setId, completed ->
                             viewModel.changeSetCompletion(
@@ -238,12 +242,14 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                         onStartRoutine = viewModel::startRoutine,
                         onOpenSession = viewModel::openHistorySession,
                         onOpenDay = viewModel::openDay,
+                        onRepeatLastWorkout = viewModel::repeatLastWorkout,
                     )
 
                     state.selectedPage == AppPage.Workout -> WorkoutProgramsScreen(
                         folders = state.routineFolders,
                         likelyNext = state.likelyNextRoutine,
                         activeWorkout = state.activeWorkout,
+                        canRepeatLast = state.workoutHistory.any { !it.isLegacySummaryOnly },
                         listState = workoutListState,
                         onContinueWorkout = viewModel::resumeWorkout,
                         onStartRoutine = viewModel::startRoutine,
@@ -253,6 +259,7 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                         onDeleteFolder = viewModel::deleteFolder,
                         onDeleteRoutine = viewModel::deleteRoutine,
                         onStartEmpty = viewModel::startEmptyWorkout,
+                        onRepeatLast = viewModel::repeatLastWorkout,
                     )
 
                     selectedGraph != null -> JournalDetailScreen(
@@ -312,7 +319,11 @@ private fun AppBottomBar(
     selectedPage: AppPage,
     onPageSelected: (AppPage) -> Unit,
 ) {
-    Surface(color = HevyntSurfaceRaised) {
+    val haptic = LocalHapticFeedback.current
+    Surface(
+        color = HevyntSurface,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -324,30 +335,45 @@ private fun AppBottomBar(
                     .height(1.dp)
                     .background(HevyntOutline),
             )
-            Row(modifier = Modifier.fillMaxWidth().height(74.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 AppBottomDestination(
                     label = "HOME",
                     selected = selectedPage == AppPage.Home,
-                    onClick = { onPageSelected(AppPage.Home) },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onPageSelected(AppPage.Home)
+                    },
                 ) {
-                    Icon(Icons.Outlined.Home, contentDescription = null, modifier = Modifier.size(25.dp))
+                    Icon(Icons.Outlined.Home, contentDescription = null, modifier = Modifier.size(24.dp))
                 }
                 AppBottomDestination(
                     label = "WORKOUT",
                     selected = selectedPage == AppPage.Workout,
-                    onClick = { onPageSelected(AppPage.Workout) },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onPageSelected(AppPage.Workout)
+                    },
                 ) {
-                    Icon(Icons.Outlined.Build, contentDescription = null, modifier = Modifier.size(25.dp))
+                    Icon(Icons.Outlined.Build, contentDescription = null, modifier = Modifier.size(24.dp))
                 }
                 AppBottomDestination(
                     label = "JOURNAL",
                     selected = selectedPage == AppPage.Journal,
-                    onClick = { onPageSelected(AppPage.Journal) },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onPageSelected(AppPage.Journal)
+                    },
                 ) {
                     Icon(
                         Icons.AutoMirrored.Outlined.List,
                         contentDescription = null,
-                        modifier = Modifier.size(25.dp),
+                        modifier = Modifier.size(24.dp),
                     )
                 }
             }
@@ -372,13 +398,13 @@ private fun RowScope.AppBottomDestination(
         verticalArrangement = Arrangement.Center,
     ) {
         Surface(color = Color.Transparent, contentColor = contentColor) { icon() }
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             label,
             color = contentColor,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = 0.6.sp,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            letterSpacing = 0.5.sp,
         )
     }
 }

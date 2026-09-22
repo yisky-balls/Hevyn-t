@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,7 +35,6 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.history.WorkoutHistoryGraph
-import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.io.File
 import java.text.DateFormat
@@ -57,31 +57,34 @@ fun WorkoutRecapScreen(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = HevyntPageHorizontalPadding, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
             HevyntPageHeader("WORKOUT SAVED", "Your completed sets are safely stored.")
         }
-        item { HevyntDottedRule() }
         item {
             Text(
                 graph.session.routineName,
-                fontFamily = HevyntDisplayFont,
-                fontSize = 28.sp,
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
             )
             Text(
                 DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
                     .format(Date(graph.session.completedAtMillis)),
                 color = HevyntTextSecondary,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(top = 6.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                RecapMetric("DURATION", formatHistoryDuration(graph.session.durationMillis))
-                RecapMetric("SETS", graph.session.completedSetCount.toString())
-                RecapMetric("VOLUME", "${formatWeight(graph.session.totalVolumeKg)} kg")
+            HevyntPanel(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    RecapMetric("DURATION", formatHistoryDuration(graph.session.durationMillis))
+                    RecapMetric("SETS", graph.session.completedSetCount.toString())
+                    RecapMetric("VOLUME", "${formatWeight(graph.session.totalVolumeKg)} kg")
+                }
             }
         }
         item {
@@ -89,7 +92,7 @@ fun WorkoutRecapScreen(
                 value = note,
                 onValueChange = { note = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Session note") },
+                label = { Text("SESSION NOTE") },
                 minLines = 3,
                 colors = hevyntTextFieldColors(),
             )
@@ -99,7 +102,10 @@ fun WorkoutRecapScreen(
                 AsyncImage(
                     model = photoFile,
                     contentDescription = "Workout photo",
-                    modifier = Modifier.fillMaxWidth().height(220.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(MaterialTheme.shapes.medium),
                     contentScale = ContentScale.Crop,
                 )
                 Row(
@@ -112,7 +118,7 @@ fun WorkoutRecapScreen(
                         },
                         enabled = !isPhotoBusy,
                         modifier = Modifier.weight(1f),
-                    ) { Text("Replace photo") }
+                    ) { Text("REPLACE PHOTO") }
                     HevyntOutlineButton(
                         onClick = onRemovePhoto,
                         enabled = !isPhotoBusy,
@@ -129,7 +135,7 @@ fun WorkoutRecapScreen(
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) {
                     Icon(Icons.Outlined.Add, null, modifier = Modifier.size(20.dp))
-                    Text(if (isPhotoBusy) "  Saving photo…" else "  Add workout photo")
+                    Text(if (isPhotoBusy) "  SAVING PHOTO…" else "  ADD WORKOUT PHOTO")
                 }
             }
         }
@@ -141,7 +147,7 @@ fun WorkoutRecapScreen(
                 onClick = { onDone(note.trim()) },
                 enabled = !isPhotoBusy,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-            ) { Text("Done", fontWeight = FontWeight.Medium) }
+            ) { Text("DONE", style = MaterialTheme.typography.labelLarge) }
             Spacer(Modifier.height(18.dp))
         }
     }
@@ -150,8 +156,12 @@ fun WorkoutRecapScreen(
 @Composable
 private fun RecapMetric(label: String, value: String) {
     Column {
-        Text(label, color = HevyntTextSecondary, fontSize = 12.sp)
-        Text(value, fontFamily = HevyntDisplayFont, fontSize = 20.sp, modifier = Modifier.padding(top = 5.dp))
+        Text(label, color = HevyntTextSecondary, style = MaterialTheme.typography.labelSmall)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 

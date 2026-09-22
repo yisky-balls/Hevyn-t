@@ -35,8 +35,8 @@ android {
         applicationId = "com.yifeng.commandcenter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.9.0"
+        versionCode = 7
+        versionName = "1.9.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -1,5 +1,6 @@
 package com.yifeng.commandcenter.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,12 +25,14 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,6 +57,8 @@ import com.yifeng.commandcenter.data.RoutineSummary
 import com.yifeng.commandcenter.ui.theme.HevyntAccent
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntError
+import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
@@ -62,6 +68,7 @@ fun WorkoutProgramsScreen(
     folders: List<RoutineFolderSummary>,
     likelyNext: RoutineRecommendation?,
     activeWorkout: ActiveWorkout?,
+    canRepeatLast: Boolean = false,
     listState: LazyListState,
     onContinueWorkout: () -> Unit,
     onStartRoutine: (String) -> Unit,
@@ -71,6 +78,7 @@ fun WorkoutProgramsScreen(
     onDeleteFolder: (String) -> Unit,
     onDeleteRoutine: (folderId: String, routineId: String) -> Unit,
     onStartEmpty: () -> Unit,
+    onRepeatLast: () -> Unit = {},
 ) {
     var expandedFolderIds by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var showFolderPicker by rememberSaveable { mutableStateOf(false) }
@@ -97,9 +105,9 @@ fun WorkoutProgramsScreen(
     }
     if (showCreateFolder) {
         NameDialog(
-            title = "New folder",
+            title = "NEW FOLDER",
             initialValue = "",
-            confirmLabel = "Create",
+            confirmLabel = "CREATE",
             onDismiss = { showCreateFolder = false },
             onConfirm = {
                 showCreateFolder = false
@@ -109,9 +117,9 @@ fun WorkoutProgramsScreen(
     }
     folderToRename?.let { folder ->
         NameDialog(
-            title = "Rename folder",
+            title = "RENAME FOLDER",
             initialValue = folder.name,
-            confirmLabel = "Save",
+            confirmLabel = "SAVE",
             onDismiss = { folderToRenameId = null },
             onConfirm = {
                 folderToRenameId = null
@@ -183,17 +191,25 @@ fun WorkoutProgramsScreen(
                 enabled = activeWorkout == null,
                 onClick = onStartEmpty,
             )
+            if (canRepeatLast) {
+                Spacer(Modifier.height(8.dp))
+                SecondaryActionRow(
+                    label = "REPEAT LAST WORKOUT",
+                    icon = Icons.Outlined.Refresh,
+                    enabled = activeWorkout == null,
+                    onClick = onRepeatLast,
+                )
+            }
         }
 
         item(key = "routine-heading") {
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(24.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     "ROUTINES",
                     modifier = Modifier.weight(1f),
-                    fontFamily = HevyntDisplayFont,
-                    fontSize = 26.sp,
-                    letterSpacing = 1.2.sp,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    letterSpacing = 0.5.sp,
                     maxLines = 1,
                 )
                 HevyntSectionLabel(
@@ -204,21 +220,28 @@ fun WorkoutProgramsScreen(
                     Icon(Icons.Outlined.AddCircle, contentDescription = "Create folder")
                 }
             }
-            HevyntDottedRule()
-            Row(
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                onClick = {
+                    if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
+                },
+                color = HevyntSurfaceRaised,
+                shape = MaterialTheme.shapes.small,
+                border = BorderStroke(1.dp, HevyntOutline),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(58.dp)
-                    .clickable {
-                        if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
-                    }
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .height(48.dp),
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-                HevyntSectionLabel("NEW ROUTINE", Modifier.padding(start = 13.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                    HevyntSectionLabel("NEW ROUTINE", Modifier.padding(start = 12.dp))
+                }
             }
-            HevyntDottedRule()
             Spacer(Modifier.height(14.dp))
         }
 
@@ -382,32 +405,44 @@ private fun LikelyNextRoutineCard(
 }
 
 @Composable
-private fun SecondaryActionRow(label: String, enabled: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(54.dp)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun SecondaryActionRow(
+    label: String,
+    enabled: Boolean,
+    icon: ImageVector = Icons.Outlined.Add,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        color = HevyntSurfaceRaised,
+        shape = MaterialTheme.shapes.small,
+        border = BorderStroke(1.dp, HevyntOutline),
+        modifier = Modifier.fillMaxWidth().height(52.dp),
     ) {
-        Icon(
-            Icons.Outlined.Add,
-            contentDescription = null,
-            tint = if (enabled) MaterialTheme.colorScheme.onSurface else HevyntTextSecondary,
-            modifier = Modifier.size(20.dp),
-        )
-        HevyntSectionLabel(
-            label,
-            Modifier.weight(1f).padding(start = 12.dp),
-            if (enabled) MaterialTheme.colorScheme.onSurface else HevyntTextSecondary,
-        )
-        Icon(
-            Icons.AutoMirrored.Outlined.ArrowForward,
-            contentDescription = null,
-            tint = if (enabled) HevyntTextSecondary else HevyntTextSecondary.copy(alpha = 0.5f),
-            modifier = Modifier.size(19.dp),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (enabled) MaterialTheme.colorScheme.onSurface else HevyntTextSecondary,
+                modifier = Modifier.size(20.dp),
+            )
+            HevyntSectionLabel(
+                label,
+                Modifier.weight(1f).padding(start = 12.dp),
+                if (enabled) MaterialTheme.colorScheme.onSurface else HevyntTextSecondary,
+            )
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = null,
+                tint = if (enabled) HevyntTextSecondary else HevyntTextSecondary.copy(alpha = 0.5f),
+                modifier = Modifier.size(18.dp),
+            )
+        }
     }
 }
 
@@ -450,12 +485,12 @@ private fun FolderRow(
                 }
                 DropdownMenu(menuExpanded, { menuExpanded = false }) {
                     DropdownMenuItem(
-                        text = { Text("Rename folder") },
+                        text = { Text("RENAME FOLDER") },
                         leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                         onClick = { menuExpanded = false; onRename() },
                     )
                     DropdownMenuItem(
-                        text = { Text("Delete folder") },
+                        text = { Text("DELETE FOLDER") },
                         leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
                         onClick = { menuExpanded = false; onDelete() },
                     )
@@ -520,12 +555,12 @@ private fun RoutineCard(
                     }
                     DropdownMenu(menuExpanded, { menuExpanded = false }) {
                         DropdownMenuItem(
-                            text = { Text("Edit routine") },
+                            text = { Text("EDIT ROUTINE") },
                             leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                             onClick = { menuExpanded = false; onEdit() },
                         )
                         DropdownMenuItem(
-                            text = { Text("Delete routine") },
+                            text = { Text("DELETE ROUTINE") },
                             leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
                             onClick = { menuExpanded = false; onDelete() },
                         )
@@ -545,7 +580,7 @@ private fun FolderPickerDialog(
 ) {
     HevyntDialog(
         onDismissRequest = onDismiss,
-        title = { Text("CHOOSE A FOLDER", fontFamily = HevyntDisplayFont, fontSize = 20.sp) },
+        title = { Text("CHOOSE A FOLDER", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column {
                 folders.forEach { folder ->
@@ -579,7 +614,7 @@ private fun NameDialog(
     var value by rememberSaveable(initialValue) { mutableStateOf(initialValue) }
     HevyntDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title.uppercase(), fontFamily = HevyntDisplayFont, fontSize = 20.sp) },
+        title = { Text(title.uppercase(), style = MaterialTheme.typography.titleLarge) },
         text = {
             OutlinedTextField(
                 value = value,
@@ -608,7 +643,7 @@ private fun DeleteDialog(
 ) {
     HevyntDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title, fontFamily = HevyntDisplayFont, fontSize = 20.sp) },
+        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
         text = { Text(message) },
         confirmButton = {
             TextButton(onClick = onConfirm) {

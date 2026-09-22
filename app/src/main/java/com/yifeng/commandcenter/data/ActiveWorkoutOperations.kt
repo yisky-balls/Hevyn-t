@@ -23,6 +23,16 @@ object ActiveWorkoutOperations {
         return workout.copy(exercises = workout.exercises.filterNot { it.id == exerciseId })
     }
 
+    fun moveExercise(workout: ActiveWorkout, exerciseId: String, offset: Int): ActiveWorkout? {
+        val sourceIndex = workout.exercises.indexOfFirst { it.id == exerciseId }
+        val targetIndex = sourceIndex + offset
+        if (sourceIndex < 0 || targetIndex !in workout.exercises.indices) return null
+        val reordered = workout.exercises.toMutableList()
+        val exercise = reordered.removeAt(sourceIndex)
+        reordered.add(targetIndex, exercise)
+        return workout.copy(exercises = reordered)
+    }
+
     fun updateExerciseName(workout: ActiveWorkout, exerciseId: String, name: String): ActiveWorkout? =
         updateExercise(workout, exerciseId) { it.copy(name = name) }
 

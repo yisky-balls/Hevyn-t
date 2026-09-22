@@ -12,6 +12,24 @@ data class RoutineRecommendation(
     val reason: RoutineRecommendationReason,
 )
 
+data class LikelyNextRoutineState(
+    val folders: List<RoutineFolderSummary>,
+    val recommendation: RoutineRecommendation?,
+)
+
+object LikelyNextRoutineResolver {
+    fun resolve(
+        folders: List<RoutineFolderSummary>,
+        history: List<WorkoutHistorySession>,
+    ): LikelyNextRoutineState {
+        val withLastPerformed = LikelyNextRoutinePredictor.attachLastPerformed(folders, history)
+        return LikelyNextRoutineState(
+            folders = withLastPerformed,
+            recommendation = LikelyNextRoutinePredictor.predict(withLastPerformed, history),
+        )
+    }
+}
+
 /** Deterministic, fully local routine-rotation inference from completed session metadata. */
 object LikelyNextRoutinePredictor {
     fun predict(

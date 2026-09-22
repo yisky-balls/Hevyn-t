@@ -13,34 +13,43 @@
         android:layout_height="match_parent"
         android:orientation="vertical" >
 
-        <TextView style="@style/WidgetHeaderText" android:text="HEVYN’T" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal" >
+
+            <TextView style="@style/WidgetHeaderText" android:text="@string/workout_widget_brand" />
+
+            <TextView
+                style="@style/WidgetLabelText"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:text="@string/workout_widget_likely_next" />
+        </LinearLayout>
 
         <TextView
-            android:id="@+id/widget_main_idle_last"
+            android:id="@+id/widget_main_idle_routine"
             style="@style/WidgetPrimaryText"
-            android:layout_marginTop="5dp"
-            android:text="Last: Upper A" />
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/workout_widget_preview_routine" />
 
         <TextView
-            android:id="@+id/widget_main_idle_count"
+            android:id="@+id/widget_main_idle_metadata"
             style="@style/WidgetSecondaryText"
-            android:text="7 exercises" />
+            android:layout_height="0dp"
+            android:layout_marginTop="2dp"
+            android:layout_weight="1"
+            android:gravity="top"
+            android:text="@string/workout_widget_preview_metadata" />
 
         <TextView
             android:id="@+id/widget_main_idle_action"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginTop="7dp"
-            android:layout_weight="1"
-            android:background="@drawable/widget_action_background"
-            android:fontFamily="@font/doto_variable"
-            android:gravity="center"
-            android:includeFontPadding="false"
-            android:maxLines="1"
-            android:text="OPEN WORKOUT"
-            android:textColor="@color/hevynt_accent"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            style="@style/WidgetActionText"
+            android:text="@string/workout_widget_open" />
     </LinearLayout>
 
     <LinearLayout
@@ -53,146 +62,52 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
             android:orientation="horizontal" >
 
+            <TextView style="@style/WidgetHeaderText" android:text="@string/workout_widget_brand" />
+
             <TextView
-                android:id="@+id/widget_main_active_routine"
-                style="@style/WidgetHeaderText"
+                style="@style/WidgetActiveLabelText"
                 android:layout_width="0dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="UPPER A" />
+                android:gravity="end"
+                android:text="@string/workout_widget_active" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_main_active_routine"
+            style="@style/WidgetPrimaryText"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/workout_widget_preview_routine" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="2dp"
+            android:layout_weight="1"
+            android:gravity="top"
+            android:orientation="horizontal" >
 
             <TextView
                 android:id="@+id/widget_main_active_progress"
                 style="@style/WidgetSecondaryText"
-                android:layout_width="wrap_content"
-                android:gravity="end"
-                android:text="3 / 7" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/widget_main_active_exercise"
-            style="@style/WidgetPrimaryText"
-            android:layout_marginTop="5dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="Incline Dumbbell Press" />
-
-        <TextView
-            android:id="@+id/widget_main_active_set"
-            style="@style/WidgetSecondaryText"
-            android:text="Set 3" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginTop="4dp"
-            android:layout_weight="1"
-            android:gravity="bottom"
-            android:orientation="horizontal" >
-
-            <LinearLayout
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:gravity="bottom"
-                android:orientation="vertical" >
-
-                <TextView
-                    android:id="@+id/widget_main_active_load"
-                    style="@style/WidgetPrimaryText"
-                    android:text="30 kg × 10" />
-
-                <TextView
-                    android:id="@+id/widget_main_active_previous"
-                    style="@style/WidgetSecondaryText"
-                    android:text="Previous: 30 kg × 9" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/widget_main_complete"
-                android:layout_width="72dp"
-                android:layout_height="match_parent"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/widget_action_background"
-                android:fontFamily="@font/doto_variable"
-                android:gravity="center"
-                android:includeFontPadding="false"
-                android:text="✓ SET"
-                android:textColor="@color/hevynt_accent"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/widget_main_rest"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:visibility="gone" >
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal" >
-
-            <TextView style="@style/WidgetHeaderText" android:text="REST" />
+                android:text="@string/workout_widget_preview_progress" />
 
             <Chronometer
-                android:id="@+id/widget_main_rest_timer"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="monospace"
-                android:gravity="end"
-                android:includeFontPadding="false"
-                android:textColor="@color/hevynt_accent"
-                android:textSize="22sp"
-                android:textStyle="bold" />
+                android:id="@+id/widget_main_active_timer"
+                style="@style/WidgetTimerText"
+                android:layout_width="wrap_content"
+                android:gravity="end" />
         </LinearLayout>
 
         <TextView
-            style="@style/WidgetSecondaryText"
-            android:layout_marginTop="3dp"
-            android:text="NEXT" />
-
-        <TextView
-            android:id="@+id/widget_main_rest_next"
-            style="@style/WidgetPrimaryText"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="Incline DB Press · Set 4" />
-
-        <TextView
-            android:id="@+id/widget_main_rest_load"
-            style="@style/WidgetSecondaryText"
-            android:text="30 kg × 10" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginTop="6dp"
-            android:layout_weight="1"
-            android:orientation="horizontal" >
-
-            <TextView
-                android:id="@+id/widget_main_subtract"
-                style="@style/WidgetControlText"
-                android:text="−15" />
-
-            <TextView
-                android:id="@+id/widget_main_skip"
-                style="@style/WidgetControlText"
-                android:layout_marginHorizontal="7dp"
-                android:text="SKIP" />
-
-            <TextView
-                android:id="@+id/widget_main_add"
-                style="@style/WidgetControlText"
-                android:text="+15" />
-        </LinearLayout>
+            android:id="@+id/widget_main_continue"
+            style="@style/WidgetActionText"
+            android:text="@string/workout_widget_continue" />
     </LinearLayout>
 </FrameLayout>

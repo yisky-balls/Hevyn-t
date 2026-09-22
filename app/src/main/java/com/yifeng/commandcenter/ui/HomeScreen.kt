@@ -1,5 +1,6 @@
 package com.yifeng.commandcenter.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -23,7 +25,9 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -32,7 +36,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.RoutineExercise
@@ -43,7 +50,10 @@ import com.yifeng.commandcenter.data.WorkoutMonth
 import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.history.MonthlyWorkoutAggregate
 import com.yifeng.commandcenter.history.WorkoutHistorySession
-import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
+import com.yifeng.commandcenter.ui.theme.HevyntAccent
+import com.yifeng.commandcenter.ui.theme.HevyntAccentContainer
+import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.text.DateFormat
 import java.text.SimpleDateFormat
@@ -60,6 +70,7 @@ fun HomeScreen(
     onStartRoutine: (String) -> Unit,
     onOpenSession: (String) -> Unit,
     onOpenDay: (WorkoutDateRange) -> Unit,
+    onRepeatLastWorkout: () -> Unit = {},
 ) {
     val routine = routines.firstOrNull()
     var monthOffset by rememberSaveable { mutableIntStateOf(0) }
@@ -82,9 +93,7 @@ fun HomeScreen(
             .padding(horizontal = HevyntPageHorizontalPadding, vertical = 20.dp),
     ) {
         HomeMasthead()
-        Spacer(Modifier.height(20.dp))
-        HevyntDottedRule()
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(14.dp))
 
         WorkoutCalendarPanel(
             month = month,
@@ -102,25 +111,25 @@ fun HomeScreen(
             },
         )
 
-        Spacer(Modifier.height(22.dp))
-        HevyntDottedRule()
+        Spacer(Modifier.height(14.dp))
         TodayTrainingRow(
             routine = routine,
             onStart = { routine?.id?.let(onStartRoutine) ?: onOpenPrograms() },
         )
-        HevyntDottedRule()
+        Spacer(Modifier.height(14.dp))
         MonthlyTrainingRow(
             aggregate = monthlyAggregate,
         )
 
         workoutHistory.firstOrNull()?.let { lastWorkout ->
-            HevyntDottedRule()
+            Spacer(Modifier.height(14.dp))
             LastSessionRow(
                 session = lastWorkout,
                 onClick = { onOpenSession(lastWorkout.id) },
+                onRepeat = onRepeatLastWorkout,
             )
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -153,26 +162,25 @@ private fun WorkoutCalendarPanel(
         Text(
             monthTitle,
             modifier = Modifier.weight(1f),
-            fontFamily = HevyntDisplayFont,
-            fontSize = 25.sp,
-            letterSpacing = 1.2.sp,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+            letterSpacing = 0.5.sp,
         )
         IconButton(onClick = onPreviousMonth) {
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
                 contentDescription = "Previous month",
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(20.dp),
             )
         }
         IconButton(onClick = onNextMonth) {
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = "Next month",
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(20.dp),
             )
         }
     }
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(8.dp))
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth()) {
             listOf("MO", "TU", "WE", "TH", "FR", "SA", "SU").forEach { label ->
@@ -181,12 +189,12 @@ private fun WorkoutCalendarPanel(
                     modifier = Modifier.weight(1f),
                     color = HevyntTextSecondary,
                     textAlign = TextAlign.Center,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     letterSpacing = 0.4.sp,
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         repeat(month.weekCount) { week ->
             Row(Modifier.fillMaxWidth()) {
                 repeat(7) { weekday ->
@@ -208,26 +216,34 @@ private fun WorkoutCalendarPanel(
                         contentAlignment = Alignment.Center,
                     ) {
                         if (valid) {
-                            if (workoutCount > 0) {
-                                Box(
-                                    Modifier
-                                        .align(Alignment.CenterStart)
-                                        .width(2.dp)
-                                        .height(22.dp)
-                                        .background(MaterialTheme.colorScheme.primary)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text(
+                                    day.toString(),
+                                    color = if (today) HevyntAccent else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = if (today || workoutCount > 0) FontWeight.SemiBold else FontWeight.Normal,
+                                    fontSize = 14.sp,
                                 )
+                                if (workoutCount > 0) {
+                                    Box(
+                                        Modifier
+                                            .padding(top = 2.dp)
+                                            .size(4.dp)
+                                            .background(HevyntAccent, CircleShape)
+                                    )
+                                } else {
+                                    Spacer(Modifier.height(6.dp))
+                                }
                             }
-                            Text(
-                                day.toString(),
-                                color = if (today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                fontSize = 14.sp,
-                            )
                             if (workoutCount > 1) {
                                 Text(
                                     "×$workoutCount",
                                     modifier = Modifier.align(Alignment.BottomEnd).padding(end = 1.dp, bottom = 1.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 12.sp,
+                                    color = HevyntAccent,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
                                 )
                             }
                         }
@@ -243,60 +259,64 @@ private fun TodayTrainingRow(
     routine: RoutineSummary?,
     onStart: () -> Unit,
 ) {
-    Row(
+    HevyntPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .height(104.dp)
-            .clickable(onClick = onStart)
-            .padding(horizontal = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clickable(onClick = onStart),
     ) {
-        Box(
-            modifier = Modifier.size(52.dp),
-            contentAlignment = Alignment.Center,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            HevyntDotGrid(Modifier.size(32.dp))
-        }
-        Column(Modifier.weight(1f).padding(start = 12.dp, end = 10.dp)) {
-            Text(
-                "TODAY'S TRAINING",
-                color = HevyntTextSecondary,
-                fontSize = 12.sp,
-                letterSpacing = 0.7.sp,
-            )
-            Text(
-                routine?.name?.uppercase(Locale.getDefault()) ?: "CREATE A ROUTINE",
-                modifier = Modifier.padding(top = 5.dp),
-                fontSize = 18.sp,
-                letterSpacing = 0.2.sp,
-                maxLines = 1,
-            )
-            Text(
-                routine?.let {
-                    "${it.exerciseCount} exercise${if (it.exerciseCount == 1) "" else "s"}"
-                } ?: "Create a reusable workout structure.",
-                modifier = Modifier.padding(top = 4.dp),
-                color = HevyntTextSecondary,
-                fontSize = 12.sp,
-                maxLines = 1,
-            )
-        }
-        Column(
-            modifier = Modifier.padding(start = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                "START",
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 12.sp,
-                letterSpacing = 0.6.sp,
-            )
-            Icon(
-                Icons.AutoMirrored.Outlined.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 4.dp).size(20.dp),
-            )
+            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(
+                    "TODAY'S TRAINING",
+                    color = HevyntTextSecondary,
+                    style = MaterialTheme.typography.labelSmall,
+                    letterSpacing = 0.8.sp,
+                )
+                Text(
+                    routine?.name?.uppercase(Locale.getDefault()) ?: "CREATE A ROUTINE",
+                    modifier = Modifier.padding(top = 4.dp),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    routine?.let {
+                        "${it.exerciseCount} exercise${if (it.exerciseCount == 1) "" else "s"}"
+                    } ?: "Create a reusable workout structure.",
+                    modifier = Modifier.padding(top = 3.dp),
+                    color = HevyntTextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                )
+            }
+            Surface(
+                color = HevyntAccentContainer,
+                shape = MaterialTheme.shapes.small,
+                border = BorderStroke(1.dp, HevyntAccent.copy(alpha = 0.5f)),
+                modifier = Modifier.height(36.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "START",
+                        color = HevyntAccent,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    Icon(
+                        Icons.AutoMirrored.Outlined.ArrowForward,
+                        contentDescription = null,
+                        tint = HevyntAccent,
+                        modifier = Modifier.padding(start = 4.dp).size(16.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -305,24 +325,28 @@ private fun TodayTrainingRow(
 private fun MonthlyTrainingRow(
     aggregate: MonthlyWorkoutAggregate,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 16.dp),
+    HevyntPanel(
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(
-            "THIS MONTH",
-            color = HevyntTextSecondary,
-            fontSize = 12.sp,
-            letterSpacing = 0.8.sp,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
         ) {
-            MonthlyMetric("WORKOUTS", aggregate.workoutCount.toString())
-            MonthlyMetric("SETS", aggregate.completedSetCount.toString())
-            MonthlyMetric("VOLUME", "${formatWeight(aggregate.totalVolumeKg)} kg")
+            Text(
+                "THIS MONTH",
+                color = HevyntTextSecondary,
+                style = MaterialTheme.typography.labelSmall,
+                letterSpacing = 0.8.sp,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                MonthlyMetric("WORKOUTS", aggregate.workoutCount.toString())
+                MonthlyMetric("SETS", aggregate.completedSetCount.toString())
+                MonthlyMetric("VOLUME", "${formatWeight(aggregate.totalVolumeKg)} kg")
+            }
         }
     }
 }
@@ -330,8 +354,16 @@ private fun MonthlyTrainingRow(
 @Composable
 private fun MonthlyMetric(label: String, value: String) {
     Column {
-        Text(value, fontFamily = HevyntDisplayFont, fontSize = 20.sp)
-        Text(label, modifier = Modifier.padding(top = 3.dp), color = HevyntTextSecondary, fontSize = 12.sp)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+        )
+        Text(
+            label,
+            modifier = Modifier.padding(top = 3.dp),
+            color = HevyntTextSecondary,
+            style = MaterialTheme.typography.labelSmall,
+        )
     }
 }
 
@@ -339,36 +371,60 @@ private fun MonthlyMetric(label: String, value: String) {
 private fun LastSessionRow(
     session: WorkoutHistorySession,
     onClick: () -> Unit,
+    onRepeat: () -> Unit,
 ) {
-    Row(
+    HevyntPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clickable(onClick = onClick),
     ) {
-        Column(Modifier.weight(1f)) {
-            Text("LAST SESSION", color = HevyntTextSecondary, fontSize = 12.sp, letterSpacing = 0.8.sp)
-            Text(
-                session.routineName,
-                modifier = Modifier.padding(top = 5.dp),
-                fontSize = 16.sp,
-                maxLines = 1,
-            )
-            Text(
-                "${DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(session.completedAtMillis))} · " +
-                    "${session.completedSetCount} sets · ${formatWeight(session.totalVolumeKg)} kg",
-                modifier = Modifier.padding(top = 4.dp),
-                color = HevyntTextSecondary,
-                fontSize = 13.sp,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(
+                    "LAST SESSION",
+                    color = HevyntTextSecondary,
+                    style = MaterialTheme.typography.labelSmall,
+                    letterSpacing = 0.8.sp,
+                )
+                Text(
+                    session.routineName,
+                    modifier = Modifier.padding(top = 4.dp),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "${DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(session.completedAtMillis))} · " +
+                        "${session.completedSetCount} sets · ${formatWeight(session.totalVolumeKg)} kg",
+                    modifier = Modifier.padding(top = 3.dp),
+                    color = HevyntTextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            if (!session.isLegacySummaryOnly) {
+                TextButton(
+                    onClick = onRepeat,
+                    modifier = Modifier.padding(end = 4.dp),
+                ) {
+                    Text(
+                        "REPEAT",
+                        color = HevyntAccent,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = "Open last session",
+                tint = HevyntTextSecondary,
+                modifier = Modifier.size(18.dp),
             )
         }
-        Icon(
-            Icons.AutoMirrored.Outlined.ArrowForward,
-            contentDescription = "Open last session",
-            tint = HevyntTextSecondary,
-            modifier = Modifier.size(18.dp),
-        )
     }
 }
 

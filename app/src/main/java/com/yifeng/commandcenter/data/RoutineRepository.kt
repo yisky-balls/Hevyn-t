@@ -3,10 +3,12 @@ package com.yifeng.commandcenter.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.yifeng.commandcenter.widget.WorkoutWidgetUpdateDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -20,6 +22,7 @@ class RoutineRepository private constructor(
     private val dao: RoutineLibraryDao,
     private val legacySource: LegacyRoutineLibrarySource,
     private val legacyPreferences: SharedPreferences?,
+    private val onLibraryChanged: () -> Unit,
 ) {
     constructor(context: Context) : this(
         dao = RoutineLibraryDatabase.getInstance(context.applicationContext ?: context)
@@ -27,11 +30,15 @@ class RoutineRepository private constructor(
         legacySource = SharedPreferencesRoutineLibrarySource(context),
         legacyPreferences = (context.applicationContext ?: context)
             .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE),
+        onLibraryChanged = { WorkoutWidgetUpdateDispatcher.request(context.applicationContext ?: context) },
     )
 
     /** Lightweight reactive projection used by Home and the Workout launcher. */
     fun observeSummaries(): Flow<List<RoutineFolderSummary>> =
         dao.observeSummaries().map(List<RoutineLibrarySummaryRow>::toSummaryModels)
+
+    suspend fun summaries(): List<RoutineFolderSummary> =
+        dao.summaries().toSummaryModels()
 
     /** Complete hierarchy for editors, mutations, and exercise selection only. */
     fun observeFolders(): Flow<List<RoutineFolder>> = dao.observeLibrary().map { folders ->
@@ -52,6 +59,7 @@ class RoutineRepository private constructor(
 
             is LegacyRoutineLibraryResult.Ready -> {
                 if (dao.importLegacyOnce(legacy.folders)) {
+                    notifyLibraryChanged()
                     RoutineLibraryImportResult.Imported
                 } else {
                     RoutineLibraryImportResult.AlreadyImported
@@ -66,8 +74,35 @@ class RoutineRepository private constructor(
 
     suspend fun routine(routineId: String): Routine? = dao.routine(routineId)?.toModel()
 
+    suspend fun createFolder(name: String, id: String = UUID.randomUUID().toString()) {
+        val nextPosition = (dao.maxFolderPosition() ?: -1) + 1
+        dao.upsertFolder(RoutineFolderEntity(id = id, name = name, position = nextPosition))
+        notifyLibraryChanged()
+    }
+
+    suspend fun renameFolder(folderId: String, name: String) {
+        dao.updateFolderName(folderId, name)
+        notifyLibraryChanged()
+    }
+
+    suspend fun deleteFolder(folderId: String) {
+        dao.deleteFolderById(folderId)
+        notifyLibraryChanged()
+    }
+
+    suspend fun deleteRoutine(routineId: String) {
+        dao.deleteRoutineById(routineId)
+        notifyLibraryChanged()
+    }
+
+    suspend fun saveRoutine(folderId: String, routine: Routine, existingRoutineId: String? = null) {
+        dao.upsertRoutine(folderId, routine, existingRoutineId)
+        notifyLibraryChanged()
+    }
+
     suspend fun replaceFolders(folders: List<RoutineFolder>) {
         dao.replaceLibrary(folders)
+        notifyLibraryChanged()
     }
 
     /** Compatibility for repository instrumentation; production orchestration uses suspend APIs. */
@@ -119,6 +154,14 @@ class RoutineRepository private constructor(
         }
     }
 
+    private fun notifyLibraryChanged() {
+        try {
+            onLibraryChanged()
+        } catch (_: Exception) {
+            // Room is authoritative; launcher refresh failures never undo routine changes.
+        }
+    }
+
     private fun loadLegacyLastWorkout(preferences: SharedPreferences): LastWorkoutSummary? {
         val name = preferences.getString(KEY_LAST_NAME, null) ?: return null
         return LastWorkoutSummary(
@@ -152,7 +195,13 @@ class RoutineRepository private constructor(
         fun forTesting(
             dao: RoutineLibraryDao,
             legacySource: LegacyRoutineLibrarySource,
-        ) = RoutineRepository(dao, legacySource, legacyPreferences = null)
+            onLibraryChanged: () -> Unit = {},
+        ) = RoutineRepository(
+            dao = dao,
+            legacySource = legacySource,
+            legacyPreferences = null,
+            onLibraryChanged = onLibraryChanged,
+        )
 
         private const val PREFERENCES = "lift_programs"
         private const val KEY_LAST_NAME = "last_name"

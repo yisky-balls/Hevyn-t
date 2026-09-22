@@ -3,6 +3,7 @@ package com.yifeng.commandcenter.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,10 +36,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.yifeng.commandcenter.ui.theme.HevyntAccent
+import com.yifeng.commandcenter.ui.theme.HevyntAccentContainer
 import com.yifeng.commandcenter.ui.theme.HevyntCanvas
 import com.yifeng.commandcenter.ui.theme.HevyntDivider
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntSurfaceInteractive
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
@@ -51,23 +54,25 @@ internal fun HevyntPageHeader(
     subtitle: String,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 96.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(vertical = 12.dp),
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.displayLarge)
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineMedium,
+            color = HevyntTextPrimary,
+            letterSpacing = 0.5.sp,
+        )
+        if (subtitle.isNotBlank()) {
             Text(
-                subtitle,
-                modifier = Modifier.padding(top = 7.dp),
+                text = subtitle,
+                modifier = Modifier.padding(top = 4.dp),
                 color = HevyntTextSecondary,
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        Spacer(Modifier.width(20.dp))
-        HevyntDotGrid(Modifier.size(32.dp))
     }
 }
 
@@ -78,14 +83,11 @@ internal fun HevyntSectionLabel(
     color: Color = HevyntTextPrimary,
 ) {
     Text(
-        text,
+        text = text,
         modifier = modifier,
         color = color,
-        fontFamily = HevyntDisplayFont,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold,
-        lineHeight = 16.sp,
-        letterSpacing = 0.8.sp,
+        style = MaterialTheme.typography.labelMedium,
+        letterSpacing = 0.6.sp,
     )
 }
 
@@ -99,14 +101,12 @@ internal fun HevyntDottedRule(
     modifier: Modifier = Modifier,
     color: Color = HevyntDivider,
 ) {
-    Canvas(modifier.fillMaxWidth().height(2.dp)) {
-        val step = 7.dp.toPx()
-        var x = 0f
-        while (x <= size.width) {
-            drawCircle(color, 0.7.dp.toPx(), Offset(x, size.height / 2))
-            x += step
-        }
-    }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(color),
+    )
 }
 
 @Composable
@@ -114,14 +114,12 @@ internal fun HevyntVerticalDottedRule(
     modifier: Modifier = Modifier,
     color: Color = HevyntDivider,
 ) {
-    Canvas(modifier.width(2.dp).fillMaxHeight()) {
-        val step = 7.dp.toPx()
-        var y = 0f
-        while (y <= size.height) {
-            drawCircle(color, 0.7.dp.toPx(), Offset(size.width / 2, y))
-            y += step
-        }
-    }
+    Box(
+        modifier = modifier
+            .width(1.dp)
+            .fillMaxHeight()
+            .background(color),
+    )
 }
 
 @Composable
@@ -129,12 +127,12 @@ internal fun HevyntDotGrid(
     modifier: Modifier = Modifier,
     color: Color = HevyntTextSecondary,
 ) {
-    Canvas(modifier.size(30.dp)) {
-        val radius = 1.7.dp.toPx()
+    Canvas(modifier.size(24.dp)) {
+        val radius = 1.2.dp.toPx()
         val gap = size.minDimension / 4f
         repeat(3) { row ->
             repeat(3) { column ->
-                drawCircle(color, radius, Offset(gap * (column + 1), gap * (row + 1)))
+                drawCircle(color.copy(alpha = 0.4f), radius, Offset(gap * (column + 1), gap * (row + 1)))
             }
         }
     }
@@ -190,12 +188,14 @@ internal fun HevyntPrimaryButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.defaultMinSize(minHeight = 48.dp),
+        modifier = modifier.defaultMinSize(minHeight = 50.dp),
         enabled = enabled,
         shape = MaterialTheme.shapes.small,
         colors = ButtonDefaults.buttonColors(
             containerColor = HevyntAccent,
-            contentColor = HevyntCanvas,
+            contentColor = Color.White,
+            disabledContainerColor = HevyntAccent.copy(alpha = 0.35f),
+            disabledContentColor = Color.White.copy(alpha = 0.5f),
         ),
         contentPadding = contentPadding,
         content = content,
@@ -208,21 +208,25 @@ internal fun HevyntOutlineButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     accent: Boolean = false,
-    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
     content: @Composable RowScope.() -> Unit,
 ) {
-    OutlinedButton(
+    Surface(
         onClick = onClick,
         modifier = modifier.defaultMinSize(minHeight = 44.dp),
         enabled = enabled,
         shape = MaterialTheme.shapes.small,
-        border = BorderStroke(1.dp, if (accent) HevyntAccent else HevyntOutline),
-        colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = if (accent) HevyntAccent else HevyntTextPrimary,
-        ),
-        contentPadding = contentPadding,
-        content = content,
-    )
+        color = if (accent) HevyntAccentContainer else HevyntSurfaceInteractive,
+        border = BorderStroke(1.dp, if (accent) HevyntAccent.copy(alpha = 0.7f) else HevyntOutline),
+        contentColor = if (accent) HevyntAccent else HevyntTextPrimary,
+    ) {
+        Row(
+            modifier = Modifier.padding(contentPadding),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
 }
 
 @Composable

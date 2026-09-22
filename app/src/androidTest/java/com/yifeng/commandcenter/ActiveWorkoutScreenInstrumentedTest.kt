@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -40,6 +41,7 @@ class ActiveWorkoutScreenInstrumentedTest {
         composeRule.onNodeWithText("SETS").assertIsDisplayed()
         composeRule.onAllNodesWithContentDescription("Collapse exercise").assertCountEquals(1)
         composeRule.onAllNodesWithContentDescription("Expand exercise").assertCountEquals(3)
+        composeRule.onAllNodesWithContentDescription("Exercise options").assertCountEquals(4)
         composeRule.onNodeWithText("ROMANIAN DEADLIFT").assertIsDisplayed()
         composeRule.onNodeWithText("LEG PRESS").assertIsDisplayed()
         composeRule.onNodeWithText("SEATED LEG CURL").assertIsDisplayed()
@@ -51,6 +53,17 @@ class ActiveWorkoutScreenInstrumentedTest {
         composeRule.onNodeWithContentDescription("Edit rest timer").performClick()
         composeRule.onNodeWithText("REST TIMER").assertIsDisplayed()
         composeRule.onNodeWithText("02:15").assertIsDisplayed()
+    }
+
+    @Test
+    fun collapsedExerciseShowsPreviousSummaryAndKeepsOverflowAvailable() {
+        setWorkout()
+
+        composeRule.onNodeWithContentDescription("Collapse exercise").performClick()
+
+        composeRule.onNodeWithText("Last: 77 × 10, 77.5 × 8, 80 × 6, 80 × 6")
+            .assertIsDisplayed()
+        composeRule.onAllNodesWithContentDescription("Exercise options").assertCountEquals(4)
     }
 
     @Test
@@ -83,7 +96,7 @@ class ActiveWorkoutScreenInstrumentedTest {
         val workout = setWorkout()
         composeRule.onAllNodesWithText("REMOVE EXERCISE").assertCountEquals(0)
 
-        composeRule.onNodeWithContentDescription("Exercise options").performClick()
+        composeRule.onAllNodesWithContentDescription("Exercise options").onFirst().performClick()
         composeRule.onNodeWithText("REMOVE EXERCISE").performClick()
         composeRule.onNodeWithText("REMOVE EXERCISE?").assertIsDisplayed()
         composeRule.onNodeWithText("REMOVE").performClick()
@@ -139,6 +152,7 @@ class ActiveWorkoutScreenInstrumentedTest {
                             seconds,
                         )!!
                     },
+                    onExerciseMoved = { _, _ -> },
                     onExerciseRemoved = { exerciseId ->
                         workoutState.value = ActiveWorkoutOperations.removeExercise(
                             workoutState.value,

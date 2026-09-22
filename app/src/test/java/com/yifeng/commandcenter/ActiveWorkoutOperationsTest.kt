@@ -33,6 +33,27 @@ class ActiveWorkoutOperationsTest {
     }
 
     @Test
+    fun `moving an exercise preserves its complete state`() {
+        val bench = workout().exercises.single()
+        val row = ActiveExercise(
+            id = "row",
+            name = "Row",
+            notes = "Keep this",
+            restSeconds = 90,
+            sets = listOf(set("row-set", completed = true)),
+        )
+        val squat = ActiveExercise(id = "squat", name = "Squat", sets = listOf(set("squat-set")))
+        val original = workout().copy(exercises = listOf(bench, row, squat))
+
+        val moved = ActiveWorkoutOperations.moveExercise(original, "row", -1)!!
+
+        assertEquals(listOf("row", "bench", "squat"), moved.exercises.map { it.id })
+        assertEquals(row, moved.exercises.first())
+        assertNull(ActiveWorkoutOperations.moveExercise(moved, "row", -1))
+        assertNull(ActiveWorkoutOperations.moveExercise(moved, "missing", 1))
+    }
+
+    @Test
     fun removeSet_removesExactSetAndPreservesOthers() {
         val workout = workout().copy(
             exercises = listOf(

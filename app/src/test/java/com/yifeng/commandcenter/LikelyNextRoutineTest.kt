@@ -1,6 +1,7 @@
 package com.yifeng.commandcenter
 
 import com.yifeng.commandcenter.data.LikelyNextRoutinePredictor
+import com.yifeng.commandcenter.data.LikelyNextRoutineResolver
 import com.yifeng.commandcenter.data.RoutineFolderSummary
 import com.yifeng.commandcenter.data.RoutineRecommendationReason
 import com.yifeng.commandcenter.data.RoutineSummary
@@ -65,6 +66,18 @@ class LikelyNextRoutineTest {
         )
 
         assertEquals("A", result?.routine?.id)
+    }
+
+    @Test
+    fun `shared resolver returns recommendation with attached last performed metadata`() {
+        val resolved = LikelyNextRoutineResolver.resolve(
+            folders = folder("A", "B", "C"),
+            history = history("A", "B"),
+        )
+
+        assertEquals("C", resolved.recommendation?.routine?.id)
+        assertEquals(1_000L, resolved.folders.single().routines.first { it.id == "A" }.lastPerformedAtMillis)
+        assertEquals(2_000L, resolved.folders.single().routines.first { it.id == "B" }.lastPerformedAtMillis)
     }
 
     @Test

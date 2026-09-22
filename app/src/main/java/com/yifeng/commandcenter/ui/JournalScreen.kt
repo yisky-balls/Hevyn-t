@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,11 +87,10 @@ fun JournalScreen(
         filter?.let {
             item {
                 TextButton(onClick = onClearFilter, contentPadding = PaddingValues(0.dp)) {
-                    Text("Show all sessions", fontSize = 14.sp)
+                    Text("SHOW ALL SESSIONS", fontSize = 14.sp)
                 }
             }
         }
-        item { HevyntDottedRule() }
         if (visibleEntries.isEmpty()) {
             item { JournalEmptyState(filter != null) }
         } else {
@@ -100,7 +100,6 @@ fun JournalScreen(
                     photoFile = entry.photo?.let { photoFiles[it.id] },
                     onClick = { onOpenSession(entry.session.id) },
                 )
-                HevyntDottedRule(Modifier.padding(top = 14.dp))
             }
         }
     }
@@ -112,52 +111,56 @@ private fun JournalEntryRow(
     photoFile: File?,
     onClick: () -> Unit,
 ) {
-    Row(
+    HevyntPanel(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        JournalPhoto(
-            photoFile = photoFile,
-            modifier = Modifier.size(width = 92.dp, height = 82.dp),
-        )
-        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-            Text(
-                entry.session.routineName,
-                fontSize = 16.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            JournalPhoto(
+                photoFile = photoFile,
+                modifier = Modifier.size(width = 82.dp, height = 74.dp),
             )
-            Text(
-                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                    .format(Date(entry.session.completedAtMillis)),
-                modifier = Modifier.padding(top = 4.dp),
-                color = HevyntTextSecondary,
-                fontSize = 13.sp,
-            )
-            Text(
-                "${entry.session.completedSetCount} sets · ${formatWeight(entry.session.totalVolumeKg)} kg · " +
-                    formatHistoryDuration(entry.session.durationMillis),
-                modifier = Modifier.padding(top = 4.dp),
-                color = HevyntTextSecondary,
-                fontSize = 13.sp,
-                maxLines = 1,
-            )
-            entry.session.note.takeIf(String::isNotBlank)?.let { note ->
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                 Text(
-                    note,
-                    modifier = Modifier.padding(top = 5.dp),
-                    fontSize = 14.sp,
+                    entry.session.routineName,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Text(
+                    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                        .format(Date(entry.session.completedAtMillis)),
+                    modifier = Modifier.padding(top = 3.dp),
+                    color = HevyntTextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    "${entry.session.completedSetCount} sets · ${formatWeight(entry.session.totalVolumeKg)} kg · " +
+                        formatHistoryDuration(entry.session.durationMillis),
+                    modifier = Modifier.padding(top = 3.dp),
+                    color = HevyntTextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                )
+                entry.session.note.takeIf(String::isNotBlank)?.let { note ->
+                    Text(
+                        note,
+                        modifier = Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = "Open workout",
+                tint = HevyntTextSecondary,
+                modifier = Modifier.size(18.dp),
+            )
         }
-        Icon(
-            Icons.AutoMirrored.Outlined.ArrowForward,
-            contentDescription = "Open workout",
-            tint = HevyntTextSecondary,
-            modifier = Modifier.size(18.dp),
-        )
     }
 }
 
@@ -183,7 +186,11 @@ fun JournalDetailScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back to journal")
                 }
-                Text("SESSION DETAIL", fontFamily = HevyntDisplayFont, fontSize = 24.sp, letterSpacing = 1.sp)
+                Text(
+                    "SESSION DETAIL",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    letterSpacing = 0.5.sp,
+                )
             }
         }
         item {
@@ -193,78 +200,92 @@ fun JournalDetailScreen(
             )
         }
         item {
-            Text(graph.session.routineName, fontFamily = HevyntDisplayFont, fontSize = 28.sp)
+            Text(
+                graph.session.routineName,
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+            )
             Text(
                 DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT)
                     .format(Date(graph.session.completedAtMillis)),
                 modifier = Modifier.padding(top = 5.dp),
                 color = HevyntTextSecondary,
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                JournalMetric("DURATION", formatHistoryDuration(graph.session.durationMillis))
-                JournalMetric("SETS", graph.session.completedSetCount.toString())
-                JournalMetric("VOLUME", "${formatWeight(graph.session.totalVolumeKg)} kg")
+            HevyntPanel(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    JournalMetric("DURATION", formatHistoryDuration(graph.session.durationMillis))
+                    JournalMetric("SETS", graph.session.completedSetCount.toString())
+                    JournalMetric("VOLUME", "${formatWeight(graph.session.totalVolumeKg)} kg")
+                }
             }
         }
         graph.session.note.takeIf(String::isNotBlank)?.let { note ->
             item {
-                HevyntDottedRule()
-                Text("NOTE", modifier = Modifier.padding(top = 14.dp), color = HevyntTextSecondary, fontSize = 12.sp)
-                Text(note, modifier = Modifier.padding(top = 6.dp), fontSize = 15.sp, lineHeight = 22.sp)
+                HevyntPanel(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("NOTE", color = HevyntTextSecondary, style = MaterialTheme.typography.labelSmall)
+                        Text(note, modifier = Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodyMedium, lineHeight = 22.sp)
+                    }
+                }
             }
         }
         if (graph.session.isLegacySummaryOnly) {
             item {
-                HevyntDottedRule()
                 Text(
                     "Detailed sets unavailable for workouts saved by an older version",
-                    modifier = Modifier.padding(top = 14.dp),
+                    modifier = Modifier.padding(top = 8.dp),
                     color = HevyntTextSecondary,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     lineHeight = 20.sp,
                 )
             }
         } else {
             items(graph.exercises, key = { it.exercise.id }) { exerciseGraph ->
-                HevyntDottedRule()
-                Column(Modifier.padding(top = 14.dp)) {
-                    Text(exerciseGraph.exercise.name, fontSize = 17.sp)
-                    exerciseGraph.exercise.note.takeIf(String::isNotBlank)?.let { note ->
-                        Text(note, modifier = Modifier.padding(top = 4.dp), color = HevyntTextSecondary, fontSize = 14.sp)
-                    }
-                    exerciseGraph.sets.filter { it.completed }.forEach { set ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().height(42.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                (set.position + 1).toString(),
-                                modifier = Modifier.width(38.dp),
-                                color = HevyntTextSecondary,
-                                fontSize = 14.sp,
-                            )
-                            Text(
-                                set.weightKg?.let { "${formatWeight(it)} kg" } ?: "—",
-                                modifier = Modifier.weight(1f),
-                                fontSize = 15.sp,
-                            )
-                            Text(
-                                set.repetitions?.let { "$it reps" } ?: "—",
-                                fontSize = 15.sp,
-                            )
+                HevyntPanel(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            exerciseGraph.exercise.name,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        )
+                        exerciseGraph.exercise.note.takeIf(String::isNotBlank)?.let { note ->
+                            Text(note, modifier = Modifier.padding(top = 4.dp), color = HevyntTextSecondary, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        exerciseGraph.sets.filter { it.completed }.forEach { set ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().height(36.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    (set.position + 1).toString(),
+                                    modifier = Modifier.width(36.dp),
+                                    color = HevyntTextSecondary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Text(
+                                    set.weightKg?.let { "${formatWeight(it)} kg" } ?: "—",
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                )
+                                Text(
+                                    set.repetitions?.let { "$it reps" } ?: "—",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
                         }
                     }
                 }
             }
         }
         item {
-            HevyntDottedRule()
             HevyntOutlineButton(
                 onClick = onDelete,
-                modifier = Modifier.fillMaxWidth().height(50.dp).padding(top = 10.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp).padding(top = 4.dp),
             ) {
                 Icon(
                     Icons.Outlined.Delete,
@@ -272,7 +293,7 @@ fun JournalDetailScreen(
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(19.dp),
                 )
-                Text("  Delete session", color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
+                Text("  DELETE SESSION", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
             }
         }
     }
@@ -304,8 +325,16 @@ private fun JournalPhoto(photoFile: File?, modifier: Modifier) {
 @Composable
 private fun JournalMetric(label: String, value: String) {
     Column {
-        Text(value, fontFamily = HevyntDisplayFont, fontSize = 20.sp)
-        Text(label, modifier = Modifier.padding(top = 3.dp), color = HevyntTextSecondary, fontSize = 12.sp)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+        )
+        Text(
+            label,
+            modifier = Modifier.padding(top = 3.dp),
+            color = HevyntTextSecondary,
+            style = MaterialTheme.typography.labelSmall,
+        )
     }
 }
 

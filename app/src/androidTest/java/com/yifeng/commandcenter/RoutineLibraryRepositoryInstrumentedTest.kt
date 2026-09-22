@@ -57,11 +57,30 @@ class RoutineLibraryRepositoryInstrumentedTest {
 
         val summaries = repository.observeSummaries().first()
 
+        assertEquals(summaries, repository.summaries())
         assertEquals(listOf("folder-2", "folder-1"), summaries.map { it.id })
         assertEquals(listOf("routine-2", "routine-1"), summaries.first().routines.map { it.id })
         assertEquals(listOf(1, 0), summaries.first().routines.map { it.exerciseCount })
         assertTrue(summaries.last().routines.isEmpty())
         assertEquals("Row", repository.routine("routine-2")?.exercises?.single()?.name)
+    }
+
+    @Test
+    fun successfulLibraryWritesRequestWidgetRefresh() = runBlocking {
+        var refreshes = 0
+        val repository = RoutineRepository.forTesting(
+            database.routineLibraryDao(),
+            LegacyRoutineLibrarySource {
+                LegacyRoutineLibraryResult.Ready(orderedLibrary())
+            },
+            onLibraryChanged = { refreshes += 1 },
+        )
+
+        repository.initialize()
+        assertEquals(1, refreshes)
+
+        repository.replaceFolders(listOf(RoutineFolder(id = "replacement", name = "Replacement")))
+        assertEquals(2, refreshes)
     }
 
     @Test
