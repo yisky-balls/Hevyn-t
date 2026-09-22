@@ -12,20 +12,37 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -241,3 +258,262 @@ internal fun hevyntTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedContainerColor = Color.Transparent,
     unfocusedContainerColor = Color.Transparent,
 )
+
+@Composable
+internal fun HevyntChip(
+    text: String,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    active: Boolean = false,
+    leadingDotColor: Color? = null,
+) {
+    val haptic = LocalHapticFeedback.current
+    Surface(
+        onClick = {
+            onClick?.let {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                it()
+            }
+        },
+        enabled = onClick != null,
+        color = if (active) HevyntAccentContainer else HevyntSurfaceInteractive,
+        border = BorderStroke(1.dp, if (active) HevyntAccent.copy(alpha = 0.7f) else HevyntOutline),
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            leadingDotColor?.let { dotColor ->
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .background(dotColor, CircleShape),
+                )
+            }
+            Text(
+                text = text,
+                color = if (active) HevyntAccent else HevyntTextPrimary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.4.sp,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun HevyntMetricItem(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    highlight: Boolean = false,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = HevyntTextSecondary,
+            letterSpacing = 0.8.sp,
+            fontSize = 9.sp,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (highlight) HevyntAccent else HevyntTextPrimary,
+            fontFamily = HevyntDisplayFont,
+        )
+    }
+}
+
+@Composable
+internal fun HevyntConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String = "CONFIRM",
+    dismissText: String = "CANCEL",
+    isDestructive: Boolean = false,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    HevyntDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        },
+        text = {
+            Text(message, style = MaterialTheme.typography.bodyMedium, color = HevyntTextSecondary)
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(
+                    confirmText,
+                    color = if (isDestructive) MaterialTheme.colorScheme.error else HevyntAccent,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(dismissText, color = HevyntTextSecondary)
+            }
+        },
+    )
+}
+
+@Composable
+internal fun HevyntInputDialog(
+    title: String,
+    initialValue: String = "",
+    label: String = "Name",
+    confirmText: String = "SAVE",
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by rememberSaveable { mutableStateOf(initialValue) }
+    HevyntDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text(label) },
+                    singleLine = true,
+                    colors = hevyntTextFieldColors(),
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val trimmed = text.trim()
+                    if (trimmed.isNotEmpty()) onConfirm(trimmed)
+                },
+                enabled = text.isNotBlank(),
+            ) {
+                Text(confirmText, color = HevyntAccent, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("CANCEL", color = HevyntTextSecondary)
+            }
+        },
+    )
+}
+
+@Composable
+fun HevyntBottomBar(
+    selectedPage: AppPage,
+    onPageSelected: (AppPage) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptic = LocalHapticFeedback.current
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            color = HevyntSurfaceRaised,
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, HevyntOutline),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                HevyntBottomDestination(
+                    label = "HOME",
+                    selected = selectedPage == AppPage.Home,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onPageSelected(AppPage.Home)
+                    },
+                ) {
+                    Icon(Icons.Outlined.Home, contentDescription = "Home", modifier = Modifier.size(22.dp))
+                }
+                HevyntBottomDestination(
+                    label = "WORKOUT",
+                    selected = selectedPage == AppPage.Workout,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onPageSelected(AppPage.Workout)
+                    },
+                ) {
+                    Icon(Icons.Outlined.Build, contentDescription = "Workout", modifier = Modifier.size(22.dp))
+                }
+                HevyntBottomDestination(
+                    label = "JOURNAL",
+                    selected = selectedPage == AppPage.Journal,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onPageSelected(AppPage.Journal)
+                    },
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.List,
+                        contentDescription = "Journal",
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.HevyntBottomDestination(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    val contentColor = if (selected) MaterialTheme.colorScheme.primary else HevyntTextSecondary
+    Surface(
+        onClick = onClick,
+        color = if (selected) HevyntAccentContainer.copy(alpha = 0.6f) else Color.Transparent,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .padding(vertical = 4.dp, horizontal = 4.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Surface(color = Color.Transparent, contentColor = contentColor) { icon() }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                label,
+                color = contentColor,
+                fontSize = 10.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                letterSpacing = 0.5.sp,
+            )
+        }
+    }
+}

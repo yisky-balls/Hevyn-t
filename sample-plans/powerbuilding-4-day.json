@@ -1,0 +1,215 @@
+{
+  "format": "hevynt-workout-plan",
+  "version": 1,
+  "programId": "powerbuilding-4-day",
+  "programName": "Powerbuilding 4-Day",
+  "folder": {
+    "name": "Powerbuilding 4-Day",
+    "routines": [
+      {
+        "id": "tue-upper-a",
+        "name": "TUE — Upper A",
+        "exercises": [
+          {
+            "name": "Bench Press",
+            "notes": "HEAVY: 1×4–6 @ RPE 8\nBACKOFF: 3×5–8 @ RPE 7–7.5",
+            "restSeconds": 180,
+            "sets": 4
+          },
+          {
+            "name": "Chest-Supported Row",
+            "notes": "3×6–8 @ RPE 8",
+            "restSeconds": 150,
+            "sets": 3
+          },
+          {
+            "name": "Incline DB Press",
+            "notes": "3×8–10 @ RPE 8",
+            "restSeconds": 150,
+            "sets": 3
+          },
+          {
+            "name": "Lat Pulldown / Pull-ups",
+            "notes": "3×8–12 @ RPE 8–9",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Lateral Raise",
+            "notes": "3×12–15 @ RPE 8–9",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Triceps",
+            "notes": "3×10–12 @ RPE 8–9",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Biceps",
+            "notes": "3×10–12 @ RPE 8–9",
+            "restSeconds": 90,
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "id": "thu-lower-a",
+        "name": "THU — Lower A",
+        "exercises": [
+          {
+            "name": "Back Squat",
+            "notes": "HEAVY: 1×4–6 @ RPE 8\nBACKOFF: 3×5–8 @ RPE 7–7.5",
+            "restSeconds": 240,
+            "sets": 4
+          },
+          {
+            "name": "Leg Press / Hack Squat",
+            "notes": "3×8–10 @ RPE 8",
+            "restSeconds": 180,
+            "sets": 3
+          },
+          {
+            "name": "Leg Curl",
+            "notes": "3×10–12 @ RPE 8–9",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Leg Extension",
+            "notes": "3×10–12 @ RPE 8–9",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Calves",
+            "notes": "3×12–15 @ RPE 8–9",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Abs",
+            "notes": "3×12–15 @ RPE 8–9",
+            "restSeconds": 90,
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "id": "sat-upper-b",
+        "name": "SAT — Upper B",
+        "exercises": [
+          {
+            "name": "Bench Press",
+            "notes": "3×6–8 @ RPE 8",
+            "restSeconds": 180,
+            "sets": 3
+          },
+          {
+            "name": "Seated Cable Row",
+            "notes": "3×8–10 @ RPE 8",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Incline Press",
+            "notes": "3×8–10 @ RPE 8",
+            "restSeconds": 150,
+            "sets": 3
+          },
+          {
+            "name": "Lat Pulldown",
+            "notes": "3×8–12 @ RPE 8–9",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Lateral Raise",
+            "notes": "3×12–15 @ RPE 8–9",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Rear Delt Fly",
+            "notes": "3×12–15 @ RPE 8–9",
+            "restSeconds": 90,
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "id": "sun-lower-b",
+        "name": "SUN — Lower B",
+        "exercises": [
+          {
+            "name": "Deadlift",
+            "notes": "HEAVY: 1×4–6 @ RPE 8\nBACKOFF: 2×5–8 @ RPE 7–7.5",
+            "restSeconds": 240,
+            "sets": 3
+          },
+          {
+            "name": "Leg Press / Hack Squat",
+            "notes": "3×8–10 @ RPE 8",
+            "restSeconds": 180,
+            "sets": 3
+          },
+          {
+            "name": "Leg Curl",
+            "notes": "3×10–12 @ RPE 8–9",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Bulgarian Split Squat / Lunges",
+            "notes": "3×8–10 @ RPE 8",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Calves",
+            "notes": "3×12–15 @ RPE 8–9",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Abs",
+            "notes": "3×12–15 @ RPE 8–9",
+            "restSeconds": 90,
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "id": "opt-arm-day",
+        "name": "OPTIONAL — Arm Day",
+        "exercises": [
+          {
+            "name": "EZ-Bar Curl",
+            "notes": "3×8–10 @ RPE 8",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Incline DB Curl",
+            "notes": "3×10–12 @ RPE 8",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Cable Pushdown",
+            "notes": "3×10–12 @ RPE 8",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Overhead Extension",
+            "notes": "3×10–12 @ RPE 8",
+            "restSeconds": 90,
+            "sets": 3
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -72,6 +72,121 @@ object PreviousSetResolver {
         return null
     }
 
+    fun resolveExerciseHistory(
+        workout: ActiveWorkout,
+        history: List<WorkoutHistoryGraph>,
+    ): Map<String, ExerciseHistorySummary> = buildMap {
+        val completedBefore = history
+            .filter { it.session.completedAtMillis < workout.startedAtMillis && !it.session.isLegacySummaryOnly }
+            .sortedByDescending { it.session.completedAtMillis }
+
+        workout.exercises.forEach { activeExercise ->
+            val normalizedName = normalizeExerciseName(activeExercise.name)
+            val sessions = mutableListOf<HistoricalExerciseSession>()
+            completedBefore.forEach { graph ->
+                val matchingExercise = graph.exercises.firstOrNull { exerciseGraph ->
+                    ((activeExercise.sourceRoutineExerciseId != null &&
+                        exerciseGraph.exercise.sourceRoutineExerciseId == activeExercise.sourceRoutineExerciseId) ||
+                        (normalizedName.isNotEmpty() &&
+                            normalizeExerciseName(exerciseGraph.exercise.name) == normalizedName)) &&
+                        exerciseGraph.sets.any(WorkoutHistorySet::completed)
+                } ?: return@forEach
+
+                val completedSets = matchingExercise.sets
+                    .filter(WorkoutHistorySet::completed)
+                    .sortedBy { it.position }
+                    .map { PreviousSetPerformance(it.weightKg, it.repetitions) }
+
+                if (completedSets.isNotEmpty()) {
+                    sessions.add(
+                        HistoricalExerciseSession(
+                            completedAtMillis = graph.session.completedAtMillis,
+                            sets = completedSets,
+                        )
+                    )
+                }
+            }
+
+            if (sessions.isNotEmpty()) {
+                put(
+                    activeExercise.id,
+                    ExerciseHistorySummary(
+                        lastSession = sessions.firstOrNull(),
+                        recentSessions = sessions.take(3),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun resolveExerciseHistoryRows(
+        workout: ActiveWorkout,
+        rows: List<HistoricalExerciseSetRow>,
+    ): Map<String, ExerciseHistorySummary> = buildMap {
+        val latestFirst = rows
+            .filter { it.completedAtMillis < workout.startedAtMillis }
+            .sortedByDescending(HistoricalExerciseSetRow::completedAtMillis)
+
+        workout.exercises.forEach { activeExercise ->
+            val normalizedName = normalizeExerciseName(activeExercise.name)
+            val matchedRows = latestFirst.filter { row ->
+                (activeExercise.sourceRoutineExerciseId != null &&
+                    row.sourceRoutineExerciseId == activeExercise.sourceRoutineExerciseId) ||
+                    (normalizedName.isNotEmpty() && normalizeExerciseName(row.exerciseName) == normalizedName)
+            }
+            if (matchedRows.isEmpty()) return@forEach
+
+            val sessions = matchedRows
+                .groupBy { it.workoutExerciseId }
+                .values
+                .map { exerciseRows ->
+                    val completedAt = exerciseRows.first().completedAtMillis
+                    val sets = exerciseRows
+                        .sortedWith(compareBy({ it.setPosition }, { it.completedAtMillis }))
+                        .map { PreviousSetPerformance(it.weightKg, it.repetitions) }
+                    HistoricalExerciseSession(
+                        completedAtMillis = completedAt,
+                        sets = sets,
+                    )
+                }
+                .sortedByDescending { it.completedAtMillis }
+
+            put(
+                activeExercise.id,
+                ExerciseHistorySummary(
+                    lastSession = sessions.firstOrNull(),
+                    recentSessions = sessions.take(3),
+                ),
+            )
+        }
+    }
+
+    fun evaluateProgression(
+        currentWeight: String?,
+        currentReps: String?,
+        previous: PreviousSetPerformance?,
+    ): ProgressionTrend {
+        if (previous == null) return ProgressionTrend.NONE
+        val prevWeight = previous.weightKg
+        val prevReps = previous.repetitions
+        if (prevWeight == null && prevReps == null) return ProgressionTrend.NONE
+
+        val currWeight = currentWeight?.toDoubleOrNull()
+        val currReps = currentReps?.toIntOrNull()
+        if (currWeight == null || currReps == null) return ProgressionTrend.NONE
+
+        val pWeight = prevWeight ?: 0.0
+        val pReps = prevReps ?: 0
+
+        return when {
+            currWeight > pWeight && currReps >= pReps -> ProgressionTrend.IMPROVED
+            currWeight == pWeight && currReps > pReps -> ProgressionTrend.IMPROVED
+            currWeight < pWeight && currReps <= pReps -> ProgressionTrend.REGRESSED
+            currWeight == pWeight && currReps < pReps -> ProgressionTrend.REGRESSED
+            else -> ProgressionTrend.NEUTRAL
+        }
+    }
+
     fun format(performance: PreviousSetPerformance?): String {
         if (performance == null) return "—"
         val weight = performance.weightKg?.let(::formatWeight) ?: "—"

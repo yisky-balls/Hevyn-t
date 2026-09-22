@@ -150,6 +150,78 @@ class ActiveWorkoutOperationsTest {
         assertEquals("10", copied.reps)
     }
 
+    @Test
+    fun duplicateSet_createsUncompletedSetWithSameValuesRightAfterTarget() {
+        val original = workout(firstCompleted = true)
+        val updated = ActiveWorkoutOperations.duplicateSet(original, "bench", "one")!!
+
+        val sets = updated.exercises.first().sets
+        assertEquals(3, sets.size)
+        assertEquals("one", sets[0].id)
+        assertTrue(sets[0].completed)
+
+        val duplicated = sets[1]
+        assertFalse(duplicated.id == "one")
+        assertFalse(duplicated.id == "two")
+        assertEquals("80", duplicated.weight)
+        assertEquals("6", duplicated.reps)
+        assertFalse(duplicated.completed)
+
+        assertEquals("two", sets[2].id)
+    }
+
+    @Test
+    fun duplicateSet_returnsNullForMissingExerciseOrSet() {
+        val original = workout()
+        assertNull(ActiveWorkoutOperations.duplicateSet(original, "missing_exercise", "one"))
+        assertNull(ActiveWorkoutOperations.duplicateSet(original, "bench", "missing_set"))
+    }
+
+    @Test
+    fun adjustWeight_incrementsDecrementsAndClamps() {
+        val original = WorkoutSet(weight = "80.0", reps = "8")
+
+        val increased = ActiveWorkoutOperations.adjustWeight(original, 2.5)
+        assertEquals("82.5", increased.weight)
+
+        val decreased = ActiveWorkoutOperations.adjustWeight(original, -2.5)
+        assertEquals("77.5", decreased.weight)
+
+        val clamped = ActiveWorkoutOperations.adjustWeight(WorkoutSet(weight = "1.0"), -2.5)
+        assertEquals("0", clamped.weight)
+
+        val fromBlank = ActiveWorkoutOperations.adjustWeight(WorkoutSet(weight = ""), 2.5)
+        assertEquals("2.5", fromBlank.weight)
+    }
+
+    @Test
+    fun adjustReps_incrementsDecrementsAndClamps() {
+        val original = WorkoutSet(weight = "80", reps = "8")
+
+        val increased = ActiveWorkoutOperations.adjustReps(original, 1)
+        assertEquals("9", increased.reps)
+
+        val decreased = ActiveWorkoutOperations.adjustReps(original, -1)
+        assertEquals("7", decreased.reps)
+
+        val clamped = ActiveWorkoutOperations.adjustReps(WorkoutSet(reps = "0"), -1)
+        assertEquals("0", clamped.reps)
+
+        val fromBlank = ActiveWorkoutOperations.adjustReps(WorkoutSet(reps = ""), 1)
+        assertEquals("1", fromBlank.reps)
+    }
+
+    @Test
+    fun copyPrecedingSet_copiesWeightAndReps() {
+        val preceding = WorkoutSet(id = "prev", weight = "95.5", reps = "10")
+        val current = WorkoutSet(id = "curr", weight = "", reps = "", completed = false)
+
+        val updated = ActiveWorkoutOperations.copyPrecedingSet(current, preceding)
+        assertEquals("95.5", updated.weight)
+        assertEquals("10", updated.reps)
+        assertFalse(updated.completed)
+    }
+
     private fun workout(firstCompleted: Boolean = false) = ActiveWorkout(
         routineName = "Test",
         exercises = listOf(

@@ -86,8 +86,33 @@ abstract class RoutineLibraryDao {
     @Query("UPDATE routine_folders SET name = :name WHERE id = :folderId")
     abstract suspend fun updateFolderName(folderId: String, name: String): Int
 
+    @Query("SELECT * FROM routine_folders WHERE id = :folderId LIMIT 1")
+    abstract suspend fun folderById(folderId: String): RoutineFolderEntity?
+
     @Query("DELETE FROM routine_folders WHERE id = :folderId")
     abstract suspend fun deleteFolderById(folderId: String): Int
+
+    @Transaction
+    open suspend fun importProgram(
+        folder: RoutineFolderEntity,
+        routines: List<RoutineEntity>,
+        exercises: List<RoutineExerciseEntity>,
+        sets: List<RoutineSetEntity>,
+        metadataKey: String,
+        replaceExisting: Boolean,
+    ): Boolean {
+        val existing = folderById(folder.id)
+        if (existing != null) {
+            if (!replaceExisting) return false
+            deleteFolderById(folder.id)
+        }
+        insertFolders(listOf(folder))
+        if (routines.isNotEmpty()) insertRoutines(routines)
+        if (exercises.isNotEmpty()) insertExercises(exercises)
+        if (sets.isNotEmpty()) insertSets(sets)
+        putMetadata(RoutineLibraryMetadataEntity(metadataKey, folder.id))
+        return true
+    }
 
     @Query("DELETE FROM routines WHERE id = :routineId")
     abstract suspend fun deleteRoutineById(routineId: String): Int

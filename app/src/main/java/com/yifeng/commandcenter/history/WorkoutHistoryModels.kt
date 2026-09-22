@@ -78,6 +78,31 @@ data class PreviousSetPerformance(
     val repetitions: Int?,
 )
 
+data class HistoricalExerciseSession(
+    val completedAtMillis: Long,
+    val sets: List<PreviousSetPerformance>,
+) {
+    val bestSet: PreviousSetPerformance?
+        get() = sets.maxWithOrNull(
+            compareBy(
+                { it.weightKg ?: 0.0 },
+                { it.repetitions ?: 0 },
+            )
+        )
+}
+
+data class ExerciseHistorySummary(
+    val lastSession: HistoricalExerciseSession? = null,
+    val recentSessions: List<HistoricalExerciseSession> = emptyList(),
+)
+
+enum class ProgressionTrend {
+    IMPROVED,
+    REGRESSED,
+    NEUTRAL,
+    NONE,
+}
+
 /** Compact joined history row used by the active logger; no complete workout graph is hydrated. */
 data class HistoricalExerciseSetRow(
     val workoutExerciseId: String,

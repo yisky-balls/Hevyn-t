@@ -12,6 +12,10 @@ import com.yifeng.commandcenter.data.RoutineFolder
 import com.yifeng.commandcenter.data.RoutineLibraryDatabase
 import com.yifeng.commandcenter.data.RoutineLibraryImportResult
 import com.yifeng.commandcenter.data.RoutineRepository
+import com.yifeng.commandcenter.data.WorkoutPlanDto
+import com.yifeng.commandcenter.data.WorkoutPlanExerciseDto
+import com.yifeng.commandcenter.data.WorkoutPlanFolderDto
+import com.yifeng.commandcenter.data.WorkoutPlanRoutineDto
 import com.yifeng.commandcenter.data.WorkoutSet
 import java.io.IOException
 import kotlinx.coroutines.flow.first
@@ -182,6 +186,54 @@ class RoutineLibraryRepositoryInstrumentedTest {
         assertEquals(RoutineLibraryImportResult.AlreadyImported, repository.initialize())
         assertEquals(1, reads)
         assertEquals("Room is authoritative", repository.folders().single().name)
+    }
+
+    @Test
+    fun importWorkoutPlanCreatesEntitiesAndPreservesExistingDataInRoom() = runBlocking {
+        val existing = listOf(RoutineFolder(id = "manual-folder", name = "Manual Folder"))
+        val repository = repositoryWith(LegacyRoutineLibraryResult.Ready(existing))
+        repository.initialize()
+
+        val plan = WorkoutPlanDto(
+            format = "hevynt-workout-plan",
+            version = 1,
+            programId = "pb-test",
+            programName = "PB Test",
+            folder = WorkoutPlanFolderDto(
+                name = "PB Test",
+                routines = listOf(
+                    WorkoutPlanRoutineDto(
+                        id = "upper-test",
+                        name = "Upper Test",
+                        exercises = listOf(
+                            WorkoutPlanExerciseDto(
+                                name = "Bench",
+                                notes = "Heavy 1x5",
+                                restSeconds = 180,
+                                sets = 3,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertFalse(repository.hasProgram("pb-test"))
+        assertTrue(repository.importWorkoutPlan(plan, replaceExisting = false))
+        assertTrue(repository.hasProgram("pb-test"))
+
+        val folders = repository.folders()
+        assertEquals(2, folders.size)
+        assertEquals("Manual Folder", folders[0].name)
+        assertEquals("PB Test", folders[1].name)
+
+        val routine = folders[1].routines.single()
+        assertEquals("Upper Test", routine.name)
+        val exercise = routine.exercises.single()
+        assertEquals("Bench", exercise.name)
+        assertEquals("Heavy 1x5", exercise.notes)
+        assertEquals(180, exercise.restSeconds)
+        assertEquals(3, exercise.sets.size)
     }
 
     private fun repositoryWith(result: LegacyRoutineLibraryResult) = RoutineRepository.forTesting(

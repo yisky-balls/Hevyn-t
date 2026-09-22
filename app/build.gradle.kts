@@ -35,8 +35,8 @@ android {
         applicationId = "com.yifeng.commandcenter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.9.2"
+        versionCode = 8
+        versionName = "1.9.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -94,6 +94,7 @@ dependencies {
     implementation(libs.coil.compose)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

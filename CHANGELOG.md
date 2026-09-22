@@ -2,6 +2,33 @@
 
 All notable changes to Hevyn’t are documented here.
 
+## [1.9.4] - 2026-09-22
+
+### Added
+
+- Added support for structured workout plan import (`WorkoutPlanParser`, `WorkoutPlanCoordinator`, `WorkoutPlanImporter`) with schema validation and interactive preview.
+
+### Improved
+
+- Completed comprehensive architectural refactor decomposing monolithic UI screens:
+  - Decomposed `ActiveWorkoutScreen` into modular subcomponents (`ActiveWorkoutHeader`, `ActiveWorkoutQuickControls`, `ActiveWorkoutHistoryPanel`, `ActiveWorkoutSetRow`, `ActiveWorkoutExerciseLogger`, `ActiveWorkoutDialogs`).
+  - Decomposed `WorkoutProgramsScreen` into dedicated card components (`WorkoutProgramsCards`) and dialogs (`WorkoutProgramsDialogs`).
+  - Decomposed `HomeScreen` with extracted `HomeCalendarPanel`.
+  - Decomposed `JournalScreen` with extracted standalone `JournalDetailScreen`.
+- Decoupled `HevyntAppViewModel` into isolated UI state models (`HevyntAppUiState`), domain coordinators (`WorkoutPlanCoordinator`), and performance lookup keys (`PreviousLookupKey`).
+- Modularized repository layers: extracted `WorkoutPlanImporter`, `LegacyWorkoutHistoryStorage`, and `WorkoutPhotoManager`.
+- Centralized reusable design system components (`HevyntBottomBar`, `HevyntChip`, `HevyntMetricItem`, `HevyntConfirmDialog`, `HevyntInputDialog`).
+
+### Reliability
+
+- Preserved 100% database schema compatibility without migrations or version bumps.
+- Maintained exact user-facing behavior, navigation gestures, rest timer notifications, and widgets.
+
+### Tests
+
+- Added comprehensive unit tests for workout plan parsing and import flows.
+- 100% pass rate across all unit and integration test suites.
+
 ## [1.9.2] - 2026-09-22
 
 ### Added

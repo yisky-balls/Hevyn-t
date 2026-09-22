@@ -67,6 +67,42 @@ object ActiveWorkoutOperations {
         reps = previous.repetitions?.toString() ?: set.reps,
     )
 
+    fun copyPrecedingSet(
+        set: WorkoutSet,
+        preceding: WorkoutSet,
+    ): WorkoutSet = set.copy(
+        weight = preceding.weight,
+        reps = preceding.reps,
+    )
+
+    fun adjustWeight(set: WorkoutSet, deltaKg: Double): WorkoutSet {
+        val current = set.weight.toDoubleOrNull() ?: 0.0
+        val updated = (current + deltaKg).coerceAtLeast(0.0)
+        return set.copy(weight = formatWeight(updated))
+    }
+
+    fun adjustReps(set: WorkoutSet, deltaReps: Int): WorkoutSet {
+        val current = set.reps.toIntOrNull() ?: 0
+        val updated = (current + deltaReps).coerceAtLeast(0)
+        return set.copy(reps = updated.toString())
+    }
+
+    fun duplicateSet(workout: ActiveWorkout, exerciseId: String, setId: String): ActiveWorkout? =
+        updateExercise(workout, exerciseId) { exercise ->
+            val setIndex = exercise.sets.indexOfFirst { it.id == setId }
+            if (setIndex < 0) return@updateExercise null
+            val sourceSet = exercise.sets[setIndex]
+            val newSet = WorkoutSet(
+                weight = sourceSet.weight,
+                reps = sourceSet.reps,
+                completed = false,
+            )
+            val updatedSets = exercise.sets.toMutableList().apply {
+                add(setIndex + 1, newSet)
+            }
+            exercise.copy(sets = updatedSets)
+        }
+
     fun addSet(workout: ActiveWorkout, exerciseId: String): ActiveWorkout? =
         updateExercise(workout, exerciseId) { exercise ->
             val previous = exercise.sets.lastOrNull()

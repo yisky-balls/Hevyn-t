@@ -11,8 +11,11 @@ import com.yifeng.commandcenter.history.WorkoutHistoryExerciseGraph
 import com.yifeng.commandcenter.history.WorkoutHistoryGraph
 import com.yifeng.commandcenter.history.WorkoutHistorySession
 import com.yifeng.commandcenter.history.WorkoutHistorySet
+import com.yifeng.commandcenter.history.ProgressionTrend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PreviousSetResolverTest {
@@ -125,6 +128,114 @@ class PreviousSetResolverTest {
         assertFalse(current.exercises.single().sets.first().id in resolved)
     }
 
+    @Test
+    fun resolveExerciseHistory_resolvesFullLastSessionAndRecentSessions() {
+        val current = workout(1_000L, "press-id", "Bench Press")
+        val graph900 = multiSetGraph(
+            completedAtMillis = 900L,
+            sourceId = "press-id",
+            name = "Bench Press",
+            sets = listOf(80.0 to 8, 82.5 to 6, 80.0 to 7),
+        )
+        val graph800 = multiSetGraph(
+            completedAtMillis = 800L,
+            sourceId = "press-id",
+            name = "Bench Press",
+            sets = listOf(77.5 to 8, 80.0 to 6),
+        )
+        val graph700 = multiSetGraph(
+            completedAtMillis = 700L,
+            sourceId = "press-id",
+            name = "Bench Press",
+            sets = listOf(75.0 to 10),
+        )
+        val graph600 = multiSetGraph(
+            completedAtMillis = 600L,
+            sourceId = "press-id",
+            name = "Bench Press",
+            sets = listOf(72.5 to 10),
+        )
+
+        val history = PreviousSetResolver.resolveExerciseHistory(
+            current,
+            listOf(graph900, graph800, graph700, graph600),
+        )
+
+        val summary = history[current.exercises.single().id]
+        assertNotNull(summary)
+        val lastSession = summary!!.lastSession
+        assertNotNull(lastSession)
+        assertEquals(900L, lastSession!!.completedAtMillis)
+        assertEquals(
+            listOf(
+                PreviousSetPerformance(80.0, 8),
+                PreviousSetPerformance(82.5, 6),
+                PreviousSetPerformance(80.0, 7),
+            ),
+            lastSession.sets,
+        )
+        // Capped at 3 recent sessions
+        assertEquals(3, summary.recentSessions.size)
+        assertEquals(listOf(900L, 800L, 700L), summary.recentSessions.map { it.completedAtMillis })
+    }
+
+    @Test
+    fun resolveExerciseHistory_excludesSessionsAtOrAfterWorkoutStart() {
+        val current = workout(1_000L, "press-id", "Bench Press")
+        val futureGraph = multiSetGraph(
+            completedAtMillis = 1_000L,
+            sourceId = "press-id",
+            name = "Bench Press",
+            sets = listOf(100.0 to 1),
+        )
+        val pastGraph = multiSetGraph(
+            completedAtMillis = 900L,
+            sourceId = "press-id",
+            name = "Bench Press",
+            sets = listOf(80.0 to 8),
+        )
+
+        val history = PreviousSetResolver.resolveExerciseHistory(current, listOf(futureGraph, pastGraph))
+        val summary = history[current.exercises.single().id]
+        assertNotNull(summary)
+        assertEquals(900L, summary!!.lastSession?.completedAtMillis)
+        assertEquals(1, summary.recentSessions.size)
+    }
+
+    @Test
+    fun evaluateProgression_evaluatesTrendsCorrectly() {
+        val prev = PreviousSetPerformance(80.0, 8)
+
+        // Improved weight with same or more reps
+        assertEquals(ProgressionTrend.IMPROVED, PreviousSetResolver.evaluateProgression("82.5", "8", prev))
+        assertEquals(ProgressionTrend.IMPROVED, PreviousSetResolver.evaluateProgression("82.5", "9", prev))
+
+        // Same weight with more reps
+        assertEquals(ProgressionTrend.IMPROVED, PreviousSetResolver.evaluateProgression("80.0", "9", prev))
+
+        // Identical
+        assertEquals(ProgressionTrend.NEUTRAL, PreviousSetResolver.evaluateProgression("80.0", "8", prev))
+
+        // Trade-off: higher weight, fewer reps
+        assertEquals(ProgressionTrend.NEUTRAL, PreviousSetResolver.evaluateProgression("82.5", "6", prev))
+
+        // Regressed
+        assertEquals(ProgressionTrend.REGRESSED, PreviousSetResolver.evaluateProgression("77.5", "8", prev))
+        assertEquals(ProgressionTrend.REGRESSED, PreviousSetResolver.evaluateProgression("80.0", "7", prev))
+        assertEquals(ProgressionTrend.REGRESSED, PreviousSetResolver.evaluateProgression("75.0", "6", prev))
+
+        // Missing or incomplete
+        assertEquals(ProgressionTrend.NONE, PreviousSetResolver.evaluateProgression(null, "8", prev))
+        assertEquals(ProgressionTrend.NONE, PreviousSetResolver.evaluateProgression("80.0", null, prev))
+        assertEquals(ProgressionTrend.NONE, PreviousSetResolver.evaluateProgression("", "8", prev))
+        assertEquals(ProgressionTrend.NONE, PreviousSetResolver.evaluateProgression("80.0", "", prev))
+        assertEquals(ProgressionTrend.NONE, PreviousSetResolver.evaluateProgression("80.0", "8", null))
+        assertEquals(
+            ProgressionTrend.NONE,
+            PreviousSetResolver.evaluateProgression("80.0", "8", PreviousSetPerformance(null, null)),
+        )
+    }
+
     private fun workout(startedAtMillis: Long, sourceId: String?, name: String) = ActiveWorkout(
         id = "current",
         routineName = "Routine",
@@ -138,6 +249,53 @@ class PreviousSetResolverTest {
             ),
         ),
     )
+
+    private fun multiSetGraph(
+        completedAtMillis: Long,
+        sourceId: String?,
+        name: String,
+        sets: List<Pair<Double?, Int?>>,
+    ): WorkoutHistoryGraph {
+        val sessionId = "session-$completedAtMillis"
+        val exerciseId = "exercise-$completedAtMillis"
+        return WorkoutHistoryGraph(
+            session = WorkoutHistorySession(
+                id = sessionId,
+                sourceRoutineId = null,
+                routineName = "Routine",
+                startedAtMillis = completedAtMillis - 100L,
+                completedAtMillis = completedAtMillis,
+                durationMillis = 100L,
+                note = "",
+                completedSetCount = sets.size,
+                totalVolumeKg = 0.0,
+                isLegacySummaryOnly = false,
+            ),
+            exercises = listOf(
+                WorkoutHistoryExerciseGraph(
+                    exercise = WorkoutHistoryExercise(
+                        id = exerciseId,
+                        sessionId = sessionId,
+                        sourceRoutineExerciseId = sourceId,
+                        name = name,
+                        note = "",
+                        restSeconds = 60,
+                        position = 0,
+                    ),
+                    sets = sets.mapIndexed { index, (weight, reps) ->
+                        WorkoutHistorySet(
+                            id = "set-$completedAtMillis-$index",
+                            workoutExerciseId = exerciseId,
+                            position = index,
+                            weightKg = weight,
+                            repetitions = reps,
+                        )
+                    },
+                ),
+            ),
+            photos = emptyList(),
+        )
+    }
 
     private fun graph(
         completedAtMillis: Long,

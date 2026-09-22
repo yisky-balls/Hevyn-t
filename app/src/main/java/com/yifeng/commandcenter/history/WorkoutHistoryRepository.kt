@@ -55,6 +55,12 @@ class WorkoutHistoryRepository private constructor(
             rows = dao.completedExerciseSetsBefore(workout.startedAtMillis),
         )
 
+    suspend fun exerciseHistory(workout: ActiveWorkout): Map<String, ExerciseHistorySummary> =
+        PreviousSetResolver.resolveExerciseHistoryRows(
+            workout = workout,
+            rows = dao.completedExerciseSetsBefore(workout.startedAtMillis),
+        )
+
     suspend fun saveCompletedWorkout(graph: WorkoutHistoryGraph) {
         dao.insertGraph(graph)
         notifyHistoryChanged()

@@ -2,15 +2,12 @@ package com.yifeng.commandcenter.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.core.content.edit
 import com.yifeng.commandcenter.widget.WorkoutWidgetUpdateDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
-import org.json.JSONArray
-import org.json.JSONObject
 
 sealed interface RoutineLibraryImportResult {
     data object Imported : RoutineLibraryImportResult
@@ -21,15 +18,18 @@ sealed interface RoutineLibraryImportResult {
 class RoutineRepository private constructor(
     private val dao: RoutineLibraryDao,
     private val legacySource: LegacyRoutineLibrarySource,
-    private val legacyPreferences: SharedPreferences?,
+    private val legacyHistoryStorage: LegacyWorkoutHistoryStorage,
+    private val planImporter: WorkoutPlanImporter = WorkoutPlanImporter(dao),
     private val onLibraryChanged: () -> Unit,
 ) {
     constructor(context: Context) : this(
         dao = RoutineLibraryDatabase.getInstance(context.applicationContext ?: context)
             .routineLibraryDao(),
         legacySource = SharedPreferencesRoutineLibrarySource(context),
-        legacyPreferences = (context.applicationContext ?: context)
-            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE),
+        legacyHistoryStorage = LegacyWorkoutHistoryStorage(
+            (context.applicationContext ?: context)
+                .getSharedPreferences(LegacyWorkoutHistoryStorage.PREFERENCES, Context.MODE_PRIVATE),
+        ),
         onLibraryChanged = { WorkoutWidgetUpdateDispatcher.request(context.applicationContext ?: context) },
     )
 
@@ -105,6 +105,20 @@ class RoutineRepository private constructor(
         notifyLibraryChanged()
     }
 
+    suspend fun hasProgram(programId: String): Boolean =
+        planImporter.hasProgram(programId)
+
+    suspend fun importWorkoutPlan(
+        plan: WorkoutPlanDto,
+        replaceExisting: Boolean = false,
+    ): Boolean {
+        val success = planImporter.importWorkoutPlan(plan, replaceExisting)
+        if (success) {
+            notifyLibraryChanged()
+        }
+        return success
+    }
+
     /** Compatibility for repository instrumentation; production orchestration uses suspend APIs. */
     fun loadFolders(): List<RoutineFolder> = runBlocking(Dispatchers.IO) {
         when (val result = initialize()) {
@@ -121,73 +135,17 @@ class RoutineRepository private constructor(
     }
 
     /** Legacy history is read-only input for the independent history-v2 transactional import. */
-    fun loadWorkoutHistory(): List<LastWorkoutSummary> {
-        val preferences = legacyPreferences ?: return emptyList()
-        preferences.getString(KEY_WORKOUT_HISTORY, null)?.let { raw ->
-            return runCatching { decodeWorkoutHistory(JSONArray(raw)) }.getOrDefault(emptyList())
-        }
-        return loadLegacyLastWorkout(preferences)?.let(::listOf).orEmpty()
-    }
+    fun loadWorkoutHistory(): List<LastWorkoutSummary> =
+        legacyHistoryStorage.loadWorkoutHistory()
 
-    fun saveLastWorkout(summary: LastWorkoutSummary) {
-        val preferences = checkNotNull(legacyPreferences) {
-            "Legacy history preferences are unavailable in this repository."
-        }
-        val history = loadWorkoutHistory() + summary
-        val array = JSONArray().apply {
-            history.forEach { item ->
-                put(
-                    JSONObject()
-                        .put("name", item.name)
-                        .put("completedAtMillis", item.completedAtMillis)
-                        .put("completedSets", item.completedSets)
-                        .put("volumeKg", item.volumeKg),
-                )
-            }
-        }
-        preferences.edit {
-            putString(KEY_WORKOUT_HISTORY, array.toString())
-            remove(KEY_LAST_NAME)
-            remove(KEY_LAST_DATE)
-            remove(KEY_LAST_SETS)
-            remove(KEY_LAST_VOLUME)
-        }
-    }
+    fun saveLastWorkout(summary: LastWorkoutSummary) =
+        legacyHistoryStorage.saveLastWorkout(summary)
 
     private fun notifyLibraryChanged() {
         try {
             onLibraryChanged()
         } catch (_: Exception) {
             // Room is authoritative; launcher refresh failures never undo routine changes.
-        }
-    }
-
-    private fun loadLegacyLastWorkout(preferences: SharedPreferences): LastWorkoutSummary? {
-        val name = preferences.getString(KEY_LAST_NAME, null) ?: return null
-        return LastWorkoutSummary(
-            name = name,
-            completedAtMillis = preferences.getLong(KEY_LAST_DATE, 0L),
-            completedSets = preferences.getInt(KEY_LAST_SETS, 0),
-            volumeKg = when (val value = preferences.all[KEY_LAST_VOLUME]) {
-                is Float -> value.toDouble()
-                is Int -> value.toDouble()
-                is Long -> value.toDouble()
-                else -> 0.0
-            },
-        )
-    }
-
-    private fun decodeWorkoutHistory(array: JSONArray): List<LastWorkoutSummary> = buildList {
-        for (index in 0 until array.length()) {
-            val item = array.getJSONObject(index)
-            add(
-                LastWorkoutSummary(
-                    name = item.getString("name"),
-                    completedAtMillis = item.getLong("completedAtMillis"),
-                    completedSets = item.optInt("completedSets"),
-                    volumeKg = item.optDouble("volumeKg"),
-                ),
-            )
         }
     }
 
@@ -199,15 +157,8 @@ class RoutineRepository private constructor(
         ) = RoutineRepository(
             dao = dao,
             legacySource = legacySource,
-            legacyPreferences = null,
+            legacyHistoryStorage = LegacyWorkoutHistoryStorage(null),
             onLibraryChanged = onLibraryChanged,
         )
-
-        private const val PREFERENCES = "lift_programs"
-        private const val KEY_LAST_NAME = "last_name"
-        private const val KEY_LAST_DATE = "last_date"
-        private const val KEY_LAST_SETS = "last_sets"
-        private const val KEY_LAST_VOLUME = "last_volume"
-        private const val KEY_WORKOUT_HISTORY = "workout_history"
     }
 }
