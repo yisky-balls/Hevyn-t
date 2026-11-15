@@ -85,6 +85,8 @@ class CompactWorkoutWidgetProvider : BaseWorkoutWidgetProvider()
 
 class MainWorkoutWidgetProvider : BaseWorkoutWidgetProvider()
 
+class FullWorkoutWidgetProvider : BaseWorkoutWidgetProvider()
+
 class WorkoutWidgetUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         android.util.Log.i(TAG, "WorkoutWidgetUpdateReceiver onReceive action=${intent.action}")
@@ -251,6 +253,8 @@ object WorkoutWidgetUpdateDispatcher {
                 ComponentName(appContext, CompactWorkoutWidgetProvider::class.java),
             ).isNotEmpty() || manager.getAppWidgetIds(
                 ComponentName(appContext, MainWorkoutWidgetProvider::class.java),
+            ).isNotEmpty() || manager.getAppWidgetIds(
+                ComponentName(appContext, FullWorkoutWidgetProvider::class.java),
             ).isNotEmpty()
             if (!hasWidgets) return
             val generation = nextGeneration()
@@ -312,19 +316,25 @@ internal object WorkoutWidgetUpdater {
         val mainIds = manager.getAppWidgetIds(
             ComponentName(context, MainWorkoutWidgetProvider::class.java),
         )
-        if (compactIds.isEmpty() && mainIds.isEmpty()) return
+        val fullIds = manager.getAppWidgetIds(
+            ComponentName(context, FullWorkoutWidgetProvider::class.java),
+        )
+        if (compactIds.isEmpty() && mainIds.isEmpty() && fullIds.isEmpty()) return
         val state = WorkoutWidgetStateLoader.load(context)
 
-        compactIds.forEach { manager.updateAppWidget(it, compact(context, state)) }
+        val compactViews = compact(context, state)
+        val mainCompactViews = mainCompact(context, state)
+        val mainFullViews = mainFull(context, state)
+
+        compactIds.forEach { manager.updateAppWidget(it, compactViews) }
+        fullIds.forEach { manager.updateAppWidget(it, mainFullViews) }
 
         if (mainIds.isNotEmpty()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val compactViews = mainCompact(context, state)
-                val fullViews = mainFull(context, state)
                 val responsiveViews = RemoteViews(
                     mapOf(
-                        SizeF(250f, 100f) to compactViews,
-                        SizeF(250f, 160f) to fullViews,
+                        SizeF(200f, 60f) to mainCompactViews,
+                        SizeF(200f, 130f) to mainFullViews,
                     ),
                 )
                 mainIds.forEach { manager.updateAppWidget(it, responsiveViews) }
@@ -332,7 +342,7 @@ internal object WorkoutWidgetUpdater {
                 mainIds.forEach { id ->
                     val options = manager.getAppWidgetOptions(id)
                     val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-                    val views = if (minHeight >= 160) mainFull(context, state) else mainCompact(context, state)
+                    val views = if (minHeight >= 130) mainFullViews else mainCompactViews
                     manager.updateAppWidget(id, views)
                 }
             }

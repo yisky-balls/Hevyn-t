@@ -64,6 +64,16 @@
                 android:resource="@xml/workout_widget_main_info" />
         </receiver>
         <receiver
+            android:name=".widget.FullWorkoutWidgetProvider"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/workout_widget_full_info" />
+        </receiver>
+        <receiver
             android:name=".widget.WorkoutWidgetUpdateReceiver"
             android:exported="true">
             <intent-filter>

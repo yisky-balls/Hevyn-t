@@ -88,7 +88,7 @@
             android:progressDrawable="@drawable/widget_progress_bar" />
 
         <!-- Spacer weight to push buttons cleanly to bottom in 4x2 -->
-        <View
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1" />
@@ -183,7 +183,7 @@
             android:textSize="13sp" />
 
         <!-- Spacer weight to push button to bottom -->
-        <View
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1" />

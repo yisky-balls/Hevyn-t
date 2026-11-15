@@ -1,7 +1,8 @@
 <resources>
     <string name="app_name">Hevyn’t</string>
-    <string name="workout_widget_compact_name">Hevyn’t · Between workouts (4×1)</string>
-    <string name="workout_widget_main_name">Hevyn’t · While training (4×3)</string>
+    <string name="workout_widget_compact_name">Hevyn’t Workout · Strip (4×1)</string>
+    <string name="workout_widget_main_name">Hevyn’t Workout · Compact (4×2)</string>
+    <string name="workout_widget_full_name">Hevyn’t Workout · Full (4×3)</string>
     <string name="workout_widget_brand">HEVYNT</string>
     <string name="workout_widget_likely_next">LIKELY NEXT</string>
     <string name="workout_widget_active">● ACTIVE</string>

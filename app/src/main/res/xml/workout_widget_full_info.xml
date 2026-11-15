@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/workout_widget_full_name"
+    android:initialLayout="@layout/widget_workout_main_full"
+    android:minWidth="270dp"
+    android:minHeight="210dp"
+    android:minResizeWidth="250dp"
+    android:minResizeHeight="160dp"
+    android:previewLayout="@layout/widget_workout_main_full"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />
