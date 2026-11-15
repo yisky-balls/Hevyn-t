@@ -195,7 +195,8 @@ private fun HomeTopBar(
 private fun HomeHeroHeader(
     routine: RoutineSummary?,
 ) {
-    val routineName = (routine?.name ?: "START WORKOUT").uppercase(Locale.getDefault())
+    val rawName = routine?.name ?: "START WORKOUT"
+    val routineName = cleanRoutineName(rawName).uppercase(Locale.getDefault())
     val lastDoneText = formatLastDone(routine?.lastPerformedAtMillis)
     val exerciseCount = routine?.exerciseCount ?: 0
 
@@ -262,7 +263,7 @@ private fun StartWorkoutCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "${routine?.name ?: "Routine"} · ${routine?.exerciseCount ?: 0} exercises",
+                    text = "${cleanRoutineName(routine?.name ?: "Routine")} · ${routine?.exerciseCount ?: 0} exercises",
                     color = HevyntTextSecondary,
                     style = MaterialTheme.typography.bodySmall,
                 )

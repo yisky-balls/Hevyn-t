@@ -7,7 +7,10 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
 import android.os.SystemClock
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import com.yifeng.commandcenter.MainActivity
@@ -19,7 +22,6 @@ import com.yifeng.commandcenter.data.LikelyNextRoutineResolver
 import com.yifeng.commandcenter.data.RoutineRepository
 import com.yifeng.commandcenter.data.RoutineWorkoutMapper
 import com.yifeng.commandcenter.data.WorkoutProgress
-import com.yifeng.commandcenter.glyph.GlyphDeviceSupport
 import com.yifeng.commandcenter.glyph.GlyphPreferences
 import com.yifeng.commandcenter.history.WorkoutHistoryRepository
 import com.yifeng.commandcenter.timer.RestTimerManager
@@ -62,6 +64,17 @@ abstract class BaseWorkoutWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray,
     ) {
         android.util.Log.i(TAG, "onUpdate called for ${javaClass.simpleName} ids=${appWidgetIds.joinToString()}")
+        launchAsync(context) { appContext ->
+            WorkoutWidgetUpdateDispatcher.refreshNow(appContext)
+        }
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle,
+    ) {
         launchAsync(context) { appContext ->
             WorkoutWidgetUpdateDispatcher.refreshNow(appContext)
         }
@@ -200,6 +213,12 @@ class WorkoutWidgetUpdateReceiver : BroadcastReceiver() {
                     WorkoutWidgetUpdateDispatcher.refreshNow(appContext)
                 }
             }
+            ACTION_ADD_REST_30 -> {
+                launchAsync(context) { appContext ->
+                    RestTimerManager.addRestSeconds(appContext, 30)
+                    WorkoutWidgetUpdateDispatcher.refreshNow(appContext)
+                }
+            }
         }
     }
 
@@ -211,6 +230,7 @@ class WorkoutWidgetUpdateReceiver : BroadcastReceiver() {
         const val ACTION_ADJUST_WEIGHT = "com.yifeng.commandcenter.widget.ADJUST_WEIGHT"
         const val ACTION_ADJUST_REPS = "com.yifeng.commandcenter.widget.ADJUST_REPS"
         const val ACTION_SKIP_REST = "com.yifeng.commandcenter.widget.SKIP_REST"
+        const val ACTION_ADD_REST_30 = "com.yifeng.commandcenter.widget.ADD_REST_30"
 
         const val EXTRA_GENERATION = "refresh_generation"
         const val EXTRA_DELTA_KG = "delta_kg"
@@ -278,7 +298,10 @@ object WorkoutWidgetUpdateDispatcher {
 }
 
 internal fun cleanRoutineName(name: String): String =
-    name.replace(Regex("^(MON|TUE|WED|THU|FRI|SAT|SUN)\\s*[-—–]\\s*", RegexOption.IGNORE_CASE), "").trim()
+    name.replace(
+        Regex("^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN|DAY\\s*\\d+)\\s*[-—–:.]\\s*", RegexOption.IGNORE_CASE),
+        "",
+    ).trim()
 
 internal object WorkoutWidgetUpdater {
     suspend fun updateAll(context: Context) {
@@ -291,8 +314,29 @@ internal object WorkoutWidgetUpdater {
         )
         if (compactIds.isEmpty() && mainIds.isEmpty()) return
         val state = WorkoutWidgetStateLoader.load(context)
+
         compactIds.forEach { manager.updateAppWidget(it, compact(context, state)) }
-        mainIds.forEach { manager.updateAppWidget(it, main(context, state)) }
+
+        if (mainIds.isNotEmpty()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val compactViews = mainCompact(context, state)
+                val fullViews = mainFull(context, state)
+                val responsiveViews = RemoteViews(
+                    mapOf(
+                        SizeF(250f, 100f) to compactViews,
+                        SizeF(250f, 160f) to fullViews,
+                    ),
+                )
+                mainIds.forEach { manager.updateAppWidget(it, responsiveViews) }
+            } else {
+                mainIds.forEach { id ->
+                    val options = manager.getAppWidgetOptions(id)
+                    val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+                    val views = if (minHeight >= 160) mainFull(context, state) else mainCompact(context, state)
+                    manager.updateAppWidget(id, views)
+                }
+            }
+        }
     }
 
     private fun compact(context: Context, state: WorkoutWidgetState): RemoteViews =
@@ -308,40 +352,118 @@ internal object WorkoutWidgetUpdater {
                         textSizeSp = 22f,
                     )
                     setImageViewBitmap(R.id.widget_compact_idle_title_img, titleBitmap)
-                    setViewVisibility(R.id.widget_compact_idle_title_img, View.VISIBLE)
-                    setViewVisibility(R.id.widget_compact_idle_title, View.GONE)
+                    setVisible(R.id.widget_compact_idle_title_img, true)
+                    setVisible(R.id.widget_compact_idle_title, false)
                     setTextViewText(R.id.widget_compact_idle_title, cleanName)
                     setTextViewText(
                         R.id.widget_compact_idle_metadata,
-                        "Next · ${state.exerciseCount} exercises",
+                        "${state.exerciseCount} exercises",
                     )
-                    val startAction = startNextWorkout(context)
-                    setOnClickPendingIntent(R.id.widget_compact_idle_play, startAction)
+                    setOnClickPendingIntent(R.id.widget_compact_idle_play, startNextWorkout(context))
                     setOnClickPendingIntent(R.id.widget_compact_idle_info, openWorkout(context))
                 }
                 is WorkoutWidgetState.Active -> {
-                    setTextViewText(R.id.widget_compact_active_routine, state.currentExerciseName)
+                    setTextViewText(R.id.widget_compact_active_exercise, state.currentExerciseName)
                     setTextViewText(
-                        R.id.widget_compact_active_progress,
-                        "Set ${state.currentSetNumber} of ${state.totalSetsInExercise} · ",
+                        R.id.widget_compact_active_set_info,
+                        "Set ${state.currentSetNumber} of ${state.totalSetsInExercise}",
                     )
-                    bindElapsedChronometer(R.id.widget_compact_active_timer, state.workout.startedAtMillis)
-                    if (state.isRestActive) {
-                        setTextViewText(R.id.widget_compact_continue, "Skip rest")
-                        setOnClickPendingIntent(R.id.widget_compact_continue, skipRest(context))
+                    if (state.isRestActive && state.restTimerEndMillis != null) {
+                        setVisible(R.id.widget_compact_active_timer, true)
+                        setVisible(R.id.widget_compact_active_ready_img, false)
+                        bindCountdownChronometer(R.id.widget_compact_active_timer, state.restTimerEndMillis)
                     } else {
-                        setTextViewText(R.id.widget_compact_continue, "Complete set")
-                        setOnClickPendingIntent(R.id.widget_compact_continue, completeSet(context))
+                        setVisible(R.id.widget_compact_active_timer, false)
+                        val readyBitmap = WidgetDotMatrixRenderer.renderText(
+                            context = context,
+                            text = "READY",
+                            textSizeSp = 20f,
+                            textColor = 0xFFFFFFFF.toInt(),
+                        )
+                        setImageViewBitmap(R.id.widget_compact_active_ready_img, readyBitmap)
+                        setVisible(R.id.widget_compact_active_ready_img, true)
                     }
+                    setOnClickPendingIntent(R.id.widget_compact_active_complete, completeSet(context))
                     setOnClickPendingIntent(R.id.widget_compact_active_info, continueWorkout(context))
                 }
             }
         }
 
-    private fun main(context: Context, state: WorkoutWidgetState): RemoteViews =
-        RemoteViews(context.packageName, R.layout.widget_workout_main).apply {
-            setVisible(R.id.widget_main_idle, state is WorkoutWidgetState.Idle)
-            setVisible(R.id.widget_main_active, state is WorkoutWidgetState.Active)
+    private fun mainCompact(context: Context, state: WorkoutWidgetState): RemoteViews =
+        RemoteViews(context.packageName, R.layout.widget_workout_main_compact).apply {
+            setVisible(R.id.widget_main_compact_idle, state is WorkoutWidgetState.Idle)
+            setVisible(R.id.widget_main_compact_active, state is WorkoutWidgetState.Active)
+
+            when (state) {
+                is WorkoutWidgetState.Idle -> {
+                    val cleanName = cleanRoutineName(state.nextRoutineName).uppercase()
+                    val titleBitmap = WidgetDotMatrixRenderer.renderText(
+                        context = context,
+                        text = cleanName,
+                        textSizeSp = 24f,
+                    )
+                    setImageViewBitmap(R.id.widget_main_compact_idle_title_img, titleBitmap)
+                    setVisible(R.id.widget_main_compact_idle_title_img, true)
+                    setVisible(R.id.widget_main_compact_idle_title, false)
+                    setTextViewText(R.id.widget_main_compact_idle_title, cleanName)
+                    setTextViewText(
+                        R.id.widget_main_compact_idle_count,
+                        "${state.exerciseCount} exercises",
+                    )
+                    setTextViewText(
+                        R.id.widget_main_compact_idle_preview,
+                        state.commaExercisePreview,
+                    )
+                    setOnClickPendingIntent(R.id.widget_main_compact_idle_start_btn, startNextWorkout(context))
+                    setOnClickPendingIntent(R.id.widget_main_compact_idle_header, openWorkout(context))
+                }
+                is WorkoutWidgetState.Active -> {
+                    setTextViewText(R.id.widget_main_compact_active_exercise, state.currentExerciseName)
+                    setTextViewText(
+                        R.id.widget_main_compact_active_set_info,
+                        state.plannedSetSummary,
+                    )
+
+                    if (state.isRestActive && state.restTimerEndMillis != null) {
+                        setVisible(R.id.widget_main_compact_active_timer, true)
+                        setVisible(R.id.widget_main_compact_active_ready_img, false)
+                        bindCountdownChronometer(R.id.widget_main_compact_active_timer, state.restTimerEndMillis)
+
+                        val remaining = ((state.restTimerEndMillis - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(0)
+                        val duration = state.restTimerDurationSeconds ?: 1
+                        val progressPercent = ((remaining.toFloat() / duration.toFloat()) * 100).toInt().coerceIn(0, 100)
+                        setProgressBar(R.id.widget_main_compact_active_progress, 100, progressPercent, false)
+
+                        setTextViewText(R.id.widget_main_compact_active_btn_left, "Skip rest")
+                        setOnClickPendingIntent(R.id.widget_main_compact_active_btn_left, skipRest(context))
+                    } else {
+                        setVisible(R.id.widget_main_compact_active_timer, false)
+                        val readyBitmap = WidgetDotMatrixRenderer.renderText(
+                            context = context,
+                            text = "READY",
+                            textSizeSp = 22f,
+                            textColor = 0xFFFFFFFF.toInt(),
+                        )
+                        setImageViewBitmap(R.id.widget_main_compact_active_ready_img, readyBitmap)
+                        setVisible(R.id.widget_main_compact_active_ready_img, true)
+
+                        setProgressBar(R.id.widget_main_compact_active_progress, 100, 100, false)
+
+                        setTextViewText(R.id.widget_main_compact_active_btn_left, "+30 s")
+                        setOnClickPendingIntent(R.id.widget_main_compact_active_btn_left, addRest30(context))
+                    }
+
+                    setTextViewText(R.id.widget_main_compact_active_btn_right, "Complete set")
+                    setOnClickPendingIntent(R.id.widget_main_compact_active_btn_right, completeSet(context))
+                    setOnClickPendingIntent(R.id.widget_main_compact_active_header, continueWorkout(context))
+                }
+            }
+        }
+
+    private fun mainFull(context: Context, state: WorkoutWidgetState): RemoteViews =
+        RemoteViews(context.packageName, R.layout.widget_workout_main_full).apply {
+            setVisible(R.id.widget_main_full_idle, state is WorkoutWidgetState.Idle)
+            setVisible(R.id.widget_main_full_active, state is WorkoutWidgetState.Active)
 
             when (state) {
                 is WorkoutWidgetState.Idle -> {
@@ -351,51 +473,68 @@ internal object WorkoutWidgetUpdater {
                         text = cleanName,
                         textSizeSp = 26f,
                     )
-                    setImageViewBitmap(R.id.widget_main_idle_title_img, titleBitmap)
-                    setViewVisibility(R.id.widget_main_idle_title_img, View.VISIBLE)
-                    setViewVisibility(R.id.widget_main_idle_routine, View.GONE)
-                    setTextViewText(R.id.widget_main_idle_routine, cleanName)
+                    setImageViewBitmap(R.id.widget_main_full_idle_title_img, titleBitmap)
+                    setVisible(R.id.widget_main_full_idle_title_img, true)
+                    setVisible(R.id.widget_main_full_idle_title, false)
+                    setTextViewText(R.id.widget_main_full_idle_title, cleanName)
                     setTextViewText(
-                        R.id.widget_main_idle_metadata,
-                        "Next session · ${state.exerciseCount} exercises",
+                        R.id.widget_main_full_idle_count,
+                        "${state.exerciseCount} exercises",
                     )
 
-                    // 4x3 preview exercises list to fill the 4x3 height cleanly
                     val p1 = state.previewExercises.getOrNull(0) ?: ""
                     val p2 = state.previewExercises.getOrNull(1) ?: ""
                     val p3 = state.previewExercises.getOrNull(2) ?: ""
-                    setTextViewText(R.id.widget_main_idle_preview_1, p1)
-                    setTextViewText(R.id.widget_main_idle_preview_2, p2)
-                    setTextViewText(R.id.widget_main_idle_preview_3, p3)
-                    setViewVisibility(R.id.widget_main_idle_preview_1, if (p1.isNotBlank()) View.VISIBLE else View.GONE)
-                    setViewVisibility(R.id.widget_main_idle_preview_2, if (p2.isNotBlank()) View.VISIBLE else View.GONE)
-                    setViewVisibility(R.id.widget_main_idle_preview_3, if (p3.isNotBlank()) View.VISIBLE else View.GONE)
+                    setTextViewText(R.id.widget_main_full_idle_preview_1, p1)
+                    setTextViewText(R.id.widget_main_full_idle_preview_2, p2)
+                    setTextViewText(R.id.widget_main_full_idle_preview_3, p3)
+                    setVisible(R.id.widget_main_full_idle_preview_1, p1.isNotBlank())
+                    setVisible(R.id.widget_main_full_idle_preview_2, p2.isNotBlank())
+                    setVisible(R.id.widget_main_full_idle_preview_3, p3.isNotBlank())
 
-                    val startAction = startNextWorkout(context)
-                    setOnClickPendingIntent(R.id.widget_main_idle_start_btn, startAction)
-                    setOnClickPendingIntent(R.id.widget_main_idle_header, openWorkout(context))
+                    setOnClickPendingIntent(R.id.widget_main_full_idle_start_btn, startNextWorkout(context))
+                    setOnClickPendingIntent(R.id.widget_main_full_idle_header, openWorkout(context))
                 }
                 is WorkoutWidgetState.Active -> {
-                    setTextViewText(R.id.widget_main_active_exercise, state.currentExerciseName)
+                    setTextViewText(R.id.widget_main_full_active_exercise, state.currentExerciseName)
+                    val cleanRoutine = cleanRoutineName(state.workout.routineName)
+                    setTextViewText(R.id.widget_main_full_active_routine, "$cleanRoutine · ")
+                    bindElapsedChronometer(R.id.widget_main_full_active_elapsed, state.workout.startedAtMillis)
+
                     setTextViewText(
-                        R.id.widget_main_active_set_info,
+                        R.id.widget_main_full_active_set_info,
                         "Set ${state.currentSetNumber} of ${state.totalSetsInExercise}",
                     )
-                    val cleanRoutine = cleanRoutineName(state.workout.routineName)
-                    setTextViewText(R.id.widget_main_active_routine, "$cleanRoutine · ")
-                    bindElapsedChronometer(R.id.widget_main_active_timer, state.workout.startedAtMillis)
 
                     if (state.isRestActive && state.restTimerEndMillis != null) {
-                        bindCountdownChronometer(R.id.widget_main_rest_chronometer, state.restTimerEndMillis)
+                        setVisible(R.id.widget_main_full_active_timer, true)
+                        setVisible(R.id.widget_main_full_active_ready_img, false)
+                        bindCountdownChronometer(R.id.widget_main_full_active_timer, state.restTimerEndMillis)
+                        setTextViewText(R.id.widget_main_full_active_rest_label, "Rest")
+
                         val remaining = ((state.restTimerEndMillis - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(0)
                         val duration = state.restTimerDurationSeconds ?: 1
                         val progressPercent = ((remaining.toFloat() / duration.toFloat()) * 100).toInt().coerceIn(0, 100)
-                        setProgressBar(R.id.widget_main_rest_progress, 100, progressPercent, false)
-                        setTextViewText(R.id.widget_main_rest_label, "Rest")
+                        setProgressBar(R.id.widget_main_full_active_progress, 100, progressPercent, false)
+
+                        setTextViewText(R.id.widget_main_full_btn_left, "Skip rest")
+                        setOnClickPendingIntent(R.id.widget_main_full_btn_left, skipRest(context))
                     } else {
-                        setChronometer(R.id.widget_main_rest_chronometer, SystemClock.elapsedRealtime(), null, false)
-                        setProgressBar(R.id.widget_main_rest_progress, 100, 100, false)
-                        setTextViewText(R.id.widget_main_rest_label, "Set ready")
+                        setVisible(R.id.widget_main_full_active_timer, false)
+                        val readyBitmap = WidgetDotMatrixRenderer.renderText(
+                            context = context,
+                            text = "READY",
+                            textSizeSp = 30f,
+                            textColor = 0xFFFFFFFF.toInt(),
+                        )
+                        setImageViewBitmap(R.id.widget_main_full_active_ready_img, readyBitmap)
+                        setVisible(R.id.widget_main_full_active_ready_img, true)
+                        setTextViewText(R.id.widget_main_full_active_rest_label, "")
+
+                        setProgressBar(R.id.widget_main_full_active_progress, 100, 100, false)
+
+                        setTextViewText(R.id.widget_main_full_btn_left, "+30 s")
+                        setOnClickPendingIntent(R.id.widget_main_full_btn_left, addRest30(context))
                     }
 
                     setTextViewText(R.id.widget_weight_value, state.weightKg)
@@ -406,9 +545,9 @@ internal object WorkoutWidgetUpdater {
                     setOnClickPendingIntent(R.id.widget_btn_reps_minus, adjustReps(context, -1, 717))
                     setOnClickPendingIntent(R.id.widget_btn_reps_plus, adjustReps(context, +1, 718))
 
-                    setOnClickPendingIntent(R.id.widget_btn_skip_rest, skipRest(context))
-                    setOnClickPendingIntent(R.id.widget_btn_complete_set, completeSet(context))
-                    setOnClickPendingIntent(R.id.widget_main_active_header, continueWorkout(context))
+                    setTextViewText(R.id.widget_main_full_btn_right, "Complete set")
+                    setOnClickPendingIntent(R.id.widget_main_full_btn_right, completeSet(context))
+                    setOnClickPendingIntent(R.id.widget_main_full_active_header, continueWorkout(context))
                 }
             }
         }
@@ -461,6 +600,15 @@ internal object WorkoutWidgetUpdater {
             721,
             Intent(context, WorkoutWidgetUpdateReceiver::class.java)
                 .setAction(WorkoutWidgetUpdateReceiver.ACTION_SKIP_REST),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    private fun addRest30(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            724,
+            Intent(context, WorkoutWidgetUpdateReceiver::class.java)
+                .setAction(WorkoutWidgetUpdateReceiver.ACTION_ADD_REST_30),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 

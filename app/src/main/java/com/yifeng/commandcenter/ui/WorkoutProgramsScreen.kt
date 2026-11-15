@@ -1,7 +1,11 @@
 package com.yifeng.commandcenter.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,18 +16,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,7 +43,7 @@ import com.yifeng.commandcenter.data.RoutineFolderSummary
 import com.yifeng.commandcenter.data.RoutineRecommendation
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntOutline
-import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
+import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 
 @Composable
@@ -61,12 +65,18 @@ fun WorkoutProgramsScreen(
     onImportPlan: () -> Unit = {},
     onManageSavedExercises: () -> Unit = {},
 ) {
-    var expandedFolderIds by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    val initialExpanded = rememberSaveable(folders.map { it.id }) {
+        val targetFolder = likelyNext?.routine?.folderId ?: folders.firstOrNull()?.id
+        listOfNotNull(targetFolder)
+    }
+    var expandedFolderIds by rememberSaveable { mutableStateOf(initialExpanded) }
+    var showTopMenu by rememberSaveable { mutableStateOf(false) }
     var showFolderPicker by rememberSaveable { mutableStateOf(false) }
     var showCreateFolder by rememberSaveable { mutableStateOf(false) }
     var folderToRenameId by rememberSaveable { mutableStateOf<String?>(null) }
     var folderToDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
     var routineToDelete by rememberSaveable { mutableStateOf<List<String>?>(null) }
+
     val folderToRename = folders.firstOrNull { it.id == folderToRenameId }
     val folderToDelete = folders.firstOrNull { it.id == folderToDeleteId }
 
@@ -114,7 +124,7 @@ fun WorkoutProgramsScreen(
             message = if (folder.routines.isEmpty()) {
                 "This folder will be removed."
             } else {
-                "This also removes ${formatRoutineCount(folder.routines.size).lowercase()}."
+                "This also removes ${folder.routines.size} routine${if (folder.routines.size == 1) "" else "s"}."
             },
             onDismiss = { folderToDeleteId = null },
             onConfirm = {
@@ -146,153 +156,172 @@ fun WorkoutProgramsScreen(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = HevyntPageHorizontalPadding,
-            end = HevyntPageHorizontalPadding,
-            top = 20.dp,
-            bottom = 28.dp,
+            start = 20.dp,
+            end = 20.dp,
+            top = 16.dp,
+            bottom = 100.dp,
         ),
     ) {
-        item(key = "launcher-header") {
-            HevyntPageHeader(
-                title = "WORKOUT",
-                subtitle = "Choose your next session.",
-            )
-            Spacer(Modifier.height(18.dp))
-            when {
-                activeWorkout != null -> ContinueWorkoutCard(activeWorkout, onContinueWorkout)
-                likelyNext != null -> LikelyNextRoutineCard(
-                    recommendation = likelyNext,
-                    onStart = { onStartRoutine(likelyNext.routine.id) },
-                    onOpen = { onBuildRoutine(likelyNext.routine.folderId, likelyNext.routine.id) },
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            SecondaryActionRow(
-                label = "START EMPTY WORKOUT",
-                enabled = activeWorkout == null,
-                onClick = onStartEmpty,
-            )
-            if (canRepeatLast) {
-                Spacer(Modifier.height(8.dp))
-                SecondaryActionRow(
-                    label = "REPEAT LAST WORKOUT",
-                    icon = Icons.Outlined.Refresh,
-                    enabled = activeWorkout == null,
-                    onClick = onRepeatLast,
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            SecondaryActionRow(
-                label = "IMPORT WORKOUT PLAN",
-                icon = Icons.Outlined.KeyboardArrowDown,
-                enabled = true,
-                onClick = onImportPlan,
-            )
-            Spacer(Modifier.height(8.dp))
-            SecondaryActionRow(
-                label = "MANAGE SAVED EXERCISES",
-                icon = Icons.AutoMirrored.Outlined.List,
-                enabled = true,
-                onClick = onManageSavedExercises,
-            )
-        }
-
-        item(key = "routine-heading") {
-            Spacer(Modifier.height(24.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "ROUTINES",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                    letterSpacing = 0.5.sp,
-                    maxLines = 1,
-                )
-                HevyntSectionLabel(
-                    text = "${folders.sumOf { it.routines.size }} SAVED",
-                    color = HevyntTextSecondary,
-                )
-                IconButton(onClick = { showCreateFolder = true }) {
-                    Icon(Icons.Outlined.AddCircle, contentDescription = "Create folder")
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Surface(
-                onClick = {
-                    if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
-                },
-                color = HevyntSurfaceRaised,
-                shape = MaterialTheme.shapes.small,
-                border = BorderStroke(1.dp, HevyntOutline),
+        // Top App Bar: "Workout" title on left, MoreVert on right
+        item(key = "top-bar") {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-                    HevyntSectionLabel("NEW ROUTINE", Modifier.padding(start = 12.dp))
+                Text(
+                    text = "Workout",
+                    color = HevyntTextPrimary,
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    fontSize = 30.sp,
+                    modifier = Modifier.weight(1f),
+                )
+
+                Box {
+                    IconButton(
+                        onClick = { showTopMenu = true },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.MoreVert,
+                            contentDescription = "Workout options",
+                            tint = HevyntTextPrimary,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showTopMenu,
+                        onDismissRequest = { showTopMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Import workout plan") },
+                            leadingIcon = { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null) },
+                            onClick = {
+                                showTopMenu = false
+                                onImportPlan()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Manage saved exercises") },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },
+                            onClick = {
+                                showTopMenu = false
+                                onManageSavedExercises()
+                            },
+                        )
+                    }
                 }
             }
+
+            Spacer(Modifier.height(18.dp))
+        }
+
+        // Hero Up next Card / Continue Workout Card
+        item(key = "hero-card") {
+            when {
+                activeWorkout != null -> {
+                    ContinueWorkoutCard(
+                        workout = activeWorkout,
+                        onContinue = onContinueWorkout,
+                    )
+                }
+                else -> {
+                    val fallback = folders.flatMap { it.routines }.firstOrNull()
+                    HeroUpNextCard(
+                        recommendation = likelyNext,
+                        fallbackRoutine = fallback,
+                        onStart = {
+                            val routineId = likelyNext?.routine?.id ?: fallback?.id
+                            routineId?.let(onStartRoutine)
+                        },
+                        onOpen = {
+                            val routine = likelyNext?.routine ?: fallback
+                            routine?.let { onBuildRoutine(it.folderId, it.id) }
+                        },
+                    )
+                }
+            }
+
             Spacer(Modifier.height(14.dp))
         }
 
+        // Quick Actions Row: "+ Empty workout" and "↻ Repeat last"
+        item(key = "quick-actions") {
+            QuickActionsRow(
+                onStartEmpty = onStartEmpty,
+                onRepeatLast = onRepeatLast,
+            )
+
+            Spacer(Modifier.height(24.dp))
+        }
+
+        // Routines Section Header: "Routines" on left, circular "+" on right
+        item(key = "routines-header") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Routines",
+                    color = HevyntTextPrimary,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    fontSize = 20.sp,
+                    modifier = Modifier.weight(1f),
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .border(1.dp, HevyntOutline, CircleShape)
+                        .clickable {
+                            if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Add,
+                        contentDescription = "New routine or folder",
+                        tint = HevyntTextPrimary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+        }
+
+        // Folder Accordion Cards
         folders.forEach { folder ->
             val expanded = folder.id in expandedFolderIds
-            item(key = "folder:${folder.id}") {
-                FolderRow(
+            item(key = "folder-card:${folder.id}") {
+                RoutineFolderCard(
                     folder = folder,
                     expanded = expanded,
-                    onOpen = {
+                    recommendedRoutineId = likelyNext?.routine?.id,
+                    onToggleExpand = {
                         expandedFolderIds = if (expanded) {
                             expandedFolderIds - folder.id
                         } else {
                             expandedFolderIds + folder.id
                         }
                     },
-                    onRename = { folderToRenameId = folder.id },
-                    onDelete = { folderToDeleteId = folder.id },
+                    onStartRoutine = onStartRoutine,
+                    onOpenRoutine = { routineId -> onBuildRoutine(folder.id, routineId) },
+                    onEditFolder = { folderToRenameId = folder.id },
+                    onDeleteFolder = { folderToDeleteId = folder.id },
+                    onAddRoutine = { onBuildRoutine(folder.id, null) },
+                    onEditRoutine = { routineId -> onBuildRoutine(folder.id, routineId) },
+                    onDeleteRoutine = { routineId -> routineToDelete = listOf(folder.id, routineId) },
                 )
-                Spacer(Modifier.height(if (expanded) 8.dp else 12.dp))
-            }
-            if (expanded) {
-                folder.routines.forEach { routine ->
-                    item(key = "routine:${routine.id}") {
-                        RoutineCard(
-                            routine = routine,
-                            startEnabled = activeWorkout == null && routine.exerciseCount > 0,
-                            onOpen = { onBuildRoutine(folder.id, routine.id) },
-                            onStart = { onStartRoutine(routine.id) },
-                            onEdit = { onBuildRoutine(folder.id, routine.id) },
-                            onDelete = { routineToDelete = listOf(folder.id, routine.id) },
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
-                item(key = "folder-add:${folder.id}") {
-                    TextButton(
-                        onClick = { onBuildRoutine(folder.id, null) },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                    ) {
-                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                        HevyntSectionLabel(
-                            "ADD ROUTINE",
-                            Modifier.padding(start = 10.dp),
-                            HevyntTextSecondary,
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                }
+
+                Spacer(Modifier.height(12.dp))
             }
         }
 
         if (folders.isEmpty()) {
-            item(key = "empty-library") {
+            item(key = "empty-routines") {
                 Text(
-                    "NO ROUTINES YET",
+                    text = "NO ROUTINES YET",
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { showCreateFolder = true }

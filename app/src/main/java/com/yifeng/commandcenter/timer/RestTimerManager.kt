@@ -101,6 +101,25 @@ object RestTimerManager {
         showActiveNotification(context)
     }
 
+    fun addRestSeconds(context: Context, seconds: Int = 30) {
+        val current = readStoredState(context)
+        val now = System.currentTimeMillis()
+        if (current != null && current.endMillis > now) {
+            adjust(context, seconds)
+        } else {
+            val workout = ActiveWorkoutRepository(context).load()
+            val target = workout?.let { WorkoutProgress.firstUnfinishedSet(it) }
+            val exerciseName = target?.exerciseName ?: "Rest"
+            start(
+                context = context,
+                durationSeconds = seconds,
+                completedExerciseId = target?.exerciseId ?: "",
+                completedSetId = target?.setId ?: "",
+                exerciseName = exerciseName,
+            )
+        }
+    }
+
     fun skip(context: Context) {
         val state = readStoredState(context)
         val target = state?.let { resolveTarget(context, it) }

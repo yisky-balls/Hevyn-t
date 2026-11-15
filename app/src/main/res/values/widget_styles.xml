@@ -108,6 +108,28 @@
         <item name="android:letterSpacing">0.05</item>
     </style>
 
+    <style name="WidgetRestCountdownCompact">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">NDot57All</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/hevynt_rest_blue</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:letterSpacing">0.05</item>
+    </style>
+
+    <style name="WidgetRestCountdownStrip">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">NDot57All</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/hevynt_rest_blue</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:letterSpacing">0.05</item>
+    </style>
+
     <style name="WidgetStepperValue">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>

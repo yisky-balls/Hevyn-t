@@ -6,17 +6,17 @@
     android:background="@drawable/widget_background"
     android:padding="16dp">
 
-    <!-- Active State: While training (4x3) -->
+    <!-- Active State: 4x2 Compact -->
     <LinearLayout
-        android:id="@+id/widget_main_active"
+        android:id="@+id/widget_main_compact_active"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:visibility="visible">
 
-        <!-- Top Header: Exercise Name, Set info, Routine & Chronometer -->
+        <!-- Top Header: Exercise Name, Set info & Timer/READY -->
         <LinearLayout
-            android:id="@+id/widget_main_active_header"
+            android:id="@+id/widget_main_compact_active_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
@@ -29,234 +29,94 @@
                 android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/widget_main_active_exercise"
+                    android:id="@+id/widget_main_compact_active_exercise"
                     style="@style/WidgetPrimaryText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:text="Back squat"
+                    android:text="Deadlift"
                     android:textSize="17sp" />
 
                 <TextView
-                    android:id="@+id/widget_main_active_set_info"
+                    android:id="@+id/widget_main_compact_active_set_info"
                     style="@style/WidgetSecondaryText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Set 2 of 4"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical|end"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/widget_main_active_routine"
-                    style="@style/WidgetSecondaryText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:text="Lower A · "
-                    android:textSize="12sp" />
-
-                <Chronometer
-                    android:id="@+id/widget_main_active_timer"
-                    style="@style/WidgetSecondaryText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/hevynt_text_secondary"
-                    android:textSize="12sp" />
+                    android:text="Set 1 of 3 · 100 kg × 5"
+                    android:textSize="13sp" />
             </LinearLayout>
-        </LinearLayout>
 
-        <!-- Rest Countdown & Progress Bar -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <Chronometer
-                android:id="@+id/widget_main_rest_chronometer"
-                style="@style/WidgetRestCountdown"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="02:41" />
-
-            <TextView
-                android:id="@+id/widget_main_rest_label"
-                style="@style/WidgetSecondaryText"
+            <!-- Right side: Timer countdown or READY -->
+            <FrameLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Rest"
-                android:textSize="12sp" />
+                android:layout_marginStart="8dp">
+
+                <Chronometer
+                    android:id="@+id/widget_main_compact_active_timer"
+                    style="@style/WidgetRestCountdownCompact"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end|center_vertical"
+                    android:text="02:41" />
+
+                <ImageView
+                    android:id="@+id/widget_main_compact_active_ready_img"
+                    android:layout_width="wrap_content"
+                    android:layout_height="24dp"
+                    android:layout_gravity="end|center_vertical"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="Set ready"
+                    android:scaleType="fitCenter"
+                    android:visibility="gone" />
+            </FrameLayout>
         </LinearLayout>
 
+        <!-- Progress Bar -->
         <ProgressBar
-            android:id="@+id/widget_main_rest_progress"
+            android:id="@+id/widget_main_compact_active_progress"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="4dp"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="8dp"
             android:max="100"
             android:progress="65"
             android:progressDrawable="@drawable/widget_progress_bar" />
 
-        <!-- Stepper Controls Row: Weight and Reps -->
+        <!-- Spacer weight to push buttons cleanly to bottom in 4x2 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- Action Buttons Row: Skip rest (or +30 s) & Complete set -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <!-- Weight Stepper -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:layout_weight="1"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/widget_btn_weight_minus"
-                    style="@style/WidgetStepperValue"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:background="@drawable/widget_stepper_button_bg"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:text="−"
-                    android:textSize="20sp" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/widget_weight_value"
-                        style="@style/WidgetStepperValue"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:text="100" />
-
-                    <TextView
-                        style="@style/WidgetStepperUnit"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:text="kg" />
-                </LinearLayout>
-
-                <Button
-                    android:id="@+id/widget_btn_weight_plus"
-                    style="@style/WidgetStepperValue"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:background="@drawable/widget_stepper_button_bg"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:text="+"
-                    android:textSize="20sp" />
-            </LinearLayout>
-
-            <!-- Reps Stepper -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/widget_btn_reps_minus"
-                    style="@style/WidgetStepperValue"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:background="@drawable/widget_stepper_button_bg"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:text="−"
-                    android:textSize="20sp" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/widget_reps_value"
-                        style="@style/WidgetStepperValue"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:text="5" />
-
-                    <TextView
-                        style="@style/WidgetStepperUnit"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:text="reps" />
-                </LinearLayout>
-
-                <Button
-                    android:id="@+id/widget_btn_reps_plus"
-                    style="@style/WidgetStepperValue"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:background="@drawable/widget_stepper_button_bg"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:text="+"
-                    android:textSize="20sp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Action Buttons Row -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/widget_btn_skip_rest"
+                android:id="@+id/widget_main_compact_active_btn_left"
                 style="@style/WidgetSkipButton"
                 android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_marginEnd="5dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
                 android:layout_weight="1"
                 android:clickable="true"
                 android:focusable="true"
                 android:text="Skip rest" />
 
             <Button
-                android:id="@+id/widget_btn_complete_set"
+                android:id="@+id/widget_main_compact_active_btn_right"
                 style="@style/WidgetCompleteButton"
                 android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_marginStart="5dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="6dp"
                 android:layout_weight="1.5"
                 android:clickable="true"
                 android:focusable="true"
@@ -264,107 +124,81 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Idle State: Between workouts (Rich 4x3 Next Workout Dashboard) -->
+    <!-- Idle State: 4x2 Compact -->
     <LinearLayout
-        android:id="@+id/widget_main_idle"
+        android:id="@+id/widget_main_compact_idle"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:visibility="gone">
 
-        <!-- Header: Large Dot Matrix Title & Subtitle -->
+        <!-- Top Row: LOWER B & 6 exercises -->
         <LinearLayout
-            android:id="@+id/widget_main_idle_header"
+            android:id="@+id/widget_main_compact_idle_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <!-- High-fidelity square dot-matrix title image -->
             <ImageView
-                android:id="@+id/widget_main_idle_title_img"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:id="@+id/widget_main_compact_idle_title_img"
+                android:layout_width="0dp"
+                android:layout_height="26dp"
+                android:layout_weight="1"
                 android:adjustViewBounds="true"
                 android:contentDescription="Routine title"
                 android:scaleType="fitStart" />
 
             <TextView
-                android:id="@+id/widget_main_idle_routine"
+                android:id="@+id/widget_main_compact_idle_title"
                 style="@style/WidgetHugeDotoText"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="LOWER A"
-                android:visibility="visible" />
+                android:text="LOWER B"
+                android:textSize="22sp"
+                android:visibility="gone" />
 
             <TextView
-                android:id="@+id/widget_main_idle_metadata"
+                android:id="@+id/widget_main_compact_idle_count"
                 style="@style/WidgetSecondaryText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:text="Next session · 6 exercises"
+                android:text="6 exercises"
                 android:textSize="13sp" />
         </LinearLayout>
 
-        <!-- Preview Exercises List (Fills the 4x3 height cleanly) -->
-        <LinearLayout
+        <!-- Preview Exercises Line: Deadlift, Leg press, Leg curl +3 more -->
+        <TextView
+            android:id="@+id/widget_main_compact_idle_preview"
+            style="@style/WidgetSecondaryText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Deadlift, Leg press, Leg curl +3 more"
+            android:textSize="13sp" />
+
+        <!-- Spacer weight to push button to bottom -->
+        <View
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_marginTop="10dp"
-            android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:orientation="vertical">
+            android:layout_weight="1" />
 
-            <TextView
-                android:id="@+id/widget_main_idle_preview_1"
-                style="@style/WidgetSecondaryText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="• Back Squat (4 sets)"
-                android:textColor="@color/hevynt_text_primary"
-                android:textSize="13sp" />
-
-            <TextView
-                android:id="@+id/widget_main_idle_preview_2"
-                style="@style/WidgetSecondaryText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="• Romanian Deadlift (3 sets)"
-                android:textColor="@color/hevynt_text_secondary"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/widget_main_idle_preview_3"
-                style="@style/WidgetSecondaryText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="• Leg Press (3 sets)"
-                android:textColor="@color/hevynt_text_secondary"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <!-- Prominent Red Start Button -->
+        <!-- Prominent Red Start Button: Start workout -->
         <Button
-            android:id="@+id/widget_main_idle_start_btn"
+            android:id="@+id/widget_main_compact_idle_start_btn"
             style="@style/WidgetCompleteButton"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginTop="10dp"
+            android:layout_height="42dp"
             android:background="@drawable/widget_complete_button_bg"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"
-            android:text="START WORKOUT"
+            android:text="Start workout"
             android:textSize="14sp" />
     </LinearLayout>
 </FrameLayout>

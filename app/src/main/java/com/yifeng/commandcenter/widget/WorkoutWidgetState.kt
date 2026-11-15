@@ -18,6 +18,7 @@ internal sealed interface WorkoutWidgetState {
         val nextRoutineName: String,
         val exerciseCount: Int,
         val previewExercises: List<String> = emptyList(),
+        val commaExercisePreview: String = "",
     ) : WorkoutWidgetState
 
     data class Active(
@@ -30,6 +31,7 @@ internal sealed interface WorkoutWidgetState {
         val totalSetsInExercise: Int,
         val weightKg: String,
         val reps: String,
+        val plannedSetSummary: String,
         val isRestActive: Boolean,
         val restTimerEndMillis: Long?,
         val restTimerDurationSeconds: Int?,
@@ -58,16 +60,33 @@ internal object WorkoutWidgetStateLoader {
                 ?: currentExercise?.sets?.firstOrNull()?.reps?.ifBlank { "0" }
                 ?: "0"
 
+            val currentSetNum = target?.setNumber ?: totalCount
+            val totalSetsInEx = currentExercise?.sets?.size ?: 1
+
+            val summary = buildString {
+                append("Set $currentSetNum of $totalSetsInEx")
+                val w = weightVal.trim()
+                val r = repsVal.trim()
+                if (w.isNotEmpty() && w != "0" && r.isNotEmpty() && r != "0") {
+                    append(" · $w kg × $r")
+                } else if (w.isNotEmpty() && w != "0") {
+                    append(" · $w kg")
+                } else if (r.isNotEmpty() && r != "0") {
+                    append(" · $r reps")
+                }
+            }
+
             return WorkoutWidgetState.Active(
                 workout = workout,
                 completedSets = completedCount,
                 totalSets = totalCount,
                 target = target,
                 currentExerciseName = target?.exerciseName ?: currentExercise?.name ?: "Workout",
-                currentSetNumber = target?.setNumber ?: totalCount,
-                totalSetsInExercise = currentExercise?.sets?.size ?: 1,
+                currentSetNumber = currentSetNum,
+                totalSetsInExercise = totalSetsInEx,
                 weightKg = weightVal,
                 reps = repsVal,
+                plannedSetSummary = summary,
                 isRestActive = isRestActive,
                 restTimerEndMillis = restState?.endMillis,
                 restTimerDurationSeconds = restState?.durationSeconds,
@@ -84,17 +103,30 @@ internal object WorkoutWidgetStateLoader {
 
         val nextName = recommendation?.routine?.name ?: "CHOOSE ROUTINE"
         val count = recommendation?.routine?.exerciseCount ?: 0
-        val preview = recommendation?.routine?.let { rec ->
-            routineRepository.routine(rec.id)?.exercises?.take(3)?.map { ex ->
-                "• ${ex.name} (${ex.sets.size} sets)"
-            }
+        val routineDetail = recommendation?.routine?.let { rec ->
+            routineRepository.routine(rec.id)
+        }
+        val preview = routineDetail?.exercises?.take(3)?.map { ex ->
+            "• ${ex.name} (${ex.sets.size} sets)"
         } ?: emptyList()
+
+        val commaPreview = routineDetail?.exercises?.let { exercises ->
+            val names = exercises.map { it.name.trim() }.filter { it.isNotEmpty() }
+            if (names.size <= 3) {
+                names.joinToString(", ")
+            } else {
+                val first3 = names.take(3).joinToString(", ")
+                val remaining = names.size - 3
+                "$first3 +$remaining more"
+            }
+        } ?: ""
 
         return WorkoutWidgetState.Idle(
             recommendation = recommendation,
             nextRoutineName = nextName,
             exerciseCount = count,
             previewExercises = preview,
+            commaExercisePreview = commaPreview,
         )
     }
 }

@@ -72,6 +72,7 @@
                 <action android:name="com.yifeng.commandcenter.widget.ADJUST_WEIGHT" />
                 <action android:name="com.yifeng.commandcenter.widget.ADJUST_REPS" />
                 <action android:name="com.yifeng.commandcenter.widget.SKIP_REST" />
+                <action android:name="com.yifeng.commandcenter.widget.ADD_REST_30" />
                 <action android:name="com.yifeng.commandcenter.widget.REFRESH" />
             </intent-filter>
         </receiver>

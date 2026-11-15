@@ -88,4 +88,14 @@ class WorkoutWidgetOperationsTest {
 
         assertNull(WorkoutProgress.firstUnfinishedSet(workout))
     }
+
+    @Test
+    fun cleanRoutineName_removesDayPrefixesCorrectly() {
+        assertEquals("UPPER A", com.yifeng.commandcenter.widget.cleanRoutineName("TUE — UPPER A"))
+        assertEquals("Lower B", com.yifeng.commandcenter.widget.cleanRoutineName("Tue - Lower B"))
+        assertEquals("Lower A", com.yifeng.commandcenter.widget.cleanRoutineName("Mon – Lower A"))
+        assertEquals("Chest", com.yifeng.commandcenter.widget.cleanRoutineName("Day 1: Chest"))
+        assertEquals("Legs", com.yifeng.commandcenter.widget.cleanRoutineName("Day 2 - Legs"))
+        assertEquals("Power Upper", com.yifeng.commandcenter.widget.cleanRoutineName("Power Upper"))
+    }
 }

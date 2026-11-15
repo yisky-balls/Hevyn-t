@@ -2,12 +2,12 @@ package com.yifeng.commandcenter.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,9 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -32,7 +34,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,16 +53,23 @@ import com.yifeng.commandcenter.R
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.RoutineFolderSummary
 import com.yifeng.commandcenter.data.RoutineRecommendation
-import com.yifeng.commandcenter.data.RoutineRecommendationReason
 import com.yifeng.commandcenter.data.RoutineSummary
 import com.yifeng.commandcenter.ui.theme.HevyntAccent
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
+import com.yifeng.commandcenter.ui.theme.HevyntDivider
 import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntSurfaceInteractive
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
+
+internal fun cleanRoutineName(name: String): String =
+    name.replace(
+        Regex("^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN|DAY\\s*\\d+)\\s*[-—–:.]\\s*", RegexOption.IGNORE_CASE),
+        "",
+    ).trim()
 
 @Composable
 internal fun ContinueWorkoutCard(workout: ActiveWorkout, onContinue: () -> Unit) {
@@ -74,35 +81,55 @@ internal fun ContinueWorkoutCard(workout: ActiveWorkout, onContinue: () -> Unit)
         }
     }
     val completedSets = workout.exercises.sumOf { exercise -> exercise.sets.count { it.completed } }
-    HevyntPanel(Modifier.fillMaxWidth().clickable(onClick = onContinue)) {
-        Column(Modifier.padding(18.dp)) {
-            HevyntSectionLabel("CONTINUE WORKOUT", color = HevyntAccent)
-            Text(
-                workout.routineName.ifBlank { "Active workout" },
-                modifier = Modifier.padding(top = 10.dp),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = HevyntSurfaceRaised,
+        border = BorderStroke(1.dp, HevyntOutline),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onContinue),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .background(HevyntAccent, CircleShape),
+                contentAlignment = Alignment.Center,
             ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_play_arrow_filled),
+                    contentDescription = "Continue",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "$completedSets sets · ${formatLauncherElapsed(nowMillis - workout.startedAtMillis)}",
-                    modifier = Modifier.weight(1f),
-                    color = HevyntTextSecondary,
-                    fontFamily = HevyntDisplayFont,
+                    text = "Active workout",
+                    color = HevyntAccent,
                     fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = cleanRoutineName(workout.routineName).ifBlank { "Workout in progress" },
+                    color = HevyntTextPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                HevyntSectionLabel("CONTINUE", color = HevyntAccent)
-                Icon(
-                    Icons.AutoMirrored.Outlined.ArrowForward,
-                    contentDescription = null,
-                    tint = HevyntAccent,
-                    modifier = Modifier.padding(start = 8.dp).size(19.dp),
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = "$completedSets sets completed · ${formatLauncherElapsed(nowMillis - workout.startedAtMillis)}",
+                    color = HevyntTextSecondary,
+                    fontSize = 12.sp,
                 )
             }
         }
@@ -110,12 +137,16 @@ internal fun ContinueWorkoutCard(workout: ActiveWorkout, onContinue: () -> Unit)
 }
 
 @Composable
-internal fun LikelyNextRoutineCard(
-    recommendation: RoutineRecommendation,
+internal fun HeroUpNextCard(
+    recommendation: RoutineRecommendation?,
+    fallbackRoutine: RoutineSummary?,
     onStart: () -> Unit,
     onOpen: () -> Unit,
 ) {
-    val routine = recommendation.routine
+    val routine = recommendation?.routine ?: fallbackRoutine ?: return
+    val cleanName = cleanRoutineName(routine.name).uppercase()
+    val lastDone = routine.lastPerformedAtMillis?.let(::formatLastDoneShort) ?: "not performed yet"
+
     Surface(
         shape = RoundedCornerShape(22.dp),
         color = HevyntSurfaceRaised,
@@ -127,7 +158,7 @@ internal fun LikelyNextRoutineCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -141,196 +172,279 @@ internal fun LikelyNextRoutineCard(
                     painter = painterResource(R.drawable.ic_play_arrow_filled),
                     contentDescription = "Start",
                     tint = Color.White,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(24.dp),
                 )
             }
-            Spacer(Modifier.size(16.dp))
+            Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = routine.name,
+                    text = "Up next",
+                    color = HevyntTextSecondary,
+                    fontSize = 12.sp,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = cleanName,
+                    fontFamily = HevyntDisplayFont,
                     color = HevyntTextPrimary,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 26.sp,
+                    letterSpacing = 1.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.size(3.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    text = routineMetadata(routine),
+                    text = "${routine.exerciseCount} exercises · ${lastDone.lowercase()}",
                     color = HevyntTextSecondary,
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 12.sp,
                 )
             }
-            Icon(
-                painter = painterResource(R.drawable.ic_arrow_diagonal),
-                contentDescription = null,
-                tint = HevyntTextSecondary,
-                modifier = Modifier.size(18.dp),
-            )
         }
     }
 }
 
 @Composable
-internal fun SecondaryActionRow(
-    label: String,
-    enabled: Boolean,
-    icon: ImageVector = Icons.Outlined.Add,
-    onClick: () -> Unit,
+internal fun QuickActionsRow(
+    onStartEmpty: () -> Unit,
+    onRepeatLast: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        color = HevyntSurfaceRaised,
-        shape = MaterialTheme.shapes.small,
-        border = BorderStroke(1.dp, HevyntOutline),
-        modifier = Modifier.fillMaxWidth().height(52.dp),
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = HevyntSurfaceInteractive,
+            border = BorderStroke(1.dp, HevyntOutline),
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .weight(1f)
+                .height(48.dp)
+                .clickable(onClick = onStartEmpty),
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = if (enabled) MaterialTheme.colorScheme.onSurface else HevyntTextSecondary,
-                modifier = Modifier.size(20.dp),
-            )
-            HevyntSectionLabel(
-                label,
-                Modifier.weight(1f).padding(start = 12.dp),
-                if (enabled) MaterialTheme.colorScheme.onSurface else HevyntTextSecondary,
-            )
-            Icon(
-                Icons.AutoMirrored.Outlined.ArrowForward,
-                contentDescription = null,
-                tint = if (enabled) HevyntTextSecondary else HevyntTextSecondary.copy(alpha = 0.5f),
-                modifier = Modifier.size(18.dp),
-            )
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Add,
+                    contentDescription = null,
+                    tint = HevyntTextPrimary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Empty workout",
+                    color = HevyntTextPrimary,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    fontSize = 14.sp,
+                )
+            }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = HevyntSurfaceInteractive,
+            border = BorderStroke(1.dp, HevyntOutline),
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp)
+                .clickable(onClick = onRepeatLast),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    tint = HevyntTextPrimary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Repeat last",
+                    color = HevyntTextPrimary,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    fontSize = 14.sp,
+                )
+            }
         }
     }
 }
 
 @Composable
-internal fun FolderRow(
+internal fun RoutineFolderCard(
     folder: RoutineFolderSummary,
     expanded: Boolean,
-    onOpen: () -> Unit,
-    onRename: () -> Unit,
-    onDelete: () -> Unit,
+    recommendedRoutineId: String?,
+    onToggleExpand: () -> Unit,
+    onStartRoutine: (String) -> Unit,
+    onOpenRoutine: (String) -> Unit,
+    onEditFolder: () -> Unit,
+    onDeleteFolder: () -> Unit,
+    onAddRoutine: () -> Unit,
+    onEditRoutine: (String) -> Unit,
+    onDeleteRoutine: (String) -> Unit,
 ) {
-    var menuExpanded by rememberSaveable(folder.id) { mutableStateOf(false) }
-    HevyntPanel(Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 16.dp, end = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null, modifier = Modifier.size(22.dp))
-            Column(Modifier.weight(1f).padding(horizontal = 13.dp, vertical = 15.dp)) {
-                Text(
-                    folder.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                HevyntSectionLabel(
-                    formatRoutineCount(folder.routines.size).uppercase(),
-                    modifier = Modifier.padding(top = 4.dp),
-                    color = HevyntTextSecondary,
-                )
-            }
-            Icon(
-                if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-                contentDescription = if (expanded) "Close folder" else "Open folder",
-                modifier = Modifier.size(23.dp),
-            )
-            Box {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Outlined.MoreVert, contentDescription = "Folder options")
-                }
-                DropdownMenu(menuExpanded, { menuExpanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text("RENAME FOLDER") },
-                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                        onClick = { menuExpanded = false; onRename() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("DELETE FOLDER") },
-                        leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
-                        onClick = { menuExpanded = false; onDelete() },
-                    )
-                }
-            }
-        }
-    }
-}
+    var folderMenuExpanded by rememberSaveable(folder.id) { mutableStateOf(false) }
 
-@Composable
-internal fun RoutineCard(
-    routine: RoutineSummary,
-    startEnabled: Boolean,
-    onOpen: () -> Unit,
-    onStart: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    var menuExpanded by rememberSaveable(routine.id) { mutableStateOf(false) }
-    HevyntPanel(Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
-        Column(Modifier.padding(start = 18.dp, end = 6.dp, top = 15.dp, bottom = 7.dp)) {
-            Text(
-                routine.name,
-                modifier = Modifier.padding(end = 10.dp),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                routineMetadata(routine),
-                modifier = Modifier.padding(top = 5.dp, end = 10.dp),
-                color = HevyntTextSecondary,
-                fontSize = 13.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = HevyntSurfaceRaised,
+        border = BorderStroke(1.dp, HevyntOutline),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Folder Header Row
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggleExpand)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(
-                    onClick = if (routine.exerciseCount == 0) onOpen else onStart,
-                    enabled = routine.exerciseCount == 0 || startEnabled,
-                    modifier = Modifier.height(48.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                ) {
-                    Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                    HevyntSectionLabel(
-                        if (routine.exerciseCount == 0) "EDIT" else "START",
-                        modifier = Modifier.padding(start = 5.dp),
-                        color = if (routine.exerciseCount == 0 || startEnabled) {
-                            HevyntAccent
-                        } else {
-                            HevyntTextSecondary
-                        },
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = folder.name,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = HevyntTextPrimary,
+                        fontSize = 18.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = "${folder.routines.size} routines",
+                        color = HevyntTextSecondary,
+                        fontSize = 13.sp,
                     )
                 }
-                Spacer(Modifier.weight(1f))
+
                 Box {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Outlined.MoreVert, contentDescription = "Routine options")
+                    IconButton(
+                        onClick = onToggleExpand,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                            contentDescription = if (expanded) "Collapse" else "Expand",
+                            tint = HevyntTextSecondary,
+                            modifier = Modifier.size(24.dp),
+                        )
                     }
-                    DropdownMenu(menuExpanded, { menuExpanded = false }) {
+                    DropdownMenu(
+                        expanded = folderMenuExpanded,
+                        onDismissRequest = { folderMenuExpanded = false },
+                    ) {
                         DropdownMenuItem(
-                            text = { Text("EDIT ROUTINE") },
+                            text = { Text("Rename folder") },
                             leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                            onClick = { menuExpanded = false; onEdit() },
+                            onClick = { folderMenuExpanded = false; onEditFolder() },
                         )
                         DropdownMenuItem(
-                            text = { Text("DELETE ROUTINE") },
-                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
-                            onClick = { menuExpanded = false; onDelete() },
+                            text = { Text("Add routine") },
+                            leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                            onClick = { folderMenuExpanded = false; onAddRoutine() },
                         )
+                        DropdownMenuItem(
+                            text = { Text("Delete folder") },
+                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                            onClick = { folderMenuExpanded = false; onDeleteFolder() },
+                        )
+                    }
+                }
+            }
+
+            // Expanded Routine List
+            if (expanded) {
+                folder.routines.forEachIndexed { index, routine ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(HevyntDivider),
+                    )
+
+                    val isUpNext = routine.id == recommendedRoutineId
+                    val cleanTitle = cleanRoutineName(routine.name)
+                    val lastDoneStr = routine.lastPerformedAtMillis?.let(::formatLastDoneShort) ?: "not performed yet"
+                    val subtitle = if (isUpNext) {
+                        "${lastDoneStr.lowercase()} · up next"
+                    } else {
+                        lastDoneStr.replaceFirstChar { it.uppercase() }
+                    }
+
+                    var routineMenuExpanded by rememberSaveable(routine.id) { mutableStateOf(false) }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = { onOpenRoutine(routine.id) })
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isUpNext) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(HevyntAccent, CircleShape),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                Text(
+                                    text = cleanTitle,
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = HevyntTextPrimary,
+                                    fontSize = 16.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = subtitle,
+                                color = HevyntTextSecondary,
+                                fontSize = 12.sp,
+                            )
+                        }
+
+                        // Play circle button
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(HevyntSurfaceInteractive, CircleShape)
+                                .border(1.dp, HevyntOutline, CircleShape)
+                                .clickable { onStartRoutine(routine.id) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.PlayArrow,
+                                contentDescription = "Start routine",
+                                tint = HevyntTextPrimary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = routineMenuExpanded,
+                            onDismissRequest = { routineMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Edit routine") },
+                                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                                onClick = { routineMenuExpanded = false; onEditRoutine(routine.id) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete routine") },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                                onClick = { routineMenuExpanded = false; onDeleteRoutine(routine.id) },
+                            )
+                        }
                     }
                 }
             }
@@ -338,20 +452,14 @@ internal fun RoutineCard(
     }
 }
 
-internal fun routineMetadata(routine: RoutineSummary): String =
-    "${routine.exerciseCount} exercise${if (routine.exerciseCount == 1) "" else "s"} · " +
-        (routine.lastPerformedAtMillis?.let(::formatLastPerformed) ?: "not performed yet")
-
-internal fun formatLastPerformed(completedAtMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+internal fun formatLastDoneShort(completedAtMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
     val elapsedDays = TimeUnit.MILLISECONDS.toDays((nowMillis - completedAtMillis).coerceAtLeast(0L))
     return when (elapsedDays) {
-        0L -> "last done today"
-        1L -> "last done yesterday"
-        else -> "last done ${elapsedDays}d ago"
+        0L -> "Last done today"
+        1L -> "Last done yesterday"
+        else -> "Last done ${elapsedDays}d ago"
     }
 }
-
-internal fun formatRoutineCount(count: Int) = "$count routine${if (count == 1) "" else "s"}"
 
 internal fun formatLauncherElapsed(durationMillis: Long): String {
     val totalMinutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis.coerceAtLeast(0L))
