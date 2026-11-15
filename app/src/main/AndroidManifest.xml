@@ -45,6 +45,7 @@
             android:exported="false" />
         <receiver
             android:name=".widget.CompactWorkoutWidgetProvider"
+            android:label="@string/workout_widget_compact_name"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -55,6 +56,7 @@
         </receiver>
         <receiver
             android:name=".widget.MainWorkoutWidgetProvider"
+            android:label="@string/workout_widget_main_name"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -65,6 +67,7 @@
         </receiver>
         <receiver
             android:name=".widget.FullWorkoutWidgetProvider"
+            android:label="@string/workout_widget_full_name"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

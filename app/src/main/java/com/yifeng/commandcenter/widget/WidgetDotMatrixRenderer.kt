@@ -60,7 +60,7 @@ object WidgetDotMatrixRenderer {
         text: String,
         textSizeSp: Float = 26f,
         textColor: Int = 0xFFFFFFFF.toInt(),
-        letterSpacing: Float = 0.05f,
+        letterSpacing: Float = 0f,
     ): Bitmap {
         val density = context.resources.displayMetrics.scaledDensity.coerceAtLeast(1f)
         val pxSize = textSizeSp * density
@@ -76,13 +76,13 @@ object WidgetDotMatrixRenderer {
         val textWidth = paint.measureText(text)
         val textHeight = fontMetrics.descent - fontMetrics.ascent
 
-        val bitmapWidth = (textWidth + 8 * density).toInt().coerceAtLeast(1)
-        val bitmapHeight = (textHeight + 6 * density).toInt().coerceAtLeast(1)
+        val bitmapWidth = (textWidth + 6 * density).toInt().coerceAtLeast(1)
+        val bitmapHeight = (textHeight + 2 * density).toInt().coerceAtLeast(1)
 
         val bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        val y = -fontMetrics.ascent + 2 * density
+        val y = -fontMetrics.ascent + (bitmapHeight - textHeight) / 2f
         canvas.drawText(text, 2 * density, y, paint)
 
         return bitmap

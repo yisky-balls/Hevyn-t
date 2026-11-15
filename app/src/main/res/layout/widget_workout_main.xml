@@ -3,8 +3,11 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_background"
-    android:padding="16dp">
+    android:background="@drawable/widget_card_bg"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="16dp"
+    android:paddingBottom="14dp">
 
     <!-- Active State: 4x2 Compact -->
     <LinearLayout
@@ -14,7 +17,7 @@
         android:orientation="vertical"
         android:visibility="visible">
 
-        <!-- Top Header: Exercise Name, Set info & Timer/READY -->
+        <!-- Top Header: Exercise Name, Set info & Square Dot-Matrix Timer/READY -->
         <LinearLayout
             android:id="@+id/widget_main_compact_active_header"
             android:layout_width="match_parent"
@@ -30,50 +33,42 @@
 
                 <TextView
                     android:id="@+id/widget_main_compact_active_exercise"
-                    style="@style/WidgetPrimaryText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
+                    android:fontFamily="sans-serif"
+                    android:includeFontPadding="false"
                     android:maxLines="1"
                     android:text="Deadlift"
-                    android:textSize="17sp" />
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/widget_main_compact_active_set_info"
-                    style="@style/WidgetSecondaryText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="3dp"
                     android:ellipsize="end"
+                    android:fontFamily="sans-serif"
+                    android:includeFontPadding="false"
                     android:maxLines="1"
                     android:text="Set 1 of 3 · 100 kg × 5"
-                    android:textSize="13sp" />
+                    android:textColor="#FF8E8E93"
+                    android:textSize="12.5sp" />
             </LinearLayout>
 
-            <!-- Right side: Timer countdown or READY -->
-            <FrameLayout
+            <!-- Right side: High-fidelity Square Dot-Matrix Timer or READY bitmap -->
+            <ImageView
+                android:id="@+id/widget_main_compact_active_timer_img"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp">
-
-                <Chronometer
-                    android:id="@+id/widget_main_compact_active_timer"
-                    style="@style/WidgetRestCountdownCompact"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="end|center_vertical"
-                    android:text="02:41" />
-
-                <ImageView
-                    android:id="@+id/widget_main_compact_active_ready_img"
-                    android:layout_width="wrap_content"
-                    android:layout_height="24dp"
-                    android:layout_gravity="end|center_vertical"
-                    android:adjustViewBounds="true"
-                    android:contentDescription="Set ready"
-                    android:scaleType="fitCenter"
-                    android:visibility="gone" />
-            </FrameLayout>
+                android:layout_height="28dp"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginStart="8dp"
+                android:adjustViewBounds="true"
+                android:contentDescription="Timer"
+                android:scaleType="fitEnd"
+                android:src="@drawable/widget_preview_timer" />
         </LinearLayout>
 
         <!-- Progress Bar -->
@@ -81,13 +76,13 @@
             android:id="@+id/widget_main_compact_active_progress"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="4dp"
-            android:layout_marginTop="8dp"
+            android:layout_height="3dp"
+            android:layout_marginTop="12dp"
             android:max="100"
             android:progress="65"
-            android:progressDrawable="@drawable/widget_progress_bar" />
+            android:progressDrawable="@drawable/widget_progress_bar_v2" />
 
-        <!-- Spacer weight to push buttons cleanly to bottom in 4x2 -->
+        <!-- Spacer to push buttons cleanly to bottom -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -97,30 +92,42 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <Button
+            <TextView
                 android:id="@+id/widget_main_compact_active_btn_left"
-                style="@style/WidgetSkipButton"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_marginEnd="6dp"
+                android:layout_height="38dp"
+                android:layout_marginEnd="8dp"
                 android:layout_weight="1"
+                android:background="@drawable/widget_dark_pill_bg"
                 android:clickable="true"
                 android:focusable="true"
-                android:text="Skip rest" />
+                android:fontFamily="sans-serif"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="Skip rest"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
-            <Button
+            <TextView
                 android:id="@+id/widget_main_compact_active_btn_right"
-                style="@style/WidgetCompleteButton"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1.5"
+                android:layout_height="38dp"
+                android:layout_weight="1.7"
+                android:background="@drawable/widget_red_pill_bg"
                 android:clickable="true"
                 android:focusable="true"
-                android:text="Complete set" />
+                android:fontFamily="sans-serif"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="Complete set"
+                android:textColor="#FFFFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
@@ -142,63 +149,61 @@
 
             <ImageView
                 android:id="@+id/widget_main_compact_idle_title_img"
-                android:layout_width="0dp"
-                android:layout_height="26dp"
-                android:layout_weight="1"
+                android:layout_width="wrap_content"
+                android:layout_height="28dp"
                 android:adjustViewBounds="true"
                 android:contentDescription="Routine title"
-                android:scaleType="fitStart" />
-
-            <TextView
-                android:id="@+id/widget_main_compact_idle_title"
-                style="@style/WidgetHugeDotoText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="LOWER B"
-                android:textSize="22sp"
-                android:visibility="gone" />
+                android:scaleType="fitStart"
+                android:src="@drawable/widget_preview_lower_b" />
 
             <TextView
                 android:id="@+id/widget_main_compact_idle_count"
-                style="@style/WidgetSecondaryText"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif"
+                android:gravity="end|center_vertical"
+                android:includeFontPadding="false"
                 android:text="6 exercises"
+                android:textColor="#FF8E8E93"
                 android:textSize="13sp" />
         </LinearLayout>
 
         <!-- Preview Exercises Line: Deadlift, Leg press, Leg curl +3 more -->
         <TextView
             android:id="@+id/widget_main_compact_idle_preview"
-            style="@style/WidgetSecondaryText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="10dp"
             android:ellipsize="end"
+            android:fontFamily="sans-serif"
+            android:includeFontPadding="false"
             android:maxLines="1"
             android:text="Deadlift, Leg press, Leg curl +3 more"
+            android:textColor="#FF8E8E93"
             android:textSize="13sp" />
 
-        <!-- Spacer weight to push button to bottom -->
+        <!-- Spacer to push button cleanly to bottom -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1" />
 
         <!-- Prominent Red Start Button: Start workout -->
-        <Button
+        <TextView
             android:id="@+id/widget_main_compact_idle_start_btn"
-            style="@style/WidgetCompleteButton"
             android:layout_width="match_parent"
             android:layout_height="42dp"
-            android:background="@drawable/widget_complete_button_bg"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/widget_red_pill_bg"
             android:clickable="true"
             android:focusable="true"
+            android:fontFamily="sans-serif"
             android:gravity="center"
+            android:includeFontPadding="false"
             android:text="Start workout"
-            android:textSize="14sp" />
+            android:textColor="#FFFFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
     </LinearLayout>
 </FrameLayout>
