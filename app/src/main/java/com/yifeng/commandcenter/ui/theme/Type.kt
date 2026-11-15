@@ -10,7 +10,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.R
 
-private const val HevyntDotoRoundness = 100f
+private const val HevyntDotoRoundness = 0f
 
 @OptIn(ExperimentalTextApi::class)
 private fun dotoFont(weight: FontWeight) = Font(
@@ -97,9 +97,23 @@ val HevyntTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = HevyntDisplayFont,
         fontWeight = FontWeight.Medium,
-        fontSize = 36.sp,
-        lineHeight = 40.sp,
+        fontSize = 38.sp,
+        lineHeight = 42.sp,
         letterSpacing = 1.5.sp,
+    ),
+    displayMedium = TextStyle(
+        fontFamily = HevyntDisplayFont,
+        fontWeight = FontWeight.Medium,
+        fontSize = 28.sp,
+        lineHeight = 32.sp,
+        letterSpacing = 1.sp,
+    ),
+    displaySmall = TextStyle(
+        fontFamily = HevyntDisplayFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 20.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp,
     ),
     headlineMedium = TextStyle(
         fontFamily = FontFamily.Default,

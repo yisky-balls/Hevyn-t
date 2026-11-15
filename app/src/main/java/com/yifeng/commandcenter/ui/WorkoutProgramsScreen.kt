@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -58,6 +59,7 @@ fun WorkoutProgramsScreen(
     onStartEmpty: () -> Unit,
     onRepeatLast: () -> Unit = {},
     onImportPlan: () -> Unit = {},
+    onManageSavedExercises: () -> Unit = {},
 ) {
     var expandedFolderIds by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var showFolderPicker by rememberSaveable { mutableStateOf(false) }
@@ -185,6 +187,13 @@ fun WorkoutProgramsScreen(
                 icon = Icons.Outlined.KeyboardArrowDown,
                 enabled = true,
                 onClick = onImportPlan,
+            )
+            Spacer(Modifier.height(8.dp))
+            SecondaryActionRow(
+                label = "MANAGE SAVED EXERCISES",
+                icon = Icons.AutoMirrored.Outlined.List,
+                enabled = true,
+                onClick = onManageSavedExercises,
             )
         }
 

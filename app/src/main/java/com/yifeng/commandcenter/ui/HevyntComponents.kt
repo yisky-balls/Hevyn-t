@@ -426,26 +426,26 @@ fun HevyntBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 24.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Surface(
             color = HevyntSurfaceRaised,
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(32.dp),
             border = BorderStroke(1.dp, HevyntOutline),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp),
+                .height(64.dp),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 HevyntBottomDestination(
-                    label = "HOME",
+                    label = "Home",
                     selected = selectedPage == AppPage.Home,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -455,17 +455,21 @@ fun HevyntBottomBar(
                     Icon(Icons.Outlined.Home, contentDescription = "Home", modifier = Modifier.size(22.dp))
                 }
                 HevyntBottomDestination(
-                    label = "WORKOUT",
+                    label = "Workout",
                     selected = selectedPage == AppPage.Workout,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onPageSelected(AppPage.Workout)
                     },
                 ) {
-                    Icon(Icons.Outlined.Build, contentDescription = "Workout", modifier = Modifier.size(22.dp))
+                    Icon(
+                        painter = androidx.compose.ui.res.painterResource(com.yifeng.commandcenter.R.drawable.ic_nav_dumbbell),
+                        contentDescription = "Workout",
+                        modifier = Modifier.size(22.dp),
+                    )
                 }
                 HevyntBottomDestination(
-                    label = "JOURNAL",
+                    label = "Journal",
                     selected = selectedPage == AppPage.Journal,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -490,29 +494,36 @@ private fun RowScope.HevyntBottomDestination(
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
 ) {
-    val contentColor = if (selected) MaterialTheme.colorScheme.primary else HevyntTextSecondary
-    Surface(
-        onClick = onClick,
-        color = if (selected) HevyntAccentContainer.copy(alpha = 0.6f) else Color.Transparent,
-        shape = RoundedCornerShape(16.dp),
+    val contentColor = if (selected) HevyntTextPrimary else HevyntTextSecondary
+    Box(
         modifier = Modifier
             .weight(1f)
             .fillMaxHeight()
-            .padding(vertical = 4.dp, horizontal = 4.dp),
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            // Active Red Dot Indicator
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .size(4.dp)
+                        .background(HevyntAccent, CircleShape),
+                )
+            } else {
+                Spacer(Modifier.height(4.dp))
+            }
+            Spacer(Modifier.height(3.dp))
             Surface(color = Color.Transparent, contentColor = contentColor) { icon() }
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(3.dp))
             Text(
                 label,
                 color = contentColor,
-                fontSize = 10.sp,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                letterSpacing = 0.5.sp,
+                fontSize = 11.sp,
+                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
             )
         }
     }

@@ -191,6 +191,17 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
         )
     }
 
+    if (state.showDiscardSavedExercisesConfirm) {
+        HevyntConfirmDialog(
+            title = "DISCARD UNSAVED CHANGES?",
+            message = "You have uncommitted modifications. Discard all changes to saved exercises?",
+            confirmText = "DISCARD",
+            isDestructive = true,
+            onConfirm = viewModel::confirmDiscardSavedExercises,
+            onDismiss = viewModel::dismissDiscardSavedExercisesConfirm,
+        )
+    }
+
     state.workoutPlanPreview?.let { preview ->
         HevyntDialog(
             onDismissRequest = viewModel::dismissWorkoutPlanPreview,
@@ -281,7 +292,7 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (state.recapGraph == null && (state.activeWorkout == null || !state.isWorkoutExpanded)) {
+            if (state.recapGraph == null && (state.activeWorkout == null || !state.isWorkoutExpanded) && !state.isSavedExercisesOpen) {
                 Column {
                     state.activeWorkout?.takeIf { !state.isWorkoutExpanded }?.let { workout ->
                         MinimizedWorkoutBar(
@@ -329,11 +340,13 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
 
             if (workout != null && state.isWorkoutExpanded) {
                 pageStateHolder.SaveableStateProvider("active-workout:${workout.id}") {
+                    val resolvedTimer = state.timerState?.let { RestTimerManager.resolveState(it, workout) }
                     ActiveWorkoutScreen(
                         workout = workout,
                         previousSets = state.previousSets,
                         exerciseHistory = state.exerciseHistory,
                         exerciseSuggestions = state.exerciseSuggestions,
+                        timerState = resolvedTimer,
                         isRoutineBuilder = state.routineBuildTarget != null,
                         onRequestExerciseSuggestions = viewModel::requestExerciseSuggestions,
                         onAddExercise = viewModel::addExercise,
@@ -361,12 +374,20 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                         onFinish = viewModel::finishOrSaveRoutine,
                         onMinimize = viewModel::minimizeWorkout,
                         onCancel = viewModel::discardWorkout,
+                        isGlyphSupported = state.isGlyphSupported,
+                        isGlyphTimerEnabled = state.isGlyphTimerEnabled,
+                        isGlyphPulseEnabled = state.isGlyphPulseEnabled,
+                        onToggleGlyphTimer = viewModel::setGlyphTimerEnabled,
+                        onToggleGlyphPulse = viewModel::setGlyphPulseEnabled,
+                        onStartRestTimer = viewModel::startRestTimerForExercise,
+                        onAddRestTime = viewModel::addRestTime,
+                        onSkipRestTime = viewModel::skipRestTime,
                     )
                 }
             } else {
                 HorizontalPager(
                     state = pagerState,
-                    userScrollEnabled = selectedGraph == null,
+                    userScrollEnabled = selectedGraph == null && !state.isSavedExercisesOpen,
                     modifier = Modifier.fillMaxSize(),
                 ) { pageIndex: Int ->
                     val page = topLevelPages[pageIndex]
@@ -375,6 +396,7 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                             AppPage.Home -> HomeScreen(
                                 routines = state.routines,
                                 workoutHistory = state.workoutHistory,
+                                likelyNext = state.likelyNextRoutine,
                                 scrollState = homeScrollState,
                                 onOpenPrograms = viewModel::openPrograms,
                                 onStartRoutine = viewModel::startRoutine,
@@ -383,23 +405,38 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                                 onRepeatLastWorkout = viewModel::repeatLastWorkout,
                             )
 
-                            AppPage.Workout -> WorkoutProgramsScreen(
-                                folders = state.routineFolders,
-                                likelyNext = state.likelyNextRoutine,
-                                activeWorkout = state.activeWorkout,
-                                canRepeatLast = state.workoutHistory.any { !it.isLegacySummaryOnly },
-                                listState = workoutListState,
-                                onContinueWorkout = viewModel::resumeWorkout,
-                                onStartRoutine = viewModel::startRoutine,
-                                onBuildRoutine = viewModel::buildRoutine,
-                                onCreateFolder = viewModel::createFolder,
-                                onRenameFolder = viewModel::renameFolder,
-                                onDeleteFolder = viewModel::deleteFolder,
-                                onDeleteRoutine = viewModel::deleteRoutine,
-                                onStartEmpty = viewModel::startEmptyWorkout,
-                                onRepeatLast = viewModel::repeatLastWorkout,
-                                onImportPlan = { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) },
-                            )
+                            AppPage.Workout -> if (state.isSavedExercisesOpen && state.savedExercisesDraft != null) {
+                                SavedExercisesScreen(
+                                    draft = state.savedExercisesDraft!!,
+                                    onRenameExercise = viewModel::renameSavedExercise,
+                                    onEditExerciseDetails = viewModel::editSavedExerciseDetails,
+                                    onMergeExercises = viewModel::mergeSavedExercises,
+                                    onDeleteExercise = viewModel::deleteSavedExercise,
+                                    onDeleteExerciseInstance = viewModel::deleteSavedExerciseInstance,
+                                    onDeduplicateAll = viewModel::deduplicateAllSavedExercises,
+                                    onCommit = viewModel::commitSavedExercises,
+                                    onBack = viewModel::handleBackFromSavedExercises,
+                                )
+                            } else {
+                                WorkoutProgramsScreen(
+                                    folders = state.routineFolders,
+                                    likelyNext = state.likelyNextRoutine,
+                                    activeWorkout = state.activeWorkout,
+                                    canRepeatLast = state.workoutHistory.any { !it.isLegacySummaryOnly },
+                                    listState = workoutListState,
+                                    onContinueWorkout = viewModel::resumeWorkout,
+                                    onStartRoutine = viewModel::startRoutine,
+                                    onBuildRoutine = viewModel::buildRoutine,
+                                    onCreateFolder = viewModel::createFolder,
+                                    onRenameFolder = viewModel::renameFolder,
+                                    onDeleteFolder = viewModel::deleteFolder,
+                                    onDeleteRoutine = viewModel::deleteRoutine,
+                                    onStartEmpty = viewModel::startEmptyWorkout,
+                                    onRepeatLast = viewModel::repeatLastWorkout,
+                                    onImportPlan = { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) },
+                                    onManageSavedExercises = viewModel::openSavedExercises,
+                                )
+                            }
 
                             AppPage.Journal -> if (selectedGraph != null) {
                                 JournalDetailScreen(
@@ -426,7 +463,7 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
             }
 
             state.timerState
-                ?.takeIf { state.isWorkoutExpanded }
+                ?.takeIf { !state.isWorkoutExpanded }
                 ?.let { timer -> workout?.let { RestTimerManager.resolveState(timer, it) } }
                 ?.let { timer ->
                     RestTimerBar(

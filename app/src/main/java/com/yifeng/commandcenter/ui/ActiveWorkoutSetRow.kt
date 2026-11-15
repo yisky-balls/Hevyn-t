@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -73,11 +75,18 @@ internal fun SetHeader() {
             .height(30.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SetColumnLabel("SET", Modifier.width(34.dp), TextAlign.Center)
-        SetColumnLabel("PREVIOUS", Modifier.weight(1f).padding(start = 4.dp))
-        SetColumnLabel("KG", Modifier.width(54.dp), TextAlign.Center)
-        SetColumnLabel("REPS", Modifier.width(54.dp), TextAlign.Center)
-        SetColumnLabel("DONE", Modifier.width(48.dp), TextAlign.Center)
+        SetColumnLabel("Set", Modifier.width(34.dp), TextAlign.Center)
+        SetColumnLabel("Previous · tap to fill", Modifier.weight(1f).padding(start = 6.dp))
+        SetColumnLabel("kg", Modifier.width(54.dp), TextAlign.Center)
+        SetColumnLabel("Reps", Modifier.width(54.dp), TextAlign.Center)
+        Box(modifier = Modifier.width(48.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Outlined.Check,
+                contentDescription = null,
+                tint = HevyntTextSecondary,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 
@@ -117,10 +126,12 @@ internal fun SetRow(
         PreviousSetResolver.evaluateProgression(set.weight, set.reps, previous)
     }
 
+    val isActive = !set.completed && isSelected
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .height(52.dp)
             .clickable(onClick = onSelect),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -141,9 +152,9 @@ internal fun SetRow(
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = (index + 1).toString(),
-                        color = if (set.completed) HevyntTextSecondary else if (isSelected) MaterialTheme.colorScheme.primary else HevyntTextPrimary,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isActive) HevyntAccent else if (set.completed) HevyntTextPrimary else HevyntTextSecondary,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -219,11 +230,11 @@ internal fun SetRow(
             },
             enabled = previous != null || precedingSet != null,
             color = if (previous == null && precedingSet == null) Color.Transparent else HevyntSurfaceInteractive,
-            shape = MaterialTheme.shapes.small,
+            shape = RoundedCornerShape(12.dp),
             modifier = Modifier
                 .weight(1f)
-                .height(34.dp)
-                .padding(end = 3.dp)
+                .height(38.dp)
+                .padding(end = 6.dp)
                 .semantics {
                     if (previous != null) {
                         contentDescription =
@@ -232,7 +243,7 @@ internal fun SetRow(
                 },
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 4.dp),
+                modifier = Modifier.padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
             ) {
@@ -257,13 +268,16 @@ internal fun SetRow(
             allowDecimal = true,
             imeAction = ImeAction.Next,
             contentDescription = "Set ${index + 1} weight in kilograms",
+            isActive = isActive,
             completed = set.completed,
             onValueChange = { onChanged(set.copy(weight = it)) },
         )
+        Spacer(Modifier.width(4.dp))
         CompactNumberField(
             value = set.reps,
             imeAction = ImeAction.Done,
             contentDescription = "Set ${index + 1} repetitions",
+            isActive = isActive,
             completed = set.completed,
             onValueChange = { onChanged(set.copy(reps = it)) },
         )
@@ -283,25 +297,38 @@ internal fun SetRow(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Surface(
-                color = if (set.completed) HevyntAccent else Color.Transparent,
-                border = BorderStroke(
-                    if (set.completed) 0.dp else 1.5.dp,
-                    if (set.completed) Color.Transparent else HevyntOutline,
-                ),
-                shape = CircleShape,
-                modifier = Modifier.size(32.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (set.completed) {
+            if (set.completed) {
+                // Completed: solid white circle with black checkmark
+                Surface(
+                    color = Color.White,
+                    shape = CircleShape,
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Outlined.Check,
                             contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp),
+                            tint = Color.Black,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }
+            } else if (isActive) {
+                // Active: red outline ring
+                Surface(
+                    color = Color.Transparent,
+                    border = BorderStroke(2.dp, HevyntAccent),
+                    shape = CircleShape,
+                    modifier = Modifier.size(34.dp),
+                ) {}
+            } else {
+                // Upcoming: subtle grey outline ring
+                Surface(
+                    color = Color.Transparent,
+                    border = BorderStroke(1.5.dp, HevyntOutline),
+                    shape = CircleShape,
+                    modifier = Modifier.size(34.dp),
+                ) {}
             }
         }
     }
@@ -313,6 +340,7 @@ internal fun CompactNumberField(
     allowDecimal: Boolean = false,
     imeAction: ImeAction,
     contentDescription: String,
+    isActive: Boolean = false,
     completed: Boolean = false,
     onValueChange: (String) -> Unit,
 ) {
@@ -344,12 +372,12 @@ internal fun CompactNumberField(
             .padding(horizontal = 2.dp)
             .background(
                 if (completed) HevyntSurfaceRaised else HevyntSurfaceInteractive,
-                MaterialTheme.shapes.small,
+                RoundedCornerShape(12.dp),
             )
             .border(
-                1.dp,
-                if (completed) HevyntOutline.copy(alpha = 0.5f) else HevyntOutline,
-                MaterialTheme.shapes.small,
+                if (isActive) 1.5.dp else 1.dp,
+                if (isActive) HevyntAccent else if (completed) HevyntOutline.copy(alpha = 0.5f) else HevyntOutline,
+                RoundedCornerShape(12.dp),
             )
             .semantics { this.contentDescription = contentDescription }
             .onFocusChanged { focusState ->

@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntDivider
+import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import kotlinx.coroutines.delay
 
@@ -88,62 +90,57 @@ fun MinimizedWorkoutBar(
     }
 
     Surface(
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxWidth(),
+        color = HevyntSurfaceRaised,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, com.yifeng.commandcenter.ui.theme.HevyntOutline),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
-        Column {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(HevyntDivider),
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(68.dp)
-                    .clickable(onClick = onResume)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onResume)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onResume, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Outlined.KeyboardArrowUp,
+                    contentDescription = "Resume workout",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f).padding(start = 8.dp),
+                verticalArrangement = Arrangement.Center,
             ) {
-                IconButton(onClick = onResume, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        Icons.Outlined.KeyboardArrowUp,
-                        contentDescription = "Resume workout",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-                Column(
-                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        HevyntSignalDot(Modifier.padding(end = 6.dp))
-                        Text(
-                            currentExercise.ifBlank { "Active workout" },
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HevyntSignalDot(Modifier.padding(end = 6.dp))
                     Text(
-                        formatWorkoutElapsed(elapsedSeconds),
-                        modifier = Modifier.padding(top = 2.dp),
-                        fontFamily = HevyntDisplayFont,
-                        fontSize = 15.sp,
-                        color = HevyntTextSecondary,
-                        letterSpacing = 0.5.sp,
+                        currentExercise.ifBlank { "Active workout" },
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
-                IconButton(onClick = { showDiscardDialog = true }, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        Icons.Outlined.Delete,
-                        contentDescription = "Discard workout",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+                Text(
+                    formatWorkoutElapsed(elapsedSeconds),
+                    modifier = Modifier.padding(top = 2.dp),
+                    fontFamily = HevyntDisplayFont,
+                    fontSize = 15.sp,
+                    color = HevyntTextSecondary,
+                    letterSpacing = 0.5.sp,
+                )
+            }
+            IconButton(onClick = { showDiscardDialog = true }, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = "Discard workout",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
     }

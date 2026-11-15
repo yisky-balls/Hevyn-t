@@ -6,8 +6,9 @@
         <item name="android:fontFamily">@font/doto_variable</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:textColor">@color/hevynt_text_primary</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textSize">13sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.05</item>
     </style>
 
     <style name="WidgetPrimaryText">
@@ -16,7 +17,7 @@
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:textColor">@color/hevynt_text_primary</item>
-        <item name="android:textSize">17sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:textStyle">bold</item>
     </style>
 
@@ -26,7 +27,7 @@
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:textColor">@color/hevynt_text_secondary</item>
-        <item name="android:textSize">10sp</item>
+        <item name="android:textSize">11sp</item>
     </style>
 
     <style name="WidgetLabelText">
@@ -37,6 +38,7 @@
         <item name="android:textColor">@color/hevynt_text_secondary</item>
         <item name="android:textSize">9sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.06</item>
     </style>
 
     <style name="WidgetActiveLabelText" parent="WidgetLabelText">
@@ -44,13 +46,13 @@
     </style>
 
     <style name="WidgetTimerText" parent="WidgetLabelText">
-        <item name="android:textColor">@color/hevynt_text_primary</item>
+        <item name="android:textColor">@color/hevynt_accent</item>
         <item name="android:textSize">12sp</item>
     </style>
 
     <style name="WidgetActionText">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">32dp</item>
+        <item name="android:layout_height">34dp</item>
         <item name="android:background">@drawable/widget_action_background</item>
         <item name="android:fontFamily">@font/doto_variable</item>
         <item name="android:gravity">center</item>
@@ -59,6 +61,22 @@
         <item name="android:textColor">@color/hevynt_accent</item>
         <item name="android:textSize">11sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.05</item>
+    </style>
+
+    <style name="WidgetGlyphActionText">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">34dp</item>
+        <item name="android:background">@drawable/widget_glyph_on_background</item>
+        <item name="android:fontFamily">@font/doto_variable</item>
+        <item name="android:gravity">center</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:paddingHorizontal">10dp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/hevynt_accent</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.05</item>
     </style>
 
     <style name="WidgetCompactActionText" parent="WidgetActionText">
@@ -68,4 +86,70 @@
         <item name="android:textSize">9sp</item>
     </style>
 
+    <style name="WidgetHugeDotoText">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">NDot57All</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/hevynt_text_primary</item>
+        <item name="android:textSize">30sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:letterSpacing">0.06</item>
+    </style>
+
+    <style name="WidgetRestCountdown">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">NDot57All</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/hevynt_rest_blue</item>
+        <item name="android:textSize">32sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:letterSpacing">0.05</item>
+    </style>
+
+    <style name="WidgetStepperValue">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/hevynt_text_primary</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="WidgetStepperUnit">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/hevynt_text_secondary</item>
+        <item name="android:textSize">11sp</item>
+    </style>
+
+    <style name="WidgetCompleteButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/widget_complete_button_bg</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:gravity">center</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/hevynt_text_primary</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="WidgetSkipButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/widget_skip_button_bg</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:gravity">center</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/hevynt_text_primary</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
 </resources>

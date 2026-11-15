@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -163,10 +164,10 @@ internal fun ExerciseLogger(
     }
     Column(
         Modifier
-            .padding(horizontal = 12.dp)
-            .background(HevyntSurfaceRaised, MaterialTheme.shapes.medium)
-            .border(1.dp, HevyntOutline, MaterialTheme.shapes.medium)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .background(HevyntSurfaceRaised, RoundedCornerShape(22.dp))
+            .border(1.dp, HevyntOutline, RoundedCornerShape(22.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(
             modifier = Modifier
@@ -393,11 +394,11 @@ internal fun ExerciseLogger(
                 .height(40.dp),
             contentPadding = PaddingValues(horizontal = 8.dp),
         ) {
-            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp))
             Text(
-                text = "ADD SET",
-                modifier = Modifier.padding(start = 5.dp),
-                style = MaterialTheme.typography.labelSmall,
+                text = "+ Add set",
+                color = HevyntTextSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
             )
         }
     }

@@ -20,6 +20,8 @@ import com.yifeng.commandcenter.data.RoutineLibraryImportResult
 import com.yifeng.commandcenter.data.RoutineRecommendation
 import com.yifeng.commandcenter.data.RoutineRepository
 import com.yifeng.commandcenter.data.RoutineWorkoutMapper
+import com.yifeng.commandcenter.data.SavedExercisesDraft
+import com.yifeng.commandcenter.data.SavedExercisesOperations
 import com.yifeng.commandcenter.data.WorkoutDateRange
 import com.yifeng.commandcenter.data.WorkoutPlanCoordinator
 import com.yifeng.commandcenter.data.WorkoutPlanParseResult
@@ -41,6 +43,11 @@ import com.yifeng.commandcenter.history.WorkoutPhotoManager
 import com.yifeng.commandcenter.history.WorkoutPhotoStore
 import com.yifeng.commandcenter.timer.RestTimerManager
 import com.yifeng.commandcenter.timer.RestTimerState
+import android.content.SharedPreferences
+import com.yifeng.commandcenter.glyph.GlyphDeviceSupport
+import com.yifeng.commandcenter.glyph.GlyphPreferences
+import com.yifeng.commandcenter.glyph.GlyphRestTimerController
+import com.yifeng.commandcenter.widget.WorkoutWidgetUpdateDispatcher
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -50,6 +57,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -90,6 +98,13 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
     private var lastPreviousLookupKey: PreviousLookupKey? = null
     private var suggestionsStale = true
 
+    // --- Nothing Glyph integration (Phone 4a) ---
+    val isGlyphSupported: Boolean = GlyphDeviceSupport.isSupported()
+    val glyphController: GlyphRestTimerController? = if (isGlyphSupported) {
+        GlyphRestTimerController(context).also { it.init() }
+    } else null
+    private var glyphUpdateJob: Job? = null
+
     private val restoredSession = activeWorkoutRepository.loadSession()
     private val _uiState = MutableStateFlow(
         HevyntAppUiState(
@@ -97,6 +112,9 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
             isWorkoutExpanded = restoredSession == null || activeWorkoutRepository.isExpanded(),
             routineBuildTarget = restoredSession?.routineBuildTarget,
             timerState = RestTimerManager.getState(context),
+            isGlyphSupported = isGlyphSupported,
+            isGlyphTimerEnabled = GlyphPreferences.isTimerEnabled(context),
+            isGlyphPulseEnabled = GlyphPreferences.isPulseOnComplete(context),
         ),
     )
     val uiState: StateFlow<HevyntAppUiState> = _uiState.asStateFlow()
@@ -124,7 +142,27 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         setTimerState(state)
     }
 
+    private val glyphPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == GlyphPreferences.KEY_TIMER_ENABLED) {
+            val enabled = GlyphPreferences.isTimerEnabled(context)
+            if (_uiState.value.isGlyphTimerEnabled != enabled) {
+                _uiState.update { it.copy(isGlyphTimerEnabled = enabled) }
+                if (!enabled) {
+                    glyphUpdateJob?.cancel()
+                    glyphController?.turnOff()
+                } else {
+                    val state = _uiState.value.timerState
+                    glyphController?.updateTimer(state)
+                    scheduleGlyphUpdates(state)
+                }
+            }
+        } else if (key == GlyphPreferences.KEY_PULSE_ON_COMPLETE) {
+            _uiState.update { it.copy(isGlyphPulseEnabled = GlyphPreferences.isPulseOnComplete(context)) }
+        }
+    }
+
     init {
+        GlyphPreferences.registerListener(context, glyphPrefsListener)
         observeRoutineLibrary()
         observeJournal()
         importLegacyHistory()
@@ -136,6 +174,9 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
     override fun onCleared() {
         unregisterWorkoutListener()
         unregisterTimerListener()
+        GlyphPreferences.unregisterListener(context, glyphPrefsListener)
+        glyphUpdateJob?.cancel()
+        glyphController?.shutdown()
         super.onCleared()
     }
 
@@ -883,6 +924,14 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
     private fun setTimerState(state: RestTimerState?) {
         _uiState.update { it.copy(timerState = state) }
         scheduleTimerCompletion(state)
+
+        // --- Nothing Glyph integration ---
+        if (_uiState.value.isGlyphTimerEnabled) {
+            glyphController?.updateTimer(state)
+        } else {
+            glyphController?.turnOff()
+        }
+        scheduleGlyphUpdates(state)
     }
 
     private fun scheduleTimerCompletion(state: RestTimerState?) {
@@ -890,9 +939,61 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         val expectedEndMillis = state?.endMillis ?: return
         timerCompletionJob = viewModelScope.launch {
             delay((expectedEndMillis - System.currentTimeMillis()).coerceAtLeast(0L))
+            // Timer expired — notify Glyph before completing (which clears state)
+            val pulseEnabled = _uiState.value.isGlyphPulseEnabled && _uiState.value.isGlyphTimerEnabled
+            glyphController?.onTimerComplete(pulseEnabled)
             RestTimerManager.complete(context, expectedEndMillis)
             setTimerState(RestTimerManager.getState(context))
         }
+    }
+
+    /**
+     * Runs a steady 500ms ticker while a rest timer is active.
+     * [GlyphRestTimerController.updateTimer] internally compares against [lastSegmentCount],
+     * so it only communicates with the SDK when the segment count actually changes.
+     */
+    private fun scheduleGlyphUpdates(state: RestTimerState?) {
+        glyphUpdateJob?.cancel()
+        if (state == null || glyphController == null || !_uiState.value.isGlyphTimerEnabled) return
+
+        glyphUpdateJob = viewModelScope.launch {
+            while (isActive) {
+                delay(500)
+                val current = _uiState.value.timerState ?: break
+                glyphController.updateTimer(current)
+            }
+        }
+    }
+
+    fun startRestTimerForExercise(exerciseId: String) {
+        val exercise = _uiState.value.activeWorkout?.exercises?.firstOrNull { it.id == exerciseId } ?: return
+        RestTimerManager.start(
+            context = context,
+            durationSeconds = exercise.restSeconds,
+            completedExerciseId = exercise.id,
+            completedSetId = "",
+            exerciseName = exercise.name,
+        )
+        setTimerState(RestTimerManager.getState(context))
+    }
+
+    fun setGlyphTimerEnabled(enabled: Boolean) {
+        GlyphPreferences.setTimerEnabled(context, enabled)
+        _uiState.update { it.copy(isGlyphTimerEnabled = enabled) }
+        if (!enabled) {
+            glyphUpdateJob?.cancel()
+            glyphController?.turnOff()
+        } else {
+            val state = _uiState.value.timerState
+            glyphController?.updateTimer(state)
+            scheduleGlyphUpdates(state)
+        }
+        WorkoutWidgetUpdateDispatcher.request(context)
+    }
+
+    fun setGlyphPulseEnabled(enabled: Boolean) {
+        GlyphPreferences.setPulseOnComplete(context, enabled)
+        _uiState.update { it.copy(isGlyphPulseEnabled = enabled) }
     }
 
     fun loadWorkoutPlanFromUri(uri: Uri) {
@@ -971,6 +1072,148 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
         }
+    }
+
+    fun openSavedExercises() {
+        viewModelScope.launch {
+            runCatching {
+                ensureRoutineLibraryReady()
+                val folders = routineRepository.folders()
+                _uiState.update {
+                    it.copy(
+                        isSavedExercisesOpen = true,
+                        savedExercisesDraft = SavedExercisesDraft(
+                            initialFolders = folders,
+                            currentFolders = folders,
+                        ),
+                        showDiscardSavedExercisesConfirm = false,
+                    )
+                }
+            }.onFailure {
+                showError("Could not load saved exercises.")
+            }
+        }
+    }
+
+    fun renameSavedExercise(oldName: String, newName: String) {
+        _uiState.update { current ->
+            val draft = current.savedExercisesDraft ?: return@update current
+            val updated = SavedExercisesOperations.renameExercise(
+                folders = draft.currentFolders,
+                oldName = oldName,
+                newName = newName,
+            )
+            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
+        }
+    }
+
+    fun editSavedExerciseDetails(oldName: String, newName: String, notes: String, restSeconds: Int) {
+        _uiState.update { current ->
+            val draft = current.savedExercisesDraft ?: return@update current
+            val updated = SavedExercisesOperations.renameExercise(
+                folders = draft.currentFolders,
+                oldName = oldName,
+                newName = newName,
+                newNotes = notes,
+                newRestSeconds = restSeconds,
+            )
+            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
+        }
+    }
+
+    fun mergeSavedExercises(sourceName: String, targetName: String) {
+        _uiState.update { current ->
+            val draft = current.savedExercisesDraft ?: return@update current
+            val updated = SavedExercisesOperations.mergeExercises(
+                folders = draft.currentFolders,
+                sourceName = sourceName,
+                targetName = targetName,
+            )
+            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
+        }
+    }
+
+    fun deleteSavedExercise(name: String) {
+        _uiState.update { current ->
+            val draft = current.savedExercisesDraft ?: return@update current
+            val updated = SavedExercisesOperations.deleteExercise(
+                folders = draft.currentFolders,
+                name = name,
+            )
+            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
+        }
+    }
+
+    fun deleteSavedExerciseInstance(routineId: String, exerciseId: String) {
+        _uiState.update { current ->
+            val draft = current.savedExercisesDraft ?: return@update current
+            val updated = SavedExercisesOperations.deleteExerciseInstance(
+                folders = draft.currentFolders,
+                routineId = routineId,
+                exerciseId = exerciseId,
+            )
+            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
+        }
+    }
+
+    fun deduplicateAllSavedExercises() {
+        _uiState.update { current ->
+            val draft = current.savedExercisesDraft ?: return@update current
+            val updated = SavedExercisesOperations.deduplicateAll(draft.currentFolders)
+            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
+        }
+    }
+
+    fun commitSavedExercises() {
+        val draft = _uiState.value.savedExercisesDraft ?: return
+        viewModelScope.launch {
+            runCatching {
+                routineMutationMutex.withLock {
+                    ensureRoutineLibraryReady()
+                    routineRepository.replaceFolders(draft.currentFolders)
+                }
+            }.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        isSavedExercisesOpen = false,
+                        savedExercisesDraft = null,
+                        showDiscardSavedExercisesConfirm = false,
+                    )
+                }
+                suggestionsStale = true
+            }.onFailure {
+                showError("Could not commit exercise changes.")
+            }
+        }
+    }
+
+    fun handleBackFromSavedExercises() {
+        val draft = _uiState.value.savedExercisesDraft
+        if (draft != null && draft.hasChanges) {
+            _uiState.update { it.copy(showDiscardSavedExercisesConfirm = true) }
+        } else {
+            _uiState.update {
+                it.copy(
+                    isSavedExercisesOpen = false,
+                    savedExercisesDraft = null,
+                    showDiscardSavedExercisesConfirm = false,
+                )
+            }
+        }
+    }
+
+    fun confirmDiscardSavedExercises() {
+        _uiState.update {
+            it.copy(
+                isSavedExercisesOpen = false,
+                savedExercisesDraft = null,
+                showDiscardSavedExercisesConfirm = false,
+            )
+        }
+    }
+
+    fun dismissDiscardSavedExercisesConfirm() {
+        _uiState.update { it.copy(showDiscardSavedExercisesConfirm = false) }
     }
 
     private fun showError(message: String) {

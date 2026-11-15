@@ -1,5 +1,6 @@
 package com.yifeng.commandcenter.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,6 +32,8 @@ import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.WorkoutDateRange
 import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.history.WorkoutJournalEntry
+import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.io.File
 import java.text.DateFormat
@@ -97,11 +101,14 @@ private fun JournalEntryRow(
     photoFile: File?,
     onClick: () -> Unit,
 ) {
-    HevyntPanel(
+    Surface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+        color = HevyntSurfaceRaised,
+        border = BorderStroke(1.dp, HevyntOutline),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             JournalPhoto(
@@ -111,7 +118,7 @@ private fun JournalEntryRow(
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                 Text(
                     entry.session.routineName,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -141,7 +148,7 @@ private fun JournalEntryRow(
                 }
             }
             Icon(
-                Icons.AutoMirrored.Outlined.ArrowForward,
+                painter = androidx.compose.ui.res.painterResource(com.yifeng.commandcenter.R.drawable.ic_arrow_diagonal),
                 contentDescription = "Open workout",
                 tint = HevyntTextSecondary,
                 modifier = Modifier.size(18.dp),

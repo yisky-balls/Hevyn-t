@@ -79,6 +79,11 @@ ksp {
 }
 
 dependencies {
+    // Nothing Glyph Developer Kit (Phone 4a rear LED strip).
+    // The SDK communicates with a system service only present on Nothing devices;
+    // on other devices it is inert. See glyph/GlyphDeviceSupport.kt.
+    implementation(files("libs/glyph-matrix-sdk-2.0.aar"))
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

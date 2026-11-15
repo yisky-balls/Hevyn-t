@@ -101,6 +101,35 @@ class WorkoutCalendarTest {
         assertEquals(360.75, aggregate.totalVolumeKg, 0.0)
     }
 
+    @Test
+    fun currentWeek_returns7DaysFromMondayToSundayWithWorkoutsAndToday() {
+        val wednesday = date(2026, Calendar.NOVEMBER, 11) // Wed Nov 11, 2026
+        val completed = listOf(
+            date(2026, Calendar.NOVEMBER, 9),  // Monday
+            date(2026, Calendar.NOVEMBER, 11), // Wednesday
+            date(2026, Calendar.NOVEMBER, 13), // Friday
+        )
+        val week = WorkoutCalendar.currentWeek(wednesday, completed, utc)
+
+        assertEquals(7, week.size)
+        assertEquals(listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), week.map { it.dayOfWeekName })
+        assertEquals(listOf(9, 10, 11, 12, 13, 14, 15), week.map { it.dayOfMonth })
+        assertTrue(week[0].hasWorkout) // Mon 9
+        assertTrue(!week[1].hasWorkout) // Tue 10
+        assertTrue(week[2].hasWorkout) // Wed 11
+        assertTrue(week[2].isToday) // Wed 11 is today
+        assertTrue(!week[3].hasWorkout) // Thu 12
+        assertTrue(week[4].hasWorkout) // Fri 13
+        assertTrue(!week[5].isToday)
+    }
+
+    @Test
+    fun formatVolumeTonnage_formatsTonnesAndKgCorrectly() {
+        assertEquals("28.9t", WorkoutCalendar.formatVolumeTonnage(28900.0))
+        assertEquals("1.0t", WorkoutCalendar.formatVolumeTonnage(1000.0))
+        assertEquals("400 kg", WorkoutCalendar.formatVolumeTonnage(400.0))
+    }
+
     private fun session(
         id: String,
         completedAtMillis: Long,

@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" >
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" >
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Nothing Glyph Developer Kit: required to control rear LED strip on Nothing phones -->
+    <uses-permission android:name="com.nothing.ketchum.permission.ENABLE" />
+
+    <!-- Package visibility: required on Android 11+ (API 30+) to bind to Nothing's Glyph proxy service -->
+    <queries>
+        <package android:name="com.nothing.thirdparty" />
+    </queries>
+
+    <!-- The Glyph SDK declares minSdk 33, but the app supports minSdk 26.
+         This is safe because Glyph code only executes on Nothing devices (all API 34+).
+         On older devices, GlyphDeviceSupport.isSupported() returns false. -->
+    <uses-sdk tools:overrideLibrary="com.nothing.thirdparty" />
 
     <application
         android:allowBackup="true"
@@ -13,6 +26,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Commandcenter" >
+        <!-- Nothing Glyph SDK key. "test" enables debug mode (requires adb enable step).
+             On Android 16+ the key restriction is removed, but keeping this is recommended. -->
+        <meta-data android:name="NothingKey" android:value="test" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -29,7 +45,7 @@
             android:exported="false" />
         <receiver
             android:name=".widget.CompactWorkoutWidgetProvider"
-            android:exported="false" >
+            android:exported="true" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -39,7 +55,7 @@
         </receiver>
         <receiver
             android:name=".widget.MainWorkoutWidgetProvider"
-            android:exported="false" >
+            android:exported="true" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -49,7 +65,16 @@
         </receiver>
         <receiver
             android:name=".widget.WorkoutWidgetUpdateReceiver"
-            android:exported="false" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.yifeng.commandcenter.widget.START_NEXT_WORKOUT" />
+                <action android:name="com.yifeng.commandcenter.widget.COMPLETE_SET" />
+                <action android:name="com.yifeng.commandcenter.widget.ADJUST_WEIGHT" />
+                <action android:name="com.yifeng.commandcenter.widget.ADJUST_REPS" />
+                <action android:name="com.yifeng.commandcenter.widget.SKIP_REST" />
+                <action android:name="com.yifeng.commandcenter.widget.REFRESH" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

@@ -6,6 +6,7 @@ import com.yifeng.commandcenter.data.RoutineFolderSummary
 import com.yifeng.commandcenter.data.RoutineRecommendation
 import com.yifeng.commandcenter.data.RoutineSummary
 import com.yifeng.commandcenter.data.WorkoutDateRange
+import com.yifeng.commandcenter.data.SavedExercisesDraft
 import com.yifeng.commandcenter.data.WorkoutPlanPreview
 import com.yifeng.commandcenter.history.ExerciseHistorySummary
 import com.yifeng.commandcenter.history.ExerciseSuggestion
@@ -49,6 +50,12 @@ data class HevyntAppUiState(
     val timerState: RestTimerState? = null,
     val workoutPlanPreview: WorkoutPlanPreview? = null,
     val workoutPlanImportError: String? = null,
+    val isGlyphSupported: Boolean = false,
+    val isGlyphTimerEnabled: Boolean = true,
+    val isGlyphPulseEnabled: Boolean = true,
+    val isSavedExercisesOpen: Boolean = false,
+    val savedExercisesDraft: SavedExercisesDraft? = null,
+    val showDiscardSavedExercisesConfirm: Boolean = false,
 ) {
     val routines: List<RoutineSummary> get() = routineFolders.flatMap(RoutineFolderSummary::routines)
 }

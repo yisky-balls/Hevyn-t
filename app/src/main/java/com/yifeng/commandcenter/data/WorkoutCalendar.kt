@@ -13,6 +13,14 @@ data class WorkoutDateRange(
         millis >= startMillisInclusive && millis < endMillisExclusive
 }
 
+data class WorkoutWeekDay(
+    val dayOfWeekName: String,
+    val dayOfMonth: Int,
+    val isToday: Boolean,
+    val hasWorkout: Boolean,
+    val timestampMillis: Long,
+)
+
 data class WorkoutMonth(
     val year: Int,
     val month: Int,
@@ -100,6 +108,58 @@ object WorkoutCalendar {
             completedSetCount = matchingSessions.sumOf { it.completedSetCount },
             totalVolumeKg = matchingSessions.sumOf { it.totalVolumeKg },
         )
+    }
+
+    fun currentWeek(
+        nowMillis: Long = System.currentTimeMillis(),
+        completedAtMillis: List<Long>,
+        timeZone: TimeZone = TimeZone.getDefault(),
+    ): List<WorkoutWeekDay> {
+        val now = Calendar.getInstance(timeZone).apply { timeInMillis = nowMillis }
+        val todayYear = now.get(Calendar.YEAR)
+        val todayDayOfYear = now.get(Calendar.DAY_OF_YEAR)
+
+        val cal = Calendar.getInstance(timeZone).apply {
+            timeInMillis = nowMillis
+            firstDayOfWeek = Calendar.MONDAY
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            val dow = get(Calendar.DAY_OF_WEEK)
+            val daysFromMonday = (dow - Calendar.MONDAY + 7) % 7
+            add(Calendar.DAY_OF_MONTH, -daysFromMonday)
+        }
+
+        val completedDates = completedAtMillis.map { millis ->
+            val c = Calendar.getInstance(timeZone).apply { timeInMillis = millis }
+            c.get(Calendar.YEAR) to c.get(Calendar.DAY_OF_YEAR)
+        }.toSet()
+
+        val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        return (0..6).map { i ->
+            val dayCal = (cal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, i) }
+            val y = dayCal.get(Calendar.YEAR)
+            val doy = dayCal.get(Calendar.DAY_OF_YEAR)
+            val isToday = y == todayYear && doy == todayDayOfYear
+            val hasWorkout = (y to doy) in completedDates
+            WorkoutWeekDay(
+                dayOfWeekName = dayNames[i],
+                dayOfMonth = dayCal.get(Calendar.DAY_OF_MONTH),
+                isToday = isToday,
+                hasWorkout = hasWorkout,
+                timestampMillis = dayCal.timeInMillis,
+            )
+        }
+    }
+
+    fun formatVolumeTonnage(volumeKg: Double): String {
+        return if (volumeKg >= 1000.0) {
+            val tonnes = volumeKg / 1000.0
+            String.format(java.util.Locale.US, "%.1ft", tonnes)
+        } else {
+            "${formatWeight(volumeKg)} kg"
+        }
     }
 
     private fun dayInMonth(

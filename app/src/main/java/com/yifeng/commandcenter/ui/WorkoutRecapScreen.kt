@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -76,9 +77,14 @@ fun WorkoutRecapScreen(
             )
         }
         item {
-            HevyntPanel(Modifier.fillMaxWidth()) {
+            Surface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+                color = com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised,
+                border = androidx.compose.foundation.BorderStroke(1.dp, com.yifeng.commandcenter.ui.theme.HevyntOutline),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(16.dp),
+                    Modifier.fillMaxWidth().padding(18.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     RecapMetric("DURATION", formatHistoryDuration(graph.session.durationMillis))
@@ -156,11 +162,17 @@ fun WorkoutRecapScreen(
 @Composable
 private fun RecapMetric(label: String, value: String) {
     Column {
-        Text(label, color = HevyntTextSecondary, style = MaterialTheme.typography.labelSmall)
         Text(
             value,
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.padding(top = 4.dp),
+            fontFamily = com.yifeng.commandcenter.ui.theme.HevyntDisplayFont,
+            fontSize = 26.sp,
+            color = com.yifeng.commandcenter.ui.theme.HevyntTextPrimary,
+        )
+        Text(
+            label,
+            color = HevyntTextSecondary,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(top = 2.dp),
         )
     }
 }

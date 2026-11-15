@@ -1,7 +1,10 @@
 package com.yifeng.commandcenter.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,10 +42,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yifeng.commandcenter.R
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.RoutineFolderSummary
 import com.yifeng.commandcenter.data.RoutineRecommendation
@@ -52,6 +59,7 @@ import com.yifeng.commandcenter.ui.theme.HevyntAccent
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntOutline
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
+import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
@@ -108,42 +116,57 @@ internal fun LikelyNextRoutineCard(
     onOpen: () -> Unit,
 ) {
     val routine = recommendation.routine
-    HevyntPanel(Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
-        Column(Modifier.padding(start = 18.dp, end = 10.dp, top = 17.dp, bottom = 10.dp)) {
-            HevyntSectionLabel("LIKELY NEXT ROUTINE")
-            HevyntSectionLabel(
-                if (recommendation.reason == RoutineRecommendationReason.ObservedTransition) {
-                    "NEXT IN ROTATION"
-                } else {
-                    "LEAST RECENTLY TRAINED"
-                },
-                modifier = Modifier.padding(top = 4.dp),
-                color = HevyntAccent,
-            )
-            Text(
-                routine.name,
-                modifier = Modifier.padding(top = 10.dp, end = 8.dp),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = HevyntSurfaceRaised,
+        border = BorderStroke(1.dp, HevyntOutline),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .background(HevyntAccent, CircleShape)
+                    .clickable(onClick = onStart),
+                contentAlignment = Alignment.Center,
             ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_play_arrow_filled),
+                    contentDescription = "Start",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Spacer(Modifier.size(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    routineMetadata(routine),
-                    modifier = Modifier.weight(1f),
-                    color = HevyntTextSecondary,
-                    fontSize = 13.sp,
-                    maxLines = 2,
+                    text = routine.name,
+                    color = HevyntTextPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                TextButton(onClick = onStart, modifier = Modifier.height(48.dp)) {
-                    Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                    HevyntSectionLabel("START", Modifier.padding(start = 5.dp), HevyntAccent)
-                }
+                Spacer(Modifier.size(3.dp))
+                Text(
+                    text = routineMetadata(routine),
+                    color = HevyntTextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
+            Icon(
+                painter = painterResource(R.drawable.ic_arrow_diagonal),
+                contentDescription = null,
+                tint = HevyntTextSecondary,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }
