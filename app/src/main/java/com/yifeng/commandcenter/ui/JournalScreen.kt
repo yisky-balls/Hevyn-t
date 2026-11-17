@@ -1,6 +1,5 @@
 package com.yifeng.commandcenter.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,8 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.WorkoutDateRange
 import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.history.WorkoutJournalEntry
-import com.yifeng.commandcenter.ui.theme.HevyntOutline
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.io.File
@@ -59,19 +58,20 @@ fun JournalScreen(
         contentPadding = PaddingValues(
             start = HevyntPageHorizontalPadding,
             end = HevyntPageHorizontalPadding,
-            top = 20.dp,
-            bottom = 24.dp,
+            top = 14.dp,
+            bottom = 100.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
             HevyntPageHeader(
-                title = "JOURNAL",
+                title = "Journal",
                 subtitle = if (filter == null) {
                     "Completed training, newest first."
                 } else {
                     DateFormat.getDateInstance(DateFormat.FULL).format(Date(filter.startMillisInclusive))
                 },
+                modifier = Modifier.padding(horizontal = 6.dp),
             )
         }
         filter?.let {
@@ -102,10 +102,12 @@ private fun JournalEntryRow(
     onClick: () -> Unit,
 ) {
     Surface(
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         color = HevyntSurfaceRaised,
-        border = BorderStroke(1.dp, HevyntOutline),
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .clickable(onClick = onClick),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),

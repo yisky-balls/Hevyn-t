@@ -21,16 +21,29 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.R
+import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.RoutineRecommendation
 import com.yifeng.commandcenter.data.RoutineSummary
 import com.yifeng.commandcenter.data.WorkoutCalendar
@@ -48,7 +62,7 @@ import com.yifeng.commandcenter.history.MonthlyWorkoutAggregate
 import com.yifeng.commandcenter.history.WorkoutHistorySession
 import com.yifeng.commandcenter.ui.theme.HevyntAccent
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
-import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntDivider
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceInteractive
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
@@ -59,17 +73,30 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+private val HollowDotColor = Color(0xFF48474C)
+private val OutlinedPillBorderColor = Color(0xFF3A3A3E)
+
 @Composable
 fun HomeScreen(
     routines: List<RoutineSummary>,
     workoutHistory: List<WorkoutHistorySession>,
     likelyNext: RoutineRecommendation? = null,
+    activeWorkout: ActiveWorkout? = null,
     scrollState: ScrollState = rememberScrollState(),
+    isGlyphSupported: Boolean = false,
+    isGlyphTimerEnabled: Boolean = true,
+    isGlyphPulseEnabled: Boolean = true,
+    onContinueWorkout: () -> Unit = {},
     onOpenPrograms: () -> Unit,
+    onOpenJournal: () -> Unit = {},
     onStartRoutine: (String) -> Unit,
     onOpenSession: (String) -> Unit,
     onOpenDay: (WorkoutDateRange) -> Unit,
     onRepeatLastWorkout: () -> Unit = {},
+    onImportPlan: () -> Unit = {},
+    onManageSavedExercises: () -> Unit = {},
+    onToggleGlyphTimer: (Boolean) -> Unit = {},
+    onToggleGlyphPulse: (Boolean) -> Unit = {},
 ) {
     val routine = likelyNext?.routine ?: routines.firstOrNull()
     val todayMillis = remember { System.currentTimeMillis() }
@@ -84,97 +111,161 @@ fun HomeScreen(
         )
     }
 
-    val monthlyAggregate = remember(todayMillis, workoutHistory) {
-        val monthRange = WorkoutCalendar.monthRange(
-            year = Calendar.getInstance().get(Calendar.YEAR),
-            month = Calendar.getInstance().get(Calendar.MONTH),
+    val monthRange = remember(todayMillis) {
+        val cal = Calendar.getInstance().apply { timeInMillis = todayMillis }
+        WorkoutCalendar.monthRange(
+            year = cal.get(Calendar.YEAR),
+            month = cal.get(Calendar.MONTH),
         )
+    }
+    val monthlyAggregate = remember(monthRange, workoutHistory) {
         WorkoutCalendar.aggregate(workoutHistory, monthRange)
+    }
+
+    var showSettingsDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showSettingsDialog) {
+        HomeSettingsDialog(
+            isGlyphSupported = isGlyphSupported,
+            isGlyphTimerEnabled = isGlyphTimerEnabled,
+            isGlyphPulseEnabled = isGlyphPulseEnabled,
+            onToggleGlyphTimer = onToggleGlyphTimer,
+            onToggleGlyphPulse = onToggleGlyphPulse,
+            onImportPlan = {
+                showSettingsDialog = false
+                onImportPlan()
+            },
+            onManageSavedExercises = {
+                showSettingsDialog = false
+                onManageSavedExercises()
+            },
+            onDismiss = { showSettingsDialog = false },
+        )
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = HevyntPageHorizontalPadding)
+            .padding(top = 10.dp, bottom = 20.dp),
     ) {
-        // Top App Bar
         HomeTopBar(
             dateText = todayDateString,
-            onMenuClick = onOpenPrograms,
-            onTuneClick = onOpenPrograms,
+            onOpenPrograms = onOpenPrograms,
+            onManageSavedExercises = onManageSavedExercises,
+            onImportPlan = onImportPlan,
+            onTuneClick = { showSettingsDialog = true },
         )
+
+        Spacer(Modifier.height(14.dp))
+
+        HomeHeroHeader(routine = routine)
 
         Spacer(Modifier.height(18.dp))
 
-        // Hero Dot-Matrix Routine Header
-        HomeHeroHeader(
-            routine = routine,
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        // Card 1: Start Workout Card
         StartWorkoutCard(
             routine = routine,
-            onStart = { routine?.id?.let(onStartRoutine) ?: onOpenPrograms() },
+            activeWorkout = activeWorkout,
+            onStart = {
+                if (activeWorkout != null) {
+                    onContinueWorkout()
+                } else {
+                    routine?.id?.let(onStartRoutine) ?: onOpenPrograms()
+                }
+            },
+            onBrowsePrograms = onOpenPrograms,
         )
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
 
-        // Card 2: This Week Card
         ThisWeekCard(
             weekDays = weekDays,
-            onOpenPrograms = onOpenPrograms,
+            onOpenJournal = onOpenJournal,
             onOpenDay = onOpenDay,
         )
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
 
-        // Card 3: This Month Card
         ThisMonthCard(
             aggregate = monthlyAggregate,
-            onOpenPrograms = onOpenPrograms,
+            onOpenMonthHistory = { onOpenDay(monthRange) },
         )
 
-        // Card 4: Last Session Card (if history exists)
         workoutHistory.firstOrNull()?.let { lastSession ->
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(10.dp))
             LastSessionCard(
                 session = lastSession,
                 onClick = { onOpenSession(lastSession.id) },
                 onRepeat = onRepeatLastWorkout,
             )
         }
-
-        Spacer(Modifier.height(24.dp))
     }
 }
 
 @Composable
 private fun HomeTopBar(
     dateText: String,
-    onMenuClick: () -> Unit,
+    onOpenPrograms: () -> Unit,
+    onManageSavedExercises: () -> Unit,
+    onImportPlan: () -> Unit,
     onTuneClick: () -> Unit,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(
-            onClick = onMenuClick,
-            modifier = Modifier.size(40.dp),
-        ) {
-            Icon(
-                Icons.Outlined.Menu,
-                contentDescription = "Menu",
-                tint = HevyntTextPrimary,
-            )
+        Box {
+            IconButton(
+                onClick = { menuExpanded = true },
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.Menu,
+                    contentDescription = "Library menu",
+                    tint = HevyntTextPrimary,
+                )
+            }
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+                containerColor = HevyntSurfaceInteractive,
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Browse routines") },
+                    leadingIcon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
+                    onClick = {
+                        menuExpanded = false
+                        onOpenPrograms()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Manage saved exercises") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },
+                    onClick = {
+                        menuExpanded = false
+                        onManageSavedExercises()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Import workout plan") },
+                    leadingIcon = { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null) },
+                    onClick = {
+                        menuExpanded = false
+                        onImportPlan()
+                    },
+                )
+            }
         }
         Spacer(Modifier.weight(1f))
         Text(
             text = dateText,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Medium,
             color = HevyntTextPrimary,
         )
         Spacer(Modifier.weight(1f))
@@ -200,14 +291,19 @@ private fun HomeHeroHeader(
     val lastDoneText = formatLastDone(routine?.lastPerformedAtMillis)
     val exerciseCount = routine?.exerciseCount ?: 0
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp),
+    ) {
         Text(
             text = routineName,
             fontFamily = HevyntDisplayFont,
-            fontSize = 42.sp,
-            fontWeight = FontWeight.Normal,
+            fontSize = 46.sp,
+            lineHeight = 50.sp,
+            fontWeight = FontWeight.Bold,
             color = HevyntTextPrimary,
-            letterSpacing = 2.sp,
+            letterSpacing = 1.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -215,8 +311,7 @@ private fun HomeHeroHeader(
         Text(
             text = "Next workout · $exerciseCount exercise${if (exerciseCount == 1) "" else "s"} · $lastDoneText",
             color = HevyntTextSecondary,
-            style = MaterialTheme.typography.bodySmall,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
         )
     }
 }
@@ -224,14 +319,25 @@ private fun HomeHeroHeader(
 @Composable
 private fun StartWorkoutCard(
     routine: RoutineSummary?,
+    activeWorkout: ActiveWorkout?,
     onStart: () -> Unit,
+    onBrowsePrograms: () -> Unit,
 ) {
+    val title = if (activeWorkout != null) "Continue workout" else "Start workout"
+    val subtitle = if (activeWorkout != null) {
+        val activeName = cleanRoutineName(activeWorkout.routineName).ifBlank { "Workout" }
+        "$activeName · in progress"
+    } else {
+        val count = routine?.exerciseCount ?: 0
+        "${cleanRoutineName(routine?.name ?: "Routine")} · $count exercise${if (count == 1) "" else "s"}"
+    }
+
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         color = HevyntSurfaceRaised,
-        border = BorderStroke(1.dp, HevyntOutline),
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
             .clickable(onClick = onStart),
     ) {
         Row(
@@ -242,38 +348,48 @@ private fun StartWorkoutCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(54.dp)
+                    .size(52.dp)
                     .background(HevyntAccent, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_play_arrow_filled),
-                    contentDescription = "Start",
+                    contentDescription = title,
                     tint = Color.White,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Start workout",
+                    text = title,
                     color = HevyntTextPrimary,
-                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "${cleanRoutineName(routine?.name ?: "Routine")} · ${routine?.exerciseCount ?: 0} exercises",
+                    text = subtitle,
                     color = HevyntTextSecondary,
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 13.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Icon(
-                painter = painterResource(R.drawable.ic_arrow_diagonal),
-                contentDescription = null,
-                tint = HevyntTextSecondary,
-                modifier = Modifier.size(18.dp),
-            )
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onBrowsePrograms),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_diagonal),
+                    contentDescription = "Browse routines",
+                    tint = HevyntTextSecondary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
     }
 }
@@ -281,21 +397,21 @@ private fun StartWorkoutCard(
 @Composable
 private fun ThisWeekCard(
     weekDays: List<WorkoutWeekDay>,
-    onOpenPrograms: () -> Unit,
+    onOpenJournal: () -> Unit,
     onOpenDay: (WorkoutDateRange) -> Unit,
 ) {
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         color = HevyntSurfaceRaised,
-        border = BorderStroke(1.dp, HevyntOutline),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpenPrograms),
+            .clip(RoundedCornerShape(24.dp))
+            .clickable(onClick = onOpenJournal),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -303,19 +419,19 @@ private fun ThisWeekCard(
             ) {
                 Text(
                     text = "This week",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
                     color = HevyntTextPrimary,
                 )
                 Spacer(Modifier.weight(1f))
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_diagonal),
-                    contentDescription = null,
+                    contentDescription = "Open journal",
                     tint = HevyntTextSecondary,
                     modifier = Modifier.size(18.dp),
                 )
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -323,44 +439,50 @@ private fun ThisWeekCard(
                 weekDays.forEach { day ->
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.clickable {
-                            val range = WorkoutDateRange(day.timestampMillis, day.timestampMillis + 86_400_000L)
-                            onOpenDay(range)
-                        },
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                val range = WorkoutDateRange(day.timestampMillis, day.timestampMillis + 86_400_000L)
+                                onOpenDay(range)
+                            }
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
                     ) {
                         Text(
                             text = day.dayOfWeekName,
-                            color = HevyntTextSecondary,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 12.sp,
+                            color = if (day.isToday) HevyntTextPrimary else HevyntTextSecondary,
+                            fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 13.sp,
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = "${day.dayOfMonth}",
                             color = HevyntTextPrimary,
-                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 17.sp,
+                            fontSize = 18.sp,
                         )
-                        Spacer(Modifier.height(12.dp))
-                        if (day.isToday && !day.hasWorkout) {
-                            Box(
-                                Modifier
-                                    .size(6.dp)
-                                    .background(HevyntAccent, CircleShape),
-                            )
-                        } else if (day.hasWorkout) {
-                            Box(
-                                Modifier
-                                    .size(6.dp)
-                                    .background(HevyntTextPrimary, CircleShape),
-                            )
-                        } else {
-                            Box(
-                                Modifier
-                                    .size(6.dp)
-                                    .border(1.dp, HevyntOutline, CircleShape),
-                            )
+                        Spacer(Modifier.height(10.dp))
+                        when {
+                            day.isToday -> {
+                                Box(
+                                    Modifier
+                                        .size(6.dp)
+                                        .background(HevyntAccent, CircleShape),
+                                )
+                            }
+                            day.hasWorkout -> {
+                                Box(
+                                    Modifier
+                                        .size(6.dp)
+                                        .background(HevyntTextPrimary, CircleShape),
+                                )
+                            }
+                            else -> {
+                                Box(
+                                    Modifier
+                                        .size(6.dp)
+                                        .border(1.2.dp, HollowDotColor, CircleShape),
+                                )
+                            }
                         }
                     }
                 }
@@ -372,20 +494,28 @@ private fun ThisWeekCard(
 @Composable
 private fun ThisMonthCard(
     aggregate: MonthlyWorkoutAggregate,
-    onOpenPrograms: () -> Unit,
+    onOpenMonthHistory: () -> Unit,
 ) {
+    val (volumeNumber, volumeUnit) = remember(aggregate.totalVolumeKg) {
+        if (aggregate.totalVolumeKg >= 1000.0) {
+            String.format(Locale.US, "%.1f", aggregate.totalVolumeKg / 1000.0) to "t"
+        } else {
+            formatWeight(aggregate.totalVolumeKg) to " kg"
+        }
+    }
+
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         color = HevyntSurfaceRaised,
-        border = BorderStroke(1.dp, HevyntOutline),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpenPrograms),
+            .clip(RoundedCornerShape(24.dp))
+            .clickable(onClick = onOpenMonthHistory),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -393,66 +523,77 @@ private fun ThisMonthCard(
             ) {
                 Text(
                     text = "This month",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
                     color = HevyntTextPrimary,
                 )
                 Spacer(Modifier.weight(1f))
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_diagonal),
-                    contentDescription = null,
+                    contentDescription = "Open monthly journal",
                     tint = HevyntTextSecondary,
                     modifier = Modifier.size(18.dp),
                 )
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "${aggregate.workoutCount}",
                         fontFamily = HevyntDisplayFont,
-                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 34.sp,
                         color = HevyntTextPrimary,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Workouts",
                         color = HevyntTextSecondary,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                     )
                 }
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "${aggregate.completedSetCount}",
                         fontFamily = HevyntDisplayFont,
-                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 34.sp,
                         color = HevyntTextPrimary,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Sets",
                         color = HevyntTextSecondary,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                     )
                 }
-                Column {
-                    Text(
-                        text = WorkoutCalendar.formatVolumeTonnage(aggregate.totalVolumeKg),
-                        fontFamily = HevyntDisplayFont,
-                        fontSize = 32.sp,
-                        color = HevyntTextPrimary,
-                    )
+                Column(modifier = Modifier.weight(1f)) {
+                    Row {
+                        Text(
+                            text = volumeNumber,
+                            fontFamily = HevyntDisplayFont,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 34.sp,
+                            color = HevyntTextPrimary,
+                            modifier = Modifier.alignByBaseline(),
+                        )
+                        Text(
+                            text = volumeUnit,
+                            fontFamily = HevyntDisplayFont,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                            color = HevyntTextPrimary,
+                            modifier = Modifier.alignByBaseline(),
+                        )
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Volume",
                         color = HevyntTextSecondary,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                     )
                 }
             }
@@ -467,30 +608,33 @@ private fun LastSessionCard(
     onRepeat: () -> Unit,
 ) {
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         color = HevyntSurfaceRaised,
-        border = BorderStroke(1.dp, HevyntOutline),
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
             .clickable(onClick = onClick),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(horizontal = 18.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp),
+            ) {
                 Text(
                     text = "Last session",
                     color = HevyntTextSecondary,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(3.dp))
                 Text(
-                    text = session.routineName,
-                    style = MaterialTheme.typography.titleMedium,
+                    text = cleanRoutineName(session.routineName).ifBlank { session.routineName },
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = HevyntTextPrimary,
                     maxLines = 1,
@@ -502,22 +646,24 @@ private fun LastSessionCard(
                 Text(
                     text = "$dateStr · ${session.completedSetCount} sets · $volumeStr kg",
                     color = HevyntTextSecondary,
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 13.5.sp,
                 )
             }
             if (!session.isLegacySummaryOnly) {
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = HevyntSurfaceInteractive,
-                    border = BorderStroke(1.dp, HevyntOutline),
-                    modifier = Modifier.clickable(onClick = onRepeat),
+                    color = Color.Transparent,
+                    border = BorderStroke(1.dp, OutlinedPillBorderColor),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .clickable(onClick = onRepeat),
                 ) {
                     Text(
                         text = "Repeat",
                         color = HevyntTextPrimary,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                     )
                 }
             }
@@ -525,13 +671,119 @@ private fun LastSessionCard(
     }
 }
 
+@Composable
+private fun HomeSettingsDialog(
+    isGlyphSupported: Boolean,
+    isGlyphTimerEnabled: Boolean,
+    isGlyphPulseEnabled: Boolean,
+    onToggleGlyphTimer: (Boolean) -> Unit,
+    onToggleGlyphPulse: (Boolean) -> Unit,
+    onImportPlan: () -> Unit,
+    onManageSavedExercises: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    HevyntDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "SETTINGS & LIBRARY",
+                fontFamily = HevyntDisplayFont,
+                fontSize = 20.sp,
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (isGlyphSupported) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Glyph rest timer", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Rear LED countdown during rest",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = HevyntTextSecondary,
+                            )
+                        }
+                        Switch(
+                            checked = isGlyphTimerEnabled,
+                            onCheckedChange = onToggleGlyphTimer,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Pulse on completion", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Flash all zones when rest finishes",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = HevyntTextSecondary,
+                            )
+                        }
+                        Switch(
+                            checked = isGlyphPulseEnabled,
+                            onCheckedChange = onToggleGlyphPulse,
+                            enabled = isGlyphTimerEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
+                    Spacer(Modifier.height(10.dp))
+                }
+                TextButton(
+                    onClick = onManageSavedExercises,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "Manage saved exercises",
+                        modifier = Modifier.fillMaxWidth(),
+                        color = HevyntTextPrimary,
+                    )
+                }
+                TextButton(
+                    onClick = onImportPlan,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "Import workout plan",
+                        modifier = Modifier.fillMaxWidth(),
+                        color = HevyntTextPrimary,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("DONE", color = HevyntAccent, fontWeight = FontWeight.SemiBold)
+            }
+        },
+    )
+}
+
 private fun formatLastDone(lastPerformedMillis: Long?): String {
     if (lastPerformedMillis == null) return "not performed yet"
     val diffMillis = System.currentTimeMillis() - lastPerformedMillis
     val days = (diffMillis / 86_400_000L).toInt()
     return when {
-        days == 0 -> "today"
-        days == 1 -> "yesterday"
+        days == 0 -> "last done today"
+        days == 1 -> "last done yesterday"
         days < 7 -> "last done " + SimpleDateFormat("EEE", Locale.getDefault()).format(Date(lastPerformedMillis))
         else -> "last done ${days}d ago"
     }
@@ -549,4 +801,3 @@ internal fun formatRoutineExercisePreview(exercises: List<com.yifeng.commandcent
         .take(3)
         .joinToString("  •  ")
         .ifBlank { "Add exercises to build your first program." }
-

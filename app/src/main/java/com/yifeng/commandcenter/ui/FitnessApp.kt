@@ -384,6 +384,18 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                         onSkipRestTime = viewModel::skipRestTime,
                     )
                 }
+            } else if (state.isSavedExercisesOpen && state.savedExercisesDraft != null) {
+                SavedExercisesScreen(
+                    draft = state.savedExercisesDraft!!,
+                    onRenameExercise = viewModel::renameSavedExercise,
+                    onEditExerciseDetails = viewModel::editSavedExerciseDetails,
+                    onMergeExercises = viewModel::mergeSavedExercises,
+                    onDeleteExercise = viewModel::deleteSavedExercise,
+                    onDeleteExerciseInstance = viewModel::deleteSavedExerciseInstance,
+                    onDeduplicateAll = viewModel::deduplicateAllSavedExercises,
+                    onCommit = viewModel::commitSavedExercises,
+                    onBack = viewModel::handleBackFromSavedExercises,
+                )
             } else {
                 HorizontalPager(
                     state = pagerState,
@@ -397,46 +409,42 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                                 routines = state.routines,
                                 workoutHistory = state.workoutHistory,
                                 likelyNext = state.likelyNextRoutine,
+                                activeWorkout = state.activeWorkout,
                                 scrollState = homeScrollState,
+                                isGlyphSupported = state.isGlyphSupported,
+                                isGlyphTimerEnabled = state.isGlyphTimerEnabled,
+                                isGlyphPulseEnabled = state.isGlyphPulseEnabled,
+                                onContinueWorkout = viewModel::resumeWorkout,
                                 onOpenPrograms = viewModel::openPrograms,
+                                onOpenJournal = viewModel::openJournal,
                                 onStartRoutine = viewModel::startRoutine,
                                 onOpenSession = viewModel::openHistorySession,
                                 onOpenDay = viewModel::openDay,
                                 onRepeatLastWorkout = viewModel::repeatLastWorkout,
+                                onImportPlan = { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) },
+                                onManageSavedExercises = viewModel::openSavedExercises,
+                                onToggleGlyphTimer = viewModel::setGlyphTimerEnabled,
+                                onToggleGlyphPulse = viewModel::setGlyphPulseEnabled,
                             )
 
-                            AppPage.Workout -> if (state.isSavedExercisesOpen && state.savedExercisesDraft != null) {
-                                SavedExercisesScreen(
-                                    draft = state.savedExercisesDraft!!,
-                                    onRenameExercise = viewModel::renameSavedExercise,
-                                    onEditExerciseDetails = viewModel::editSavedExerciseDetails,
-                                    onMergeExercises = viewModel::mergeSavedExercises,
-                                    onDeleteExercise = viewModel::deleteSavedExercise,
-                                    onDeleteExerciseInstance = viewModel::deleteSavedExerciseInstance,
-                                    onDeduplicateAll = viewModel::deduplicateAllSavedExercises,
-                                    onCommit = viewModel::commitSavedExercises,
-                                    onBack = viewModel::handleBackFromSavedExercises,
-                                )
-                            } else {
-                                WorkoutProgramsScreen(
-                                    folders = state.routineFolders,
-                                    likelyNext = state.likelyNextRoutine,
-                                    activeWorkout = state.activeWorkout,
-                                    canRepeatLast = state.workoutHistory.any { !it.isLegacySummaryOnly },
-                                    listState = workoutListState,
-                                    onContinueWorkout = viewModel::resumeWorkout,
-                                    onStartRoutine = viewModel::startRoutine,
-                                    onBuildRoutine = viewModel::buildRoutine,
-                                    onCreateFolder = viewModel::createFolder,
-                                    onRenameFolder = viewModel::renameFolder,
-                                    onDeleteFolder = viewModel::deleteFolder,
-                                    onDeleteRoutine = viewModel::deleteRoutine,
-                                    onStartEmpty = viewModel::startEmptyWorkout,
-                                    onRepeatLast = viewModel::repeatLastWorkout,
-                                    onImportPlan = { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) },
-                                    onManageSavedExercises = viewModel::openSavedExercises,
-                                )
-                            }
+                            AppPage.Workout -> WorkoutProgramsScreen(
+                                folders = state.routineFolders,
+                                likelyNext = state.likelyNextRoutine,
+                                activeWorkout = state.activeWorkout,
+                                canRepeatLast = state.workoutHistory.any { !it.isLegacySummaryOnly },
+                                listState = workoutListState,
+                                onContinueWorkout = viewModel::resumeWorkout,
+                                onStartRoutine = viewModel::startRoutine,
+                                onBuildRoutine = viewModel::buildRoutine,
+                                onCreateFolder = viewModel::createFolder,
+                                onRenameFolder = viewModel::renameFolder,
+                                onDeleteFolder = viewModel::deleteFolder,
+                                onDeleteRoutine = viewModel::deleteRoutine,
+                                onStartEmpty = viewModel::startEmptyWorkout,
+                                onRepeatLast = viewModel::repeatLastWorkout,
+                                onImportPlan = { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) },
+                                onManageSavedExercises = viewModel::openSavedExercises,
+                            )
 
                             AppPage.Journal -> if (selectedGraph != null) {
                                 JournalDetailScreen(
@@ -468,7 +476,9 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                 ?.let { timer ->
                     RestTimerBar(
                         state = timer,
-                        modifier = Modifier.align(Alignment.BottomCenter),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = HevyntPageHorizontalPadding, vertical = 6.dp),
                         onSubtract = viewModel::subtractRestTime,
                         onAdd = viewModel::addRestTime,
                         onSkip = viewModel::skipRestTime,

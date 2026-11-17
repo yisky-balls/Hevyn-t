@@ -1,6 +1,6 @@
 package com.yifeng.commandcenter.ui
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,13 +24,10 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -57,13 +55,15 @@ import com.yifeng.commandcenter.data.RoutineSummary
 import com.yifeng.commandcenter.ui.theme.HevyntAccent
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntDivider
-import com.yifeng.commandcenter.ui.theme.HevyntOutline
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceInteractive
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
+
+private val RoutinePlayCircleBg = Color(0xFF222225)
+private val RoutinePlayCircleBorder = Color(0xFF333338)
 
 internal fun cleanRoutineName(name: String): String =
     name.replace(
@@ -82,22 +82,22 @@ internal fun ContinueWorkoutCard(workout: ActiveWorkout, onContinue: () -> Unit)
     }
     val completedSets = workout.exercises.sumOf { exercise -> exercise.sets.count { it.completed } }
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         color = HevyntSurfaceRaised,
-        border = BorderStroke(1.dp, HevyntOutline),
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
             .clickable(onClick = onContinue),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(54.dp)
+                    .size(56.dp)
                     .background(HevyntAccent, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
@@ -105,7 +105,7 @@ internal fun ContinueWorkoutCard(workout: ActiveWorkout, onContinue: () -> Unit)
                     painter = painterResource(R.drawable.ic_play_arrow_filled),
                     contentDescription = "Continue",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
             Spacer(Modifier.width(16.dp))
@@ -113,14 +113,14 @@ internal fun ContinueWorkoutCard(workout: ActiveWorkout, onContinue: () -> Unit)
                 Text(
                     text = "Active workout",
                     color = HevyntAccent,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = cleanRoutineName(workout.routineName).ifBlank { "Workout in progress" },
                     color = HevyntTextPrimary,
-                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -129,13 +129,14 @@ internal fun ContinueWorkoutCard(workout: ActiveWorkout, onContinue: () -> Unit)
                 Text(
                     text = "$completedSets sets completed · ${formatLauncherElapsed(nowMillis - workout.startedAtMillis)}",
                     color = HevyntTextSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun HeroUpNextCard(
     recommendation: RoutineRecommendation?,
@@ -148,31 +149,33 @@ internal fun HeroUpNextCard(
     val lastDone = routine.lastPerformedAtMillis?.let(::formatLastDoneShort) ?: "not performed yet"
 
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         color = HevyntSurfaceRaised,
-        border = BorderStroke(1.dp, HevyntOutline),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpen),
+            .clip(RoundedCornerShape(24.dp))
+            .combinedClickable(
+                onClick = onStart,
+                onLongClick = onOpen,
+            ),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(54.dp)
-                    .background(HevyntAccent, CircleShape)
-                    .clickable(onClick = onStart),
+                    .size(56.dp)
+                    .background(HevyntAccent, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_play_arrow_filled),
-                    contentDescription = "Start",
+                    contentDescription = "Start up next workout",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
             Spacer(Modifier.width(16.dp))
@@ -180,14 +183,15 @@ internal fun HeroUpNextCard(
                 Text(
                     text = "Up next",
                     color = HevyntTextSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = cleanName,
                     fontFamily = HevyntDisplayFont,
+                    fontWeight = FontWeight.Bold,
                     color = HevyntTextPrimary,
-                    fontSize = 26.sp,
+                    fontSize = 28.sp,
                     letterSpacing = 1.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -196,7 +200,7 @@ internal fun HeroUpNextCard(
                 Text(
                     text = "${routine.exerciseCount} exercises · ${lastDone.lowercase()}",
                     color = HevyntTextSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 13.5.sp,
                 )
             }
         }
@@ -211,15 +215,15 @@ internal fun QuickActionsRow(
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = HevyntSurfaceInteractive,
-            border = BorderStroke(1.dp, HevyntOutline),
+            shape = RoundedCornerShape(26.dp),
+            color = HevyntSurfaceRaised,
             modifier = Modifier
                 .weight(1f)
-                .height(48.dp)
+                .height(52.dp)
+                .clip(RoundedCornerShape(26.dp))
                 .clickable(onClick = onStartEmpty),
         ) {
             Row(
@@ -237,19 +241,19 @@ internal fun QuickActionsRow(
                 Text(
                     text = "Empty workout",
                     color = HevyntTextPrimary,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
                 )
             }
         }
 
         Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = HevyntSurfaceInteractive,
-            border = BorderStroke(1.dp, HevyntOutline),
+            shape = RoundedCornerShape(26.dp),
+            color = HevyntSurfaceRaised,
             modifier = Modifier
                 .weight(1f)
-                .height(48.dp)
+                .height(52.dp)
+                .clip(RoundedCornerShape(26.dp))
                 .clickable(onClick = onRepeatLast),
         ) {
             Row(
@@ -267,14 +271,15 @@ internal fun QuickActionsRow(
                 Text(
                     text = "Repeat last",
                     color = HevyntTextPrimary,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun RoutineFolderCard(
     folder: RoutineFolderSummary,
@@ -292,77 +297,77 @@ internal fun RoutineFolderCard(
     var folderMenuExpanded by rememberSaveable(folder.id) { mutableStateOf(false) }
 
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         color = HevyntSurfaceRaised,
-        border = BorderStroke(1.dp, HevyntOutline),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Folder Header Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onToggleExpand)
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = folder.name,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = HevyntTextPrimary,
-                        fontSize = 18.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = "${folder.routines.size} routines",
-                        color = HevyntTextSecondary,
-                        fontSize = 13.sp,
+            Box {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(
+                            onClick = onToggleExpand,
+                            onLongClick = { folderMenuExpanded = true },
+                        )
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = folder.name,
+                            fontWeight = FontWeight.Bold,
+                            color = HevyntTextPrimary,
+                            fontSize = 18.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = "${folder.routines.size} routine${if (folder.routines.size == 1) "" else "s"}",
+                            color = HevyntTextSecondary,
+                            fontSize = 13.sp,
+                        )
+                    }
+
+                    Icon(
+                        imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        tint = HevyntTextSecondary,
+                        modifier = Modifier.size(22.dp),
                     )
                 }
 
-                Box {
-                    IconButton(
-                        onClick = onToggleExpand,
-                        modifier = Modifier.size(36.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-                            contentDescription = if (expanded) "Collapse" else "Expand",
-                            tint = HevyntTextSecondary,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = folderMenuExpanded,
-                        onDismissRequest = { folderMenuExpanded = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Rename folder") },
-                            leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                            onClick = { folderMenuExpanded = false; onEditFolder() },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Add routine") },
-                            leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                            onClick = { folderMenuExpanded = false; onAddRoutine() },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Delete folder") },
-                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
-                            onClick = { folderMenuExpanded = false; onDeleteFolder() },
-                        )
-                    }
+                DropdownMenu(
+                    expanded = folderMenuExpanded,
+                    onDismissRequest = { folderMenuExpanded = false },
+                    containerColor = HevyntSurfaceInteractive,
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Add routine") },
+                        leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                        onClick = { folderMenuExpanded = false; onAddRoutine() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Rename folder") },
+                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                        onClick = { folderMenuExpanded = false; onEditFolder() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete folder", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        },
+                        onClick = { folderMenuExpanded = false; onDeleteFolder() },
+                    )
                 }
             }
 
-            // Expanded Routine List
             if (expanded) {
-                folder.routines.forEachIndexed { index, routine ->
+                folder.routines.forEach { routine ->
                     Box(
                         modifier = Modifier
+                            .padding(horizontal = 18.dp)
                             .fillMaxWidth()
                             .height(1.dp)
                             .background(HevyntDivider),
@@ -370,69 +375,75 @@ internal fun RoutineFolderCard(
 
                     val isUpNext = routine.id == recommendedRoutineId
                     val cleanTitle = cleanRoutineName(routine.name)
-                    val lastDoneStr = routine.lastPerformedAtMillis?.let(::formatLastDoneShort) ?: "not performed yet"
-                    val subtitle = if (isUpNext) {
-                        "${lastDoneStr.lowercase()} · up next"
-                    } else {
-                        lastDoneStr.replaceFirstChar { it.uppercase() }
-                    }
+                    val lastDoneStr = routine.lastPerformedAtMillis?.let(::formatLastDoneShort) ?: "Not performed yet"
+                    val subtitle = if (isUpNext) "$lastDoneStr · up next" else lastDoneStr
 
                     var routineMenuExpanded by rememberSaveable(routine.id) { mutableStateOf(false) }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = { onOpenRoutine(routine.id) })
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (isUpNext) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(HevyntAccent, CircleShape),
+                    Box {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = { onOpenRoutine(routine.id) },
+                                    onLongClick = { routineMenuExpanded = true },
+                                )
+                                .padding(horizontal = 18.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 12.dp),
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (isUpNext) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(HevyntAccent, CircleShape),
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                    }
+                                    Text(
+                                        text = cleanTitle,
+                                        fontWeight = FontWeight.Bold,
+                                        color = HevyntTextPrimary,
+                                        fontSize = 17.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
-                                    Spacer(Modifier.width(8.dp))
                                 }
+                                Spacer(Modifier.height(3.dp))
                                 Text(
-                                    text = cleanTitle,
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = HevyntTextPrimary,
-                                    fontSize = 16.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                                    text = subtitle,
+                                    color = HevyntTextSecondary,
+                                    fontSize = 13.sp,
                                 )
                             }
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                text = subtitle,
-                                color = HevyntTextSecondary,
-                                fontSize = 12.sp,
-                            )
-                        }
 
-                        // Play circle button
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(HevyntSurfaceInteractive, CircleShape)
-                                .border(1.dp, HevyntOutline, CircleShape)
-                                .clickable { onStartRoutine(routine.id) },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.PlayArrow,
-                                contentDescription = "Start routine",
-                                tint = HevyntTextPrimary,
-                                modifier = Modifier.size(18.dp),
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(RoutinePlayCircleBg)
+                                    .border(1.dp, RoutinePlayCircleBorder, CircleShape)
+                                    .clickable { onStartRoutine(routine.id) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_play_arrow_filled),
+                                    contentDescription = "Start routine",
+                                    tint = HevyntTextPrimary,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
                         }
 
                         DropdownMenu(
                             expanded = routineMenuExpanded,
                             onDismissRequest = { routineMenuExpanded = false },
+                            containerColor = HevyntSurfaceInteractive,
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Edit routine") },
@@ -440,8 +451,10 @@ internal fun RoutineFolderCard(
                                 onClick = { routineMenuExpanded = false; onEditRoutine(routine.id) },
                             )
                             DropdownMenuItem(
-                                text = { Text("Delete routine") },
-                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                                text = { Text("Delete routine", color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                },
                                 onClick = { routineMenuExpanded = false; onDeleteRoutine(routine.id) },
                             )
                         }

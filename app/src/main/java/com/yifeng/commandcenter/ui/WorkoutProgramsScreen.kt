@@ -65,11 +65,13 @@ fun WorkoutProgramsScreen(
     onImportPlan: () -> Unit = {},
     onManageSavedExercises: () -> Unit = {},
 ) {
-    val initialExpanded = rememberSaveable(folders.map { it.id }) {
-        val targetFolder = likelyNext?.routine?.folderId ?: folders.firstOrNull()?.id
-        listOfNotNull(targetFolder)
+    val targetRoutine = likelyNext?.routine ?: folders.flatMap { it.routines }.firstOrNull()
+    val defaultFolderId = targetRoutine?.folderId
+        ?: folders.firstOrNull { it.routines.isNotEmpty() }?.id
+        ?: folders.firstOrNull()?.id
+    var expandedFolderIds by rememberSaveable(defaultFolderId) {
+        mutableStateOf(listOfNotNull(defaultFolderId))
     }
-    var expandedFolderIds by rememberSaveable { mutableStateOf(initialExpanded) }
     var showTopMenu by rememberSaveable { mutableStateOf(false) }
     var showFolderPicker by rememberSaveable { mutableStateOf(false) }
     var showCreateFolder by rememberSaveable { mutableStateOf(false) }
@@ -156,9 +158,9 @@ fun WorkoutProgramsScreen(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = 20.dp,
-            end = 20.dp,
-            top = 16.dp,
+            start = HevyntPageHorizontalPadding,
+            end = HevyntPageHorizontalPadding,
+            top = 14.dp,
             bottom = 100.dp,
         ),
     ) {
@@ -167,14 +169,14 @@ fun WorkoutProgramsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Workout",
                     color = HevyntTextPrimary,
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp,
                     modifier = Modifier.weight(1f),
                 )
 
@@ -192,7 +194,24 @@ fun WorkoutProgramsScreen(
                     DropdownMenu(
                         expanded = showTopMenu,
                         onDismissRequest = { showTopMenu = false },
+                        containerColor = com.yifeng.commandcenter.ui.theme.HevyntSurfaceInteractive,
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("New routine") },
+                            leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                            onClick = {
+                                showTopMenu = false
+                                if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("New folder") },
+                            leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                            onClick = {
+                                showTopMenu = false
+                                showCreateFolder = true
+                            },
+                        )
                         DropdownMenuItem(
                             text = { Text("Import workout plan") },
                             leadingIcon = { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null) },
@@ -213,7 +232,7 @@ fun WorkoutProgramsScreen(
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
         }
 
         // Hero Up next Card / Continue Workout Card
@@ -242,7 +261,7 @@ fun WorkoutProgramsScreen(
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(10.dp))
         }
 
         // Quick Actions Row: "+ Empty workout" and "↻ Repeat last"
@@ -252,26 +271,28 @@ fun WorkoutProgramsScreen(
                 onRepeatLast = onRepeatLast,
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(22.dp))
         }
 
         // Routines Section Header: "Routines" on left, circular "+" on right
         item(key = "routines-header") {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Routines",
                     color = HevyntTextPrimary,
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
                     modifier = Modifier.weight(1f),
                 )
 
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(40.dp)
                         .border(1.dp, HevyntOutline, CircleShape)
                         .clickable {
                             if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
@@ -287,7 +308,7 @@ fun WorkoutProgramsScreen(
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
         }
 
         // Folder Accordion Cards
@@ -297,7 +318,7 @@ fun WorkoutProgramsScreen(
                 RoutineFolderCard(
                     folder = folder,
                     expanded = expanded,
-                    recommendedRoutineId = likelyNext?.routine?.id,
+                    recommendedRoutineId = targetRoutine?.id,
                     onToggleExpand = {
                         expandedFolderIds = if (expanded) {
                             expandedFolderIds - folder.id
@@ -314,7 +335,7 @@ fun WorkoutProgramsScreen(
                     onDeleteRoutine = { routineId -> routineToDelete = listOf(folder.id, routineId) },
                 )
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
             }
         }
 

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -38,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -63,30 +65,27 @@ import com.yifeng.commandcenter.history.ProgressionTrend
 import com.yifeng.commandcenter.ui.theme.HevyntAccent
 import com.yifeng.commandcenter.ui.theme.HevyntOutline
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceInteractive
-import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
+
+private val PreviousPillBorder = Color(0xFF2C2C30)
+private val UncompletedInputText = Color(0xFFA2A1A7)
 
 @Composable
 internal fun SetHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(30.dp),
+            .height(28.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SetColumnLabel("Set", Modifier.width(34.dp), TextAlign.Center)
+        SetColumnLabel("Set", Modifier.width(26.dp), TextAlign.Start)
         SetColumnLabel("Previous · tap to fill", Modifier.weight(1f).padding(start = 6.dp))
-        SetColumnLabel("kg", Modifier.width(54.dp), TextAlign.Center)
-        SetColumnLabel("Reps", Modifier.width(54.dp), TextAlign.Center)
-        Box(modifier = Modifier.width(48.dp), contentAlignment = Alignment.Center) {
-            Icon(
-                Icons.Outlined.Check,
-                contentDescription = null,
-                tint = HevyntTextSecondary,
-                modifier = Modifier.size(16.dp),
-            )
-        }
+        SetColumnLabel("kg", Modifier.width(60.dp), TextAlign.Center)
+        Spacer(Modifier.width(8.dp))
+        SetColumnLabel("Reps", Modifier.width(60.dp), TextAlign.Center)
+        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(42.dp))
     }
 }
 
@@ -100,7 +99,7 @@ internal fun SetColumnLabel(
         text = label,
         modifier = modifier,
         color = HevyntTextSecondary,
-        style = MaterialTheme.typography.labelSmall,
+        fontSize = 12.5.sp,
         textAlign = textAlign,
         maxLines = 1,
     )
@@ -131,31 +130,31 @@ internal fun SetRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .padding(vertical = 5.dp)
+            .height(46.dp)
             .clickable(onClick = onSelect),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .width(34.dp)
+                .width(26.dp)
                 .height(44.dp),
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.CenterStart,
         ) {
             Surface(
                 onClick = { menuExpanded = true },
                 color = Color.Transparent,
                 shape = CircleShape,
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(26.dp)
                     .semantics { contentDescription = "Set ${index + 1} options" },
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                Box(contentAlignment = Alignment.CenterStart) {
                     Text(
                         text = (index + 1).toString(),
-                        color = if (isActive) HevyntAccent else if (set.completed) HevyntTextPrimary else HevyntTextSecondary,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
+                        color = if (isActive) HevyntAccent else HevyntTextSecondary,
+                        fontSize = 16.sp,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                     )
                 }
             }
@@ -223,46 +222,68 @@ internal fun SetRow(
                 )
             }
         }
-        Surface(
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onCopy()
-            },
-            enabled = previous != null || precedingSet != null,
-            color = if (previous == null && precedingSet == null) Color.Transparent else HevyntSurfaceInteractive,
-            shape = RoundedCornerShape(12.dp),
+
+        Box(
             modifier = Modifier
                 .weight(1f)
-                .height(38.dp)
-                .padding(end = 6.dp)
-                .semantics {
-                    if (previous != null) {
-                        contentDescription =
-                            "Copy previous ${PreviousSetResolver.format(previous)} to set ${index + 1}"
-                    }
-                },
+                .padding(start = 6.dp, end = 8.dp),
+            contentAlignment = Alignment.CenterStart,
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
+            val canCopy = previous != null || precedingSet != null
+            Surface(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onCopy()
+                },
+                enabled = canCopy,
+                color = Color.Transparent,
+                border = if (previous != null || precedingSet != null) {
+                    BorderStroke(1.dp, PreviousPillBorder)
+                } else {
+                    BorderStroke(1.dp, PreviousPillBorder.copy(alpha = 0.4f))
+                },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .widthIn(min = 78.dp)
+                    .height(44.dp)
+                    .semantics {
+                        if (previous != null) {
+                            contentDescription =
+                                "Copy previous ${PreviousSetResolver.format(previous)} to set ${index + 1}"
+                        }
+                    },
             ) {
-                Text(
-                    PreviousSetResolver.format(previous),
-                    color = if (previous == null) HevyntTextSecondary else HevyntTextPrimary,
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (progression == ProgressionTrend.IMPROVED) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
                     Text(
-                        text = " ↑",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                        text = PreviousSetResolver.format(previous),
+                        color = if (previous == null) {
+                            HevyntTextSecondary
+                        } else if (isActive) {
+                            HevyntTextPrimary
+                        } else {
+                            HevyntTextSecondary
+                        },
+                        fontSize = 14.5.sp,
+                        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
+                    if (progression == ProgressionTrend.IMPROVED) {
+                        Text(
+                            text = " ↑",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
         }
+
         CompactNumberField(
             value = set.weight,
             allowDecimal = true,
@@ -272,7 +293,7 @@ internal fun SetRow(
             completed = set.completed,
             onValueChange = { onChanged(set.copy(weight = it)) },
         )
-        Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.width(8.dp))
         CompactNumberField(
             value = set.reps,
             imeAction = ImeAction.Done,
@@ -281,9 +302,11 @@ internal fun SetRow(
             completed = set.completed,
             onValueChange = { onChanged(set.copy(reps = it)) },
         )
+        Spacer(Modifier.width(8.dp))
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(42.dp)
+                .clip(CircleShape)
                 .semantics {
                     contentDescription = if (set.completed) {
                         "Mark set ${index + 1} incomplete"
@@ -298,11 +321,10 @@ internal fun SetRow(
             contentAlignment = Alignment.Center,
         ) {
             if (set.completed) {
-                // Completed: solid white circle with black checkmark
                 Surface(
                     color = Color.White,
                     shape = CircleShape,
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(40.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -314,20 +336,18 @@ internal fun SetRow(
                     }
                 }
             } else if (isActive) {
-                // Active: red outline ring
                 Surface(
                     color = Color.Transparent,
-                    border = BorderStroke(2.dp, HevyntAccent),
+                    border = BorderStroke(1.5.dp, HevyntAccent),
                     shape = CircleShape,
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(40.dp),
                 ) {}
             } else {
-                // Upcoming: subtle grey outline ring
                 Surface(
                     color = Color.Transparent,
                     border = BorderStroke(1.5.dp, HevyntOutline),
                     shape = CircleShape,
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(40.dp),
                 ) {}
             }
         }
@@ -346,6 +366,7 @@ internal fun CompactNumberField(
 ) {
     val focusManager = LocalFocusManager.current
     var fieldValue by remember { mutableStateOf(TextFieldValue(value)) }
+    var isFocused by remember { mutableStateOf(false) }
     LaunchedEffect(value) {
         if (value != fieldValue.text) {
             fieldValue = TextFieldValue(value, TextRange(value.length))
@@ -367,30 +388,40 @@ internal fun CompactNumberField(
             onValueChange(sanitized)
         },
         modifier = Modifier
-            .width(54.dp)
-            .height(42.dp)
-            .padding(horizontal = 2.dp)
+            .width(60.dp)
+            .height(44.dp)
             .background(
-                if (completed) HevyntSurfaceRaised else HevyntSurfaceInteractive,
-                RoundedCornerShape(12.dp),
+                HevyntSurfaceInteractive,
+                RoundedCornerShape(14.dp),
             )
-            .border(
-                if (isActive) 1.5.dp else 1.dp,
-                if (isActive) HevyntAccent else if (completed) HevyntOutline.copy(alpha = 0.5f) else HevyntOutline,
-                RoundedCornerShape(12.dp),
+            .then(
+                if (isActive) {
+                    Modifier.border(
+                        1.5.dp,
+                        HevyntAccent,
+                        RoundedCornerShape(14.dp),
+                    )
+                } else {
+                    Modifier
+                },
             )
             .semantics { this.contentDescription = contentDescription }
             .onFocusChanged { focusState ->
+                isFocused = focusState.isFocused
                 if (focusState.isFocused && fieldValue.text.isNotEmpty()) {
                     fieldValue = fieldValue.copy(selection = TextRange(0, fieldValue.text.length))
                 }
             },
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyLarge.copy(
-            color = if (completed) HevyntTextSecondary else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                completed || isFocused -> HevyntTextPrimary
+                isActive -> UncompletedInputText
+                else -> HevyntTextPrimary
+            },
             textAlign = TextAlign.Center,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
         ),
         keyboardOptions = KeyboardOptions(
             keyboardType = if (allowDecimal) KeyboardType.Decimal else KeyboardType.Number,

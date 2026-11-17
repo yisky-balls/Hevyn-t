@@ -92,10 +92,9 @@ fun MinimizedWorkoutBar(
     Surface(
         color = HevyntSurfaceRaised,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, com.yifeng.commandcenter.ui.theme.HevyntOutline),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = HevyntPageHorizontalPadding, vertical = 4.dp),
     ) {
         Row(
             modifier = Modifier

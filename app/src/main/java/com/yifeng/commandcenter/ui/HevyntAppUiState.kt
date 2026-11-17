@@ -26,7 +26,7 @@ sealed interface HevyntAppEffect {
 }
 
 data class HevyntAppUiState(
-    val selectedPage: AppPage = AppPage.Workout,
+    val selectedPage: AppPage = AppPage.Home,
     val routineFolders: List<RoutineFolderSummary> = emptyList(),
     val likelyNextRoutine: RoutineRecommendation? = null,
     val activeWorkout: ActiveWorkout? = null,

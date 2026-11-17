@@ -63,7 +63,7 @@ import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 
-internal val HevyntPageHorizontalPadding = 20.dp
+internal val HevyntPageHorizontalPadding = 12.dp
 
 @Composable
 internal fun HevyntPageHeader(
@@ -163,8 +163,7 @@ internal fun HevyntPanel(
     Surface(
         modifier = modifier,
         color = HevyntSurfaceRaised,
-        border = BorderStroke(1.dp, HevyntOutline),
-        shape = MaterialTheme.shapes.medium,
+        shape = RoundedCornerShape(24.dp),
         content = content,
     )
 }
@@ -426,13 +425,12 @@ fun HevyntBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 10.dp),
+            .padding(horizontal = 24.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Surface(
             color = HevyntSurfaceRaised,
             shape = RoundedCornerShape(32.dp),
-            border = BorderStroke(1.dp, HevyntOutline),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp),
@@ -506,7 +504,6 @@ private fun RowScope.HevyntBottomDestination(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            // Active Red Dot Indicator
             if (selected) {
                 Box(
                     modifier = Modifier
@@ -523,7 +520,7 @@ private fun RowScope.HevyntBottomDestination(
                 label,
                 color = contentColor,
                 fontSize = 11.sp,
-                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             )
         }
     }

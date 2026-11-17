@@ -1,42 +1,36 @@
 package com.yifeng.commandcenter.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,11 +43,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yifeng.commandcenter.R
 import com.yifeng.commandcenter.data.ActiveExercise
 import com.yifeng.commandcenter.data.ActiveWorkoutOperations
 import com.yifeng.commandcenter.data.WorkoutSet
@@ -81,11 +76,10 @@ import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 
 @Composable
 internal fun ExerciseLogger(
-    index: Int,
     exercise: ActiveExercise,
     previousSets: Map<String, PreviousSetPerformance>,
     exerciseHistory: ExerciseHistorySummary? = null,
-    defaultExpanded: Boolean,
+    isRoutineBuilder: Boolean = false,
     onNameChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
     onDelete: () -> Unit,
@@ -99,14 +93,61 @@ internal fun ExerciseLogger(
     onRemoveSet: (String) -> Unit,
     onAddSet: () -> Unit,
     onDuplicateSet: (String) -> Unit,
+    onRequestAddExercise: () -> Unit = {},
+    onDiscardWorkout: () -> Unit = {},
+    isGlyphSupported: Boolean = false,
+    isGlyphTimerEnabled: Boolean = true,
+    isGlyphPulseEnabled: Boolean = true,
+    onToggleGlyphTimer: (Boolean) -> Unit = {},
+    onToggleGlyphPulse: (Boolean) -> Unit = {},
 ) {
-    var expanded by rememberSaveable(exercise.id) { mutableStateOf(defaultExpanded) }
     var notesExpanded by rememberSaveable(exercise.id) { mutableStateOf(false) }
-    var historyExpanded by rememberSaveable(exercise.id) { mutableStateOf(false) }
+    var isEditingTitle by rememberSaveable(exercise.id) { mutableStateOf(isRoutineBuilder) }
     var selectedSetId by rememberSaveable(exercise.id) { mutableStateOf<String?>(null) }
-    var menuExpanded by remember { mutableStateOf(false) }
+    var showDetailsDialog by remember { mutableStateOf(false) }
     var confirmExerciseDelete by remember { mutableStateOf(false) }
+    var confirmDiscardSession by remember { mutableStateOf(false) }
     var setPendingDelete by remember { mutableStateOf<WorkoutSet?>(null) }
+
+    if (showDetailsDialog) {
+        ExerciseDetailsAndOptionsDialog(
+            exerciseName = exercise.name,
+            exerciseHistory = exerciseHistory,
+            canMoveUp = canMoveUp,
+            canMoveDown = canMoveDown,
+            isRoutineBuilder = isRoutineBuilder,
+            isGlyphSupported = isGlyphSupported,
+            isGlyphTimerEnabled = isGlyphTimerEnabled,
+            isGlyphPulseEnabled = isGlyphPulseEnabled,
+            onToggleGlyphTimer = onToggleGlyphTimer,
+            onToggleGlyphPulse = onToggleGlyphPulse,
+            onRename = {
+                showDetailsDialog = false
+                isEditingTitle = true
+            },
+            onMoveUp = {
+                showDetailsDialog = false
+                onMoveUp()
+            },
+            onMoveDown = {
+                showDetailsDialog = false
+                onMoveDown()
+            },
+            onAddExercise = {
+                showDetailsDialog = false
+                onRequestAddExercise()
+            },
+            onRemoveExercise = {
+                showDetailsDialog = false
+                confirmExerciseDelete = true
+            },
+            onDiscardWorkout = {
+                showDetailsDialog = false
+                confirmDiscardSession = true
+            },
+            onDismiss = { showDetailsDialog = false },
+        )
+    }
 
     if (confirmExerciseDelete) {
         HevyntDialog(
@@ -133,6 +174,33 @@ internal fun ExerciseLogger(
             },
         )
     }
+
+    if (confirmDiscardSession) {
+        HevyntDialog(
+            onDismissRequest = { confirmDiscardSession = false },
+            title = {
+                Text(
+                    text = if (isRoutineBuilder) "DISCARD ROUTINE?" else "DISCARD WORKOUT?",
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            },
+            text = { Text("This removes the active session from this device. Completed workout history is not affected.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDiscardSession = false
+                    onDiscardWorkout()
+                }) {
+                    Text("DISCARD", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDiscardSession = false }) {
+                    Text("CANCEL", fontWeight = FontWeight.Medium)
+                }
+            },
+        )
+    }
+
     setPendingDelete?.let { set ->
         HevyntDialog(
             onDismissRequest = { setPendingDelete = null },
@@ -162,215 +230,161 @@ internal fun ExerciseLogger(
             },
         )
     }
-    Column(
-        Modifier
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .background(HevyntSurfaceRaised, RoundedCornerShape(22.dp))
-            .border(1.dp, HevyntOutline, RoundedCornerShape(22.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = HevyntSurfaceRaised,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = HevyntPageHorizontalPadding, vertical = 5.dp),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 18.dp, vertical = 18.dp),
         ) {
-            Surface(
-                color = HevyntSurfaceInteractive,
-                shape = CircleShape,
-                modifier = Modifier.size(28.dp),
+            // Exercise Title & ↗ History/Options Icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = (index + 1).toString(),
-                        style = MaterialTheme.typography.labelMedium,
+                if (isEditingTitle) {
+                    BasicTextField(
+                        value = exercise.name,
+                        onValueChange = onNameChanged,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.titleLarge.copy(
+                            fontSize = 21.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = HevyntTextPrimary,
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = { if (!isRoutineBuilder) isEditingTitle = false },
+                        ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     )
-                }
-            }
-            if (expanded) {
-                BasicTextField(
-                    value = exercise.name,
-                    onNameChanged,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 9.dp, top = 10.dp, bottom = 10.dp),
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.titleMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold,
-                    ),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                )
-            } else {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 9.dp, end = 4.dp),
-                ) {
+                } else {
                     Text(
                         text = exercise.name.ifBlank { "Untitled exercise" },
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Bold,
                         color = HevyntTextPrimary,
-                        style = MaterialTheme.typography.titleSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp),
                     )
-                    collapsedPreviousSummary(exercise, previousSets, exerciseHistory)?.let { summary ->
-                        Text(
-                            text = "Last: $summary",
-                            modifier = Modifier.padding(top = 2.dp),
-                            color = HevyntTextSecondary,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                 }
-            }
-            IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(40.dp)) {
-                Icon(
-                    if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-                    contentDescription = if (expanded) "Collapse exercise" else "Expand exercise",
-                    tint = HevyntTextSecondary,
-                    modifier = Modifier.size(21.dp),
-                )
-            }
-            Box {
-                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(40.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .clickable { showDetailsDialog = true },
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(
-                        Icons.Outlined.MoreVert,
+                        painter = painterResource(R.drawable.ic_arrow_diagonal),
                         contentDescription = "Exercise options",
                         tint = HevyntTextSecondary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                    containerColor = HevyntSurfaceInteractive,
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("MOVE UP", style = MaterialTheme.typography.labelMedium) },
-                        enabled = canMoveUp,
-                        onClick = { menuExpanded = false; onMoveUp() },
-                        leadingIcon = { Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = null) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("MOVE DOWN", style = MaterialTheme.typography.labelMedium) },
-                        enabled = canMoveDown,
-                        onClick = { menuExpanded = false; onMoveDown() },
-                        leadingIcon = { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("EDIT NAME", style = MaterialTheme.typography.labelMedium) },
-                        onClick = { menuExpanded = false; expanded = true },
-                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("REMOVE EXERCISE", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium) },
-                        onClick = { menuExpanded = false; confirmExerciseDelete = true },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Outlined.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        },
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
-        }
-        if (!expanded) return@Column
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(38.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            UtilityChip(
-                label = "HISTORY",
-                active = historyExpanded,
-                icon = Icons.Outlined.Info,
-                contentDescription = if (historyExpanded) "Close exercise history" else "View exercise history",
-                onClick = { historyExpanded = !historyExpanded },
-            )
-            UtilityChip(
-                label = "NOTES",
-                active = exercise.notes.isNotBlank(),
-                icon = Icons.Outlined.Edit,
-                contentDescription = if (notesExpanded) "Close exercise notes" else "Open exercise notes",
-                onClick = { notesExpanded = !notesExpanded },
-            )
-            UtilityChip(
-                label = "REST %02d:%02d".format(exercise.restSeconds / 60, exercise.restSeconds % 60),
-                icon = Icons.Outlined.Refresh,
-                contentDescription = "Edit rest timer",
-                onClick = onEditRest,
-            )
-        }
+            Spacer(Modifier.height(12.dp))
 
-        if (historyExpanded) {
-            ExerciseHistoryPanel(history = exerciseHistory)
-        }
+            // Notes & Rest 4:00 pills
+            val restMin = exercise.restSeconds / 60
+            val restSec = exercise.restSeconds % 60
+            val restLabel = "Rest $restMin:${restSec.toString().padStart(2, '0')}"
 
-        if (notesExpanded) {
-            NoteEditor(
-                value = exercise.notes,
-                onValueChange = onNotesChanged,
-                onDone = { notesExpanded = false },
-            )
-        }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    onClick = { notesExpanded = !notesExpanded },
+                    color = if (notesExpanded) HevyntAccentContainer else HevyntSurfaceInteractive,
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.semantics {
+                        contentDescription = if (notesExpanded) "Close exercise notes" else "Open exercise notes"
+                    },
+                ) {
+                    Text(
+                        text = "Notes",
+                        color = if (notesExpanded) HevyntAccent else HevyntTextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                    )
+                }
 
-        Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
-        SetHeader()
-        val firstUncompletedSetId = exercise.sets.firstOrNull { !it.completed }?.id
-        val activeSetId = selectedSetId ?: firstUncompletedSetId
-        exercise.sets.forEachIndexed { index, set ->
-            key(set.id) {
-                val isSelected = activeSetId == set.id
-                val preceding = exercise.sets.getOrNull(index - 1)
-                SetRow(
-                    index = index,
-                    set = set,
-                    previous = previousSets[set.id],
-                    precedingSet = preceding,
-                    isSelected = isSelected,
-                    onSelect = {
-                        selectedSetId = if (selectedSetId == set.id) null else set.id
+                Surface(
+                    onClick = onEditRest,
+                    color = HevyntSurfaceInteractive,
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.semantics {
+                        contentDescription = "Edit rest timer"
                     },
-                    onChanged = { updatedSet -> onSetChanged(set.id, updatedSet) },
-                    onCompleted = {
-                        val becomingComplete = !set.completed
-                        onSetCompletionChanged(set.id, becomingComplete)
-                        if (becomingComplete) {
-                            selectedSetId = exercise.sets.firstOrNull { it.id != set.id && !it.completed }?.id
-                        }
-                    },
-                    onDelete = {
-                        if (set.completed) setPendingDelete = set else onRemoveSet(set.id)
-                    },
-                    onDuplicate = { onDuplicateSet(set.id) },
-                    onCopy = {
-                        val prev = previousSets[set.id]
-                        if (prev != null) {
-                            onSetChanged(set.id, ActiveWorkoutOperations.copyPreviousSet(set, prev))
-                        } else if (preceding != null) {
-                            onSetChanged(set.id, ActiveWorkoutOperations.copyPrecedingSet(set, preceding))
-                        }
-                    },
+                ) {
+                    Text(
+                        text = restLabel,
+                        color = HevyntTextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                    )
+                }
+            }
+
+            if (notesExpanded) {
+                Spacer(Modifier.height(10.dp))
+                NoteEditor(
+                    value = exercise.notes,
+                    onValueChange = onNotesChanged,
+                    onDone = { notesExpanded = false },
                 )
-                if (isSelected) {
-                    QuickSetControlsBar(
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            SetHeader()
+
+            Spacer(Modifier.height(4.dp))
+
+            val firstUncompletedSetId = exercise.sets.firstOrNull { !it.completed }?.id
+            val activeSetId = selectedSetId ?: firstUncompletedSetId
+            exercise.sets.forEachIndexed { idx, set ->
+                key(set.id) {
+                    val isSelected = activeSetId == set.id
+                    val preceding = exercise.sets.getOrNull(idx - 1)
+                    SetRow(
+                        index = idx,
                         set = set,
                         previous = previousSets[set.id],
                         precedingSet = preceding,
-                        onWeightAdjust = { delta ->
-                            onSetChanged(set.id, ActiveWorkoutOperations.adjustWeight(set, delta))
+                        isSelected = isSelected,
+                        onSelect = {
+                            selectedSetId = if (selectedSetId == set.id) null else set.id
                         },
-                        onRepsAdjust = { delta ->
-                            onSetChanged(set.id, ActiveWorkoutOperations.adjustReps(set, delta))
+                        onChanged = { updatedSet -> onSetChanged(set.id, updatedSet) },
+                        onCompleted = {
+                            val becomingComplete = !set.completed
+                            onSetCompletionChanged(set.id, becomingComplete)
+                            if (becomingComplete) {
+                                selectedSetId = exercise.sets.firstOrNull { it.id != set.id && !it.completed }?.id
+                            }
                         },
+                        onDelete = {
+                            if (set.completed) setPendingDelete = set else onRemoveSet(set.id)
+                        },
+                        onDuplicate = { onDuplicateSet(set.id) },
                         onCopy = {
                             val prev = previousSets[set.id]
                             if (prev != null) {
@@ -379,29 +393,149 @@ internal fun ExerciseLogger(
                                 onSetChanged(set.id, ActiveWorkoutOperations.copyPrecedingSet(set, preceding))
                             }
                         },
-                        onDuplicate = { onDuplicateSet(set.id) },
                     )
                 }
-                if (index != exercise.sets.lastIndex) {
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
-                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onAddSet)
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "+ Add set",
+                    color = HevyntTextSecondary,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Medium,
+                )
             }
         }
-        TextButton(
-            onClick = onAddSet,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp),
-        ) {
-            Text(
-                text = "+ Add set",
-                color = HevyntTextSecondary,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-            )
-        }
     }
+}
+
+@Composable
+private fun ExerciseDetailsAndOptionsDialog(
+    exerciseName: String,
+    exerciseHistory: ExerciseHistorySummary?,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    isRoutineBuilder: Boolean,
+    isGlyphSupported: Boolean,
+    isGlyphTimerEnabled: Boolean,
+    isGlyphPulseEnabled: Boolean,
+    onToggleGlyphTimer: (Boolean) -> Unit,
+    onToggleGlyphPulse: (Boolean) -> Unit,
+    onRename: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onAddExercise: () -> Unit,
+    onRemoveExercise: () -> Unit,
+    onDiscardWorkout: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    HevyntDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = exerciseName.ifBlank { "Exercise" },
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                ExerciseHistoryPanel(history = exerciseHistory)
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
+                Spacer(Modifier.height(6.dp))
+                TextButton(onClick = onRename, modifier = Modifier.fillMaxWidth()) {
+                    Text("Edit exercise name", modifier = Modifier.fillMaxWidth(), color = HevyntTextPrimary)
+                }
+                TextButton(onClick = onAddExercise, modifier = Modifier.fillMaxWidth()) {
+                    Text("Add exercise to workout", modifier = Modifier.fillMaxWidth(), color = HevyntTextPrimary)
+                }
+                if (canMoveUp) {
+                    TextButton(onClick = onMoveUp, modifier = Modifier.fillMaxWidth()) {
+                        Text("Move exercise up", modifier = Modifier.fillMaxWidth(), color = HevyntTextPrimary)
+                    }
+                }
+                if (canMoveDown) {
+                    TextButton(onClick = onMoveDown, modifier = Modifier.fillMaxWidth()) {
+                        Text("Move exercise down", modifier = Modifier.fillMaxWidth(), color = HevyntTextPrimary)
+                    }
+                }
+                if (isGlyphSupported) {
+                    Spacer(Modifier.height(4.dp))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Glyph rest timer", color = HevyntTextPrimary, style = MaterialTheme.typography.bodyMedium)
+                        Switch(
+                            checked = isGlyphTimerEnabled,
+                            onCheckedChange = onToggleGlyphTimer,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Glyph pulse on finish", color = HevyntTextPrimary, style = MaterialTheme.typography.bodyMedium)
+                        Switch(
+                            checked = isGlyphPulseEnabled,
+                            onCheckedChange = onToggleGlyphPulse,
+                            enabled = isGlyphTimerEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = onRemoveExercise, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Remove exercise",
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                TextButton(onClick = onDiscardWorkout, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        if (isRoutineBuilder) "Discard routine" else "Discard workout",
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("CLOSE", color = HevyntAccent, fontWeight = FontWeight.SemiBold)
+            }
+        },
+    )
 }
 
 @Composable
@@ -419,9 +553,9 @@ internal fun ExerciseAutocompletePanel(
 
     Column(
         modifier = Modifier
-            .padding(horizontal = 14.dp, vertical = 6.dp)
-            .background(HevyntSurfaceRaised, MaterialTheme.shapes.large)
-            .padding(horizontal = 10.dp, vertical = 10.dp),
+            .padding(horizontal = HevyntPageHorizontalPadding, vertical = 6.dp)
+            .background(HevyntSurfaceRaised, RoundedCornerShape(24.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Text(
             text = "ADD EXERCISE",
@@ -433,7 +567,7 @@ internal fun ExerciseAutocompletePanel(
                 .fillMaxWidth()
                 .padding(top = 8.dp)
                 .height(48.dp)
-                .border(1.dp, HevyntOutline, MaterialTheme.shapes.small)
+                .border(1.dp, HevyntOutline, RoundedCornerShape(14.dp))
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -555,10 +689,9 @@ internal fun NoteEditor(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 42.dp, max = 74.dp)
-            .padding(bottom = 6.dp)
-            .background(HevyntSurfaceInteractive, MaterialTheme.shapes.small)
+            .background(HevyntSurfaceInteractive, RoundedCornerShape(14.dp))
             .focusRequester(focusRequester)
-            .padding(horizontal = 9.dp, vertical = 7.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         textStyle = MaterialTheme.typography.bodyMedium.copy(
             color = HevyntTextPrimary,
             fontSize = 13.sp,
@@ -591,7 +724,7 @@ internal fun EmptyWorkoutState(
         modifier = Modifier
             .fillMaxWidth()
             .height(430.dp)
-            .padding(horizontal = HevyntPageHorizontalPadding),
+            .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -632,43 +765,6 @@ internal fun EmptyWorkoutState(
             Text(
                 if (isRoutineBuilder) "Discard routine" else "Discard workout",
                 color = MaterialTheme.colorScheme.error,
-            )
-        }
-    }
-}
-
-@Composable
-internal fun UtilityChip(
-    label: String,
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    active: Boolean = false,
-) {
-    Surface(
-        onClick = onClick,
-        color = if (active) HevyntAccentContainer else HevyntSurfaceInteractive,
-        border = BorderStroke(1.dp, if (active) HevyntAccent.copy(alpha = 0.5f) else HevyntOutline),
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier
-            .height(32.dp)
-            .semantics { this.contentDescription = contentDescription },
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = if (active) HevyntAccent else HevyntTextSecondary,
-                modifier = Modifier.size(13.dp),
-            )
-            Text(
-                text = label,
-                modifier = Modifier.padding(start = 5.dp),
-                color = if (active) HevyntAccent else HevyntTextSecondary,
-                style = MaterialTheme.typography.labelSmall,
             )
         }
     }

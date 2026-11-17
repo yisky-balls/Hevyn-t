@@ -78,9 +78,8 @@ fun WorkoutRecapScreen(
         }
         item {
             Surface(
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                 color = com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised,
-                border = androidx.compose.foundation.BorderStroke(1.dp, com.yifeng.commandcenter.ui.theme.HevyntOutline),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(

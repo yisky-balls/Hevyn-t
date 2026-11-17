@@ -188,6 +188,16 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(selectedPage = AppPage.Workout, selectedHistoryGraph = null) }
     }
 
+    fun openJournal() {
+        _uiState.update {
+            it.copy(
+                selectedPage = AppPage.Journal,
+                journalFilter = null,
+                selectedHistoryGraph = null,
+            )
+        }
+    }
+
     fun openDay(range: WorkoutDateRange) {
         _uiState.update {
             it.copy(
