@@ -115,6 +115,8 @@ fun HomeScreen(
     onToggleGlyphPulse: (Boolean) -> Unit = {},
     onToggleSoftLock: (Boolean) -> Unit = {},
     onOpenSoftLockSettings: () -> Unit = {},
+    onExportBackup: () -> Unit = {},
+    onImportBackup: () -> Unit = {},
 ) {
     val routine = likelyNext?.routine
         ?: routines.firstOrNull { it.exerciseCount > 0 }
@@ -170,6 +172,14 @@ fun HomeScreen(
             onConfigureBodyMetrics = {
                 showSettingsDialog = false
                 onConfigureBodyMetrics()
+            },
+            onExportBackup = {
+                showSettingsDialog = false
+                onExportBackup()
+            },
+            onImportBackup = {
+                showSettingsDialog = false
+                onImportBackup()
             },
             onDismiss = { showSettingsDialog = false },
         )
@@ -864,6 +874,8 @@ private fun HomeSettingsDialog(
     onManageSavedExercises: () -> Unit,
     isBodyMetricsConfigured: Boolean,
     onConfigureBodyMetrics: () -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     HevyntSheet(
@@ -991,6 +1003,34 @@ private fun HomeSettingsDialog(
                 },
                 icon = Icons.Outlined.Refresh,
                 onClick = onConfigureBodyMetrics,
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            text = "Backup & restore",
+            color = HevyntTextSecondary,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+        )
+        HevyntSheetSection {
+            HevyntSheetRow(
+                label = "Export full backup",
+                subtitle = "Save workouts, routines, settings & photos (.zip)",
+                icon = Icons.Outlined.KeyboardArrowDown,
+                onClick = onExportBackup,
+            )
+            HevyntDottedRule(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = HevyntOutline.copy(alpha = 0.7f),
+            )
+            HevyntSheetRow(
+                label = "Import backup",
+                subtitle = "Restore from a Hevyn’t backup .zip (restarts app)",
+                icon = Icons.Outlined.Refresh,
+                onClick = onImportBackup,
             )
         }
     }

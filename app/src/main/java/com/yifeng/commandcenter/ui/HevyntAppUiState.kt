@@ -30,6 +30,7 @@ enum class FinishPrompt { Unfinished, Empty }
 
 sealed interface HevyntAppEffect {
     data object RequestNotificationPermission : HevyntAppEffect
+    data object RestartAfterBackupRestore : HevyntAppEffect
 }
 
 data class HevyntAppUiState(
@@ -79,6 +80,8 @@ data class HevyntAppUiState(
     val showExerciseProgressPicker: Boolean = false,
     val programSheet: ProgramSheetState = ProgramSheetState(),
     val showProgramSheetConfigDialog: Boolean = false,
+    val isBackupBusy: Boolean = false,
+    val backupStatusMessage: String? = null,
 ) {
     val routines: List<RoutineSummary> get() = routineFolders.flatMap(RoutineFolderSummary::routines)
 }

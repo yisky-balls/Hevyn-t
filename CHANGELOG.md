@@ -2,6 +2,12 @@
 
 All notable changes to Hevyn’t are documented here.
 
+## [2.0.1] - 2026-11-20
+
+### Added
+
+- **Full Backup & Restore (.zip)**: Export and import complete app data (workout history, routines, settings, Google Sheet configs, and session photos) directly from *Settings & library* via `AppBackupManager`, with automatic app restart after restore.
+
 ## [2.0.0] - 2026-11-20
 
 ### Added

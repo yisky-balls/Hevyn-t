@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.ActiveWorkoutOperations
 import com.yifeng.commandcenter.data.ActiveWorkoutRepository
+import com.yifeng.commandcenter.data.AppBackupManager
 import com.yifeng.commandcenter.data.ActiveWorkoutSession
 import com.yifeng.commandcenter.data.LikelyNextRoutineResolver
 import com.yifeng.commandcenter.data.RepeatLastWorkout
@@ -764,6 +765,47 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun dismissBackupStatus() {
+        _uiState.update { it.copy(backupStatusMessage = null) }
+    }
+
+    fun exportFullBackup(destinationUri: Uri) {
+        if (_uiState.value.isBackupBusy) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isBackupBusy = true, errorMessage = null, backupStatusMessage = null) }
+            val result = withContext(Dispatchers.IO) {
+                AppBackupManager.exportBackupToUri(context, destinationUri)
+            }
+            result.onSuccess { count ->
+                _uiState.update {
+                    it.copy(
+                        isBackupBusy = false,
+                        backupStatusMessage = "Backup saved ($count files: workouts, routines, settings & photos).",
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update { it.copy(isBackupBusy = false) }
+                showError(error.message ?: "Backup could not be exported.")
+            }
+        }
+    }
+
+    fun importFullBackup(sourceUri: Uri) {
+        if (_uiState.value.isBackupBusy) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isBackupBusy = true, errorMessage = null, backupStatusMessage = null) }
+            val result = withContext(Dispatchers.IO) {
+                AppBackupManager.importBackupFromUri(context, sourceUri)
+            }
+            result.onSuccess {
+                _effects.tryEmit(HevyntAppEffect.RestartAfterBackupRestore)
+            }.onFailure { error ->
+                _uiState.update { it.copy(isBackupBusy = false) }
+                showError(error.message ?: "Backup could not be imported.")
+            }
+        }
     }
 
     fun notificationPermissionResult(granted: Boolean) {

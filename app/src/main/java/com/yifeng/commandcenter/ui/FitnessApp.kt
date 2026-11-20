@@ -1,8 +1,13 @@
 package com.yifeng.commandcenter.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.system.exitProcess
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -96,6 +101,16 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
     ) { uri ->
         uri?.let { viewModel.loadWorkoutPlanFromUri(it) }
     }
+    val exportBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        uri?.let { viewModel.exportFullBackup(it) }
+    }
+    val importBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let { viewModel.importFullBackup(it) }
+    }
     LaunchedEffect(viewModel) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
@@ -103,6 +118,13 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
+                }
+                HevyntAppEffect.RestartAfterBackupRestore -> {
+                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                    if (launchIntent?.component != null) {
+                        context.startActivity(Intent.makeRestartActivityTask(launchIntent.component))
+                    }
+                    exitProcess(0)
                 }
             }
         }
@@ -138,6 +160,14 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
             title = "Something went wrong",
             message = message,
             onDismiss = viewModel::dismissError,
+        )
+    }
+
+    state.backupStatusMessage?.let { message ->
+        HevyntInfoDialog(
+            title = "Backup complete",
+            message = message,
+            onDismiss = viewModel::dismissBackupStatus,
         )
     }
 
@@ -427,6 +457,15 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                 val onImportPlan = remember(openDocumentLauncher) {
                     { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) }
                 }
+                val onExportBackup = remember(exportBackupLauncher) {
+                    {
+                        val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                        exportBackupLauncher.launch("hevynt-backup-$date.zip")
+                    }
+                }
+                val onImportBackup = remember(importBackupLauncher) {
+                    { importBackupLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }
+                }
                 val onRefreshProgramSheet = remember(viewModel) {
                     { viewModel.refreshProgramSheet(force = true) }
                 }
@@ -477,6 +516,8 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                                 onToggleGlyphPulse = viewModel::setGlyphPulseEnabled,
                                 onToggleSoftLock = viewModel::setSoftLockEnabled,
                                 onOpenSoftLockSettings = viewModel::openSoftLockAccessibilitySettings,
+                                onExportBackup = onExportBackup,
+                                onImportBackup = onImportBackup,
                             )
 
                             AppPage.Workout -> WorkoutProgramsScreen(
@@ -563,7 +604,7 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                 }
             }
 
-            if (state.isWorkoutSaving) {
+            if (state.isWorkoutSaving || state.isBackupBusy) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -586,7 +627,7 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                text = "Saving workout…",
+                                text = if (state.isBackupBusy) "Processing backup…" else "Saving workout…",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = HevyntTextPrimary,
