@@ -9,11 +9,18 @@ import com.yifeng.commandcenter.data.WorkoutDateRange
 import com.yifeng.commandcenter.data.SavedExercisesDraft
 import com.yifeng.commandcenter.data.WorkoutPlanPreview
 import com.yifeng.commandcenter.history.ExerciseHistorySummary
+import com.yifeng.commandcenter.history.ExerciseProgressMetric
+import com.yifeng.commandcenter.history.ExerciseProgressOption
+import com.yifeng.commandcenter.history.ExerciseProgressPeriod
 import com.yifeng.commandcenter.history.ExerciseSuggestion
+import com.yifeng.commandcenter.history.HistoricalExerciseSetRow
 import com.yifeng.commandcenter.history.PreviousSetPerformance
 import com.yifeng.commandcenter.history.WorkoutHistoryGraph
 import com.yifeng.commandcenter.history.WorkoutHistorySession
 import com.yifeng.commandcenter.history.WorkoutJournalEntry
+import com.yifeng.commandcenter.metrics.BodyMetricsPeriod
+import com.yifeng.commandcenter.metrics.BodyMetricsSyncState
+import com.yifeng.commandcenter.program.ProgramSheetState
 import com.yifeng.commandcenter.timer.RestTimerState
 import java.io.File
 
@@ -53,9 +60,25 @@ data class HevyntAppUiState(
     val isGlyphSupported: Boolean = false,
     val isGlyphTimerEnabled: Boolean = true,
     val isGlyphPulseEnabled: Boolean = true,
+    val isSoftLockSupported: Boolean = false,
+    val isSoftLockEnabled: Boolean = false,
+    val isSoftLockServiceEnabled: Boolean = false,
     val isSavedExercisesOpen: Boolean = false,
     val savedExercisesDraft: SavedExercisesDraft? = null,
     val showDiscardSavedExercisesConfirm: Boolean = false,
+    val bodyMetrics: BodyMetricsSyncState = BodyMetricsSyncState(),
+    val bodyMetricsPeriod: BodyMetricsPeriod = BodyMetricsPeriod.DAYS_30,
+    val isBodyMetricsOpen: Boolean = false,
+    val showBodyMetricsConfigDialog: Boolean = false,
+    val exerciseProgressRows: List<HistoricalExerciseSetRow> = emptyList(),
+    val exerciseProgressOptions: List<ExerciseProgressOption> = emptyList(),
+    val selectedProgressExerciseKey: String? = null,
+    val exerciseProgressMetric: ExerciseProgressMetric = ExerciseProgressMetric.TOP_WEIGHT,
+    val exerciseProgressPeriod: ExerciseProgressPeriod = ExerciseProgressPeriod.DAYS_90,
+    val isExerciseProgressOpen: Boolean = false,
+    val showExerciseProgressPicker: Boolean = false,
+    val programSheet: ProgramSheetState = ProgramSheetState(),
+    val showProgramSheetConfigDialog: Boolean = false,
 ) {
     val routines: List<RoutineSummary> get() = routineFolders.flatMap(RoutineFolderSummary::routines)
 }

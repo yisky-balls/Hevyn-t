@@ -1,6 +1,5 @@
 package com.yifeng.commandcenter.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,16 +16,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,14 +33,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.RoutineFolderSummary
 import com.yifeng.commandcenter.data.RoutineRecommendation
-import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
+import com.yifeng.commandcenter.program.ProgramSheetState
 import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 
@@ -64,8 +65,17 @@ fun WorkoutProgramsScreen(
     onRepeatLast: () -> Unit = {},
     onImportPlan: () -> Unit = {},
     onManageSavedExercises: () -> Unit = {},
+    programSheet: ProgramSheetState = ProgramSheetState(),
+    onOpenProgramSheetConfig: () -> Unit = {},
+    onRefreshProgramSheet: () -> Unit = {},
+    onSelectProgramSheetWeek: (Int) -> Unit = {},
+    onStartProgramSheetDay: (weekNumber: Int, dayName: String) -> Unit = { _, _ -> },
+    onReorderRoutines: (folderId: String, orderedRoutineIds: List<String>) -> Unit = { _, _ -> },
 ) {
-    val targetRoutine = likelyNext?.routine ?: folders.flatMap { it.routines }.firstOrNull()
+    val allRoutines = folders.flatMap { it.routines }
+    val targetRoutine = likelyNext?.routine
+        ?: allRoutines.firstOrNull { it.exerciseCount > 0 }
+        ?: allRoutines.firstOrNull()
     val defaultFolderId = targetRoutine?.folderId
         ?: folders.firstOrNull { it.routines.isNotEmpty() }?.id
         ?: folders.firstOrNull()?.id
@@ -81,6 +91,42 @@ fun WorkoutProgramsScreen(
 
     val folderToRename = folders.firstOrNull { it.id == folderToRenameId }
     val folderToDelete = folders.firstOrNull { it.id == folderToDeleteId }
+
+    if (showTopMenu) {
+        HevyntActionSheet(
+            title = "Workout",
+            actions = listOf(
+                HevyntSheetAction(
+                    label = "New routine",
+                    icon = Icons.Outlined.Add,
+                    onClick = {
+                        if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
+                    },
+                ),
+                HevyntSheetAction(
+                    label = "New folder",
+                    icon = Icons.Outlined.Add,
+                    onClick = { showCreateFolder = true },
+                ),
+                HevyntSheetAction(
+                    label = "Google Sheet program",
+                    icon = Icons.Outlined.KeyboardArrowDown,
+                    onClick = onOpenProgramSheetConfig,
+                ),
+                HevyntSheetAction(
+                    label = "Import workout plan",
+                    icon = Icons.Outlined.KeyboardArrowDown,
+                    onClick = onImportPlan,
+                ),
+                HevyntSheetAction(
+                    label = "Manage saved exercises",
+                    icon = Icons.AutoMirrored.Outlined.List,
+                    onClick = onManageSavedExercises,
+                ),
+            ),
+            onDismiss = { showTopMenu = false },
+        )
+    }
 
     if (showFolderPicker) {
         FolderPickerDialog(
@@ -98,9 +144,9 @@ fun WorkoutProgramsScreen(
     }
     if (showCreateFolder) {
         NameDialog(
-            title = "NEW FOLDER",
+            title = "New folder",
             initialValue = "",
-            confirmLabel = "CREATE",
+            confirmLabel = "Create",
             onDismiss = { showCreateFolder = false },
             onConfirm = {
                 showCreateFolder = false
@@ -110,9 +156,9 @@ fun WorkoutProgramsScreen(
     }
     folderToRename?.let { folder ->
         NameDialog(
-            title = "RENAME FOLDER",
+            title = "Rename folder",
             initialValue = folder.name,
-            confirmLabel = "SAVE",
+            confirmLabel = "Save",
             onDismiss = { folderToRenameId = null },
             onConfirm = {
                 folderToRenameId = null
@@ -122,7 +168,7 @@ fun WorkoutProgramsScreen(
     }
     folderToDelete?.let { folder ->
         DeleteDialog(
-            title = "DELETE ${folder.name.uppercase()}?",
+            title = "Delete ${folder.name}?",
             message = if (folder.routines.isEmpty()) {
                 "This folder will be removed."
             } else {
@@ -144,7 +190,7 @@ fun WorkoutProgramsScreen(
             ?.name
             .orEmpty()
         DeleteDialog(
-            title = "DELETE ROUTINE?",
+            title = "Delete routine?",
             message = "${routineName.ifBlank { "This routine" }} will be removed.",
             onDismiss = { routineToDelete = null },
             onConfirm = {
@@ -161,7 +207,7 @@ fun WorkoutProgramsScreen(
             start = HevyntPageHorizontalPadding,
             end = HevyntPageHorizontalPadding,
             top = 14.dp,
-            bottom = 100.dp,
+            bottom = 124.dp,
         ),
     ) {
         // Top App Bar: "Workout" title on left, MoreVert on right
@@ -180,55 +226,15 @@ fun WorkoutProgramsScreen(
                     modifier = Modifier.weight(1f),
                 )
 
-                Box {
-                    IconButton(
-                        onClick = { showTopMenu = true },
-                        modifier = Modifier.size(40.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.MoreVert,
-                            contentDescription = "Workout options",
-                            tint = HevyntTextPrimary,
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showTopMenu,
-                        onDismissRequest = { showTopMenu = false },
-                        containerColor = com.yifeng.commandcenter.ui.theme.HevyntSurfaceInteractive,
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("New routine") },
-                            leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                            onClick = {
-                                showTopMenu = false
-                                if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("New folder") },
-                            leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                            onClick = {
-                                showTopMenu = false
-                                showCreateFolder = true
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Import workout plan") },
-                            leadingIcon = { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null) },
-                            onClick = {
-                                showTopMenu = false
-                                onImportPlan()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Manage saved exercises") },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },
-                            onClick = {
-                                showTopMenu = false
-                                onManageSavedExercises()
-                            },
-                        )
-                    }
+                IconButton(
+                    onClick = { showTopMenu = true },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.MoreVert,
+                        contentDescription = "Workout options",
+                        tint = HevyntTextPrimary,
+                    )
                 }
             }
 
@@ -245,17 +251,20 @@ fun WorkoutProgramsScreen(
                     )
                 }
                 else -> {
-                    val fallback = folders.flatMap { it.routines }.firstOrNull()
                     HeroUpNextCard(
                         recommendation = likelyNext,
-                        fallbackRoutine = fallback,
+                        fallbackRoutine = targetRoutine,
                         onStart = {
-                            val routineId = likelyNext?.routine?.id ?: fallback?.id
-                            routineId?.let(onStartRoutine)
+                            targetRoutine?.let { routine ->
+                                if (routine.exerciseCount > 0) {
+                                    onStartRoutine(routine.id)
+                                } else {
+                                    onBuildRoutine(routine.folderId, routine.id)
+                                }
+                            }
                         },
                         onOpen = {
-                            val routine = likelyNext?.routine ?: fallback
-                            routine?.let { onBuildRoutine(it.folderId, it.id) }
+                            targetRoutine?.let { onBuildRoutine(it.folderId, it.id) }
                         },
                     )
                 }
@@ -267,11 +276,27 @@ fun WorkoutProgramsScreen(
         // Quick Actions Row: "+ Empty workout" and "↻ Repeat last"
         item(key = "quick-actions") {
             QuickActionsRow(
+                canStartEmpty = activeWorkout == null,
+                canRepeatLast = canRepeatLast && activeWorkout == null,
                 onStartEmpty = onStartEmpty,
                 onRepeatLast = onRepeatLast,
             )
 
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(14.dp))
+        }
+
+        // Google Sheet Program Section (weekly pre-filled loads + deloads)
+        item(key = "program-sheet") {
+            ProgramSheetSection(
+                state = programSheet,
+                canStartWorkout = activeWorkout == null,
+                onOpenConfig = onOpenProgramSheetConfig,
+                onRefresh = onRefreshProgramSheet,
+                onSelectWeek = onSelectProgramSheetWeek,
+                onStartDay = onStartProgramSheetDay,
+            )
+
+            Spacer(Modifier.height(20.dp))
         }
 
         // Routines Section Header: "Routines" on left, circular "+" on right
@@ -293,6 +318,7 @@ fun WorkoutProgramsScreen(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
+                        .clip(CircleShape)
                         .border(1.dp, HevyntOutline, CircleShape)
                         .clickable {
                             if (folders.isEmpty()) showCreateFolder = true else showFolderPicker = true
@@ -333,6 +359,7 @@ fun WorkoutProgramsScreen(
                     onAddRoutine = { onBuildRoutine(folder.id, null) },
                     onEditRoutine = { routineId -> onBuildRoutine(folder.id, routineId) },
                     onDeleteRoutine = { routineId -> routineToDelete = listOf(folder.id, routineId) },
+                    onReorderRoutines = { orderedIds -> onReorderRoutines(folder.id, orderedIds) },
                 )
 
                 Spacer(Modifier.height(10.dp))
@@ -341,17 +368,43 @@ fun WorkoutProgramsScreen(
 
         if (folders.isEmpty()) {
             item(key = "empty-routines") {
-                Text(
-                    text = "NO ROUTINES YET",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showCreateFolder = true }
-                        .padding(vertical = 30.dp),
-                    color = HevyntTextSecondary,
-                    fontFamily = HevyntDisplayFont,
-                    fontSize = 14.sp,
-                    letterSpacing = 0.8.sp,
-                )
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = HevyntSurfaceRaised,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = "No routines yet",
+                            color = HevyntTextPrimary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "Create a folder or import a workout plan to get started.",
+                            color = HevyntTextSecondary,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            HevyntTonalButton(onClick = onImportPlan) {
+                                Text("Import plan", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                            HevyntPrimaryButton(onClick = { showCreateFolder = true }) {
+                                Text("New folder", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

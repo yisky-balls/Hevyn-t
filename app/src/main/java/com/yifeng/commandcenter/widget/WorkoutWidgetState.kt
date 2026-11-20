@@ -40,7 +40,10 @@ internal sealed interface WorkoutWidgetState {
 
 internal object WorkoutWidgetStateLoader {
     suspend fun load(context: Context): WorkoutWidgetState {
-        ActiveWorkoutRepository(context).load()?.let { workout ->
+        ActiveWorkoutRepository(context).loadSession()
+            ?.takeIf { it.routineBuildTarget == null }
+            ?.workout
+            ?.let { workout ->
             val sets = workout.exercises.flatMap { it.sets }
             val completedCount = sets.count { it.completed }
             val totalCount = sets.size

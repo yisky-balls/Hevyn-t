@@ -6,19 +6,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,15 +29,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yifeng.commandcenter.data.ActiveWorkout
+import com.yifeng.commandcenter.ui.theme.HevyntAccent
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
-import com.yifeng.commandcenter.ui.theme.HevyntDivider
-import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntError
+import com.yifeng.commandcenter.ui.theme.HevyntSurfaceInteractive
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
+import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import kotlinx.coroutines.delay
 
@@ -60,85 +65,83 @@ fun MinimizedWorkoutBar(
     }?.name ?: workout.exercises.lastOrNull()?.name ?: workout.routineName
 
     if (showDiscardDialog) {
-        HevyntDialog(
-            onDismissRequest = { showDiscardDialog = false },
-            title = {
-                Text(
-                    "DISCARD WORKOUT?",
-                    style = MaterialTheme.typography.titleLarge,
-                )
+        HevyntConfirmDialog(
+            title = "Discard workout?",
+            message = "Your active workout and its completed sets will be removed.",
+            confirmText = "Discard",
+            dismissText = "Keep",
+            isDestructive = true,
+            onConfirm = {
+                showDiscardDialog = false
+                onDiscard()
             },
-            text = { Text("Your active workout and its completed sets will be removed.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDiscardDialog = false
-                    onDiscard()
-                }) {
-                    Text(
-                        "DISCARD",
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDiscardDialog = false }) {
-                    Text("KEEP WORKOUT", fontWeight = FontWeight.Medium)
-                }
-            },
+            onDismiss = { showDiscardDialog = false },
         )
     }
 
     Surface(
         color = HevyntSurfaceRaised,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = HevyntPageHorizontalPadding, vertical = 4.dp),
+            .padding(horizontal = 24.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .clickable(onClick = onResume),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onResume)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onResume, modifier = Modifier.size(36.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(HevyntAccent, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(
                     Icons.Outlined.KeyboardArrowUp,
                     contentDescription = "Resume workout",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
                 )
             }
+            Spacer(Modifier.width(12.dp))
             Column(
-                modifier = Modifier.weight(1f).padding(start = 8.dp),
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.Center,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    HevyntSignalDot(Modifier.padding(end = 6.dp))
-                    Text(
-                        currentExercise.ifBlank { "Active workout" },
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
                 Text(
-                    formatWorkoutElapsed(elapsedSeconds),
-                    modifier = Modifier.padding(top = 2.dp),
-                    fontFamily = HevyntDisplayFont,
+                    text = currentExercise.ifBlank { "Active workout" },
                     fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = HevyntTextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = formatWorkoutElapsed(elapsedSeconds),
+                    modifier = Modifier.padding(top = 1.dp),
+                    fontFamily = HevyntDisplayFont,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                     color = HevyntTextSecondary,
                     letterSpacing = 0.5.sp,
                 )
             }
-            IconButton(onClick = { showDiscardDialog = true }, modifier = Modifier.size(36.dp)) {
+            IconButton(
+                onClick = { showDiscardDialog = true },
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(HevyntSurfaceInteractive),
+            ) {
                 Icon(
                     Icons.Outlined.Delete,
                     contentDescription = "Discard workout",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp),
+                    tint = HevyntError,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }

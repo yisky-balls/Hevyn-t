@@ -71,24 +71,24 @@ fun RestTimerBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp),
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "Rest",
                 color = HevyntTextSecondary,
-                fontSize = 14.sp,
+                fontSize = 13.5.sp,
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = formatTimer(remaining),
                 fontFamily = HevyntDisplayFont,
                 fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
+                fontSize = 23.sp,
                 color = HevyntRestBlue,
                 letterSpacing = 0.5.sp,
             )
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(10.dp))
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -104,11 +104,25 @@ fun RestTimerBar(
                         .background(HevyntRestBlue),
                 )
             }
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(10.dp))
             Text(
-                text = "+15 s",
+                text = "-15s",
                 color = HevyntTextPrimary,
-                fontSize = 14.sp,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSubtract()
+                    }
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "+15s",
+                color = HevyntTextPrimary,
+                fontSize = 13.5.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
@@ -118,11 +132,11 @@ fun RestTimerBar(
                     }
                     .padding(horizontal = 4.dp, vertical = 6.dp),
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = "Skip",
                 color = HevyntTextPrimary,
-                fontSize = 14.sp,
+                fontSize = 13.5.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))

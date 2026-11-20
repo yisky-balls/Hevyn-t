@@ -1,5 +1,6 @@
 package com.yifeng.commandcenter.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -13,13 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -36,10 +38,16 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.history.WorkoutHistoryGraph
+import com.yifeng.commandcenter.ui.theme.HevyntAccent
+import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
+import com.yifeng.commandcenter.ui.theme.HevyntError
+import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
+import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
+import java.util.Locale
 
 @Composable
 fun WorkoutRecapScreen(
@@ -52,55 +60,101 @@ fun WorkoutRecapScreen(
     onDone: (String) -> Unit,
 ) {
     var note by remember(graph.session.id) { mutableStateOf(graph.session.note) }
+    BackHandler(enabled = !isPhotoBusy) { onDone(note.trim()) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let(onPhotoSelected)
     }
+    val (volumeValue, volumeUnit) = if (graph.session.totalVolumeKg >= 1000.0) {
+        String.format(Locale.US, "%.1f", graph.session.totalVolumeKg / 1000.0) to "t"
+    } else {
+        formatWeight(graph.session.totalVolumeKg) to "kg"
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = HevyntPageHorizontalPadding, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(horizontal = HevyntPageHorizontalPadding, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            HevyntPageHeader("WORKOUT SAVED", "Your completed sets are safely stored.")
-        }
-        item {
-            Text(
-                graph.session.routineName,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
-            )
-            Text(
-                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                    .format(Date(graph.session.completedAtMillis)),
-                color = HevyntTextSecondary,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 4.dp),
-            )
+            Column(modifier = Modifier.padding(horizontal = 6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HevyntSignalDot(color = HevyntAccent)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Workout saved",
+                        color = HevyntAccent,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = cleanRoutineName(graph.session.routineName).ifBlank { graph.session.routineName }.uppercase(),
+                    fontFamily = HevyntDisplayFont,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 36.sp,
+                    lineHeight = 40.sp,
+                    letterSpacing = 0.8.sp,
+                    color = HevyntTextPrimary,
+                )
+                Text(
+                    text = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                        .format(Date(graph.session.completedAtMillis)),
+                    color = HevyntTextSecondary,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
         }
         item {
             Surface(
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-                color = com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised,
+                shape = RoundedCornerShape(24.dp),
+                color = HevyntSurfaceRaised,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(18.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 18.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    RecapMetric("DURATION", formatHistoryDuration(graph.session.durationMillis))
-                    RecapMetric("SETS", graph.session.completedSetCount.toString())
-                    RecapMetric("VOLUME", "${formatWeight(graph.session.totalVolumeKg)} kg")
+                    HevyntMetricItem(
+                        label = "Duration",
+                        value = formatHistoryDuration(graph.session.durationMillis),
+                        valueFontSize = 28.sp,
+                    )
+                    HevyntMetricItem(
+                        label = "Sets",
+                        value = graph.session.completedSetCount.toString(),
+                        valueFontSize = 28.sp,
+                    )
+                    HevyntMetricItem(
+                        label = "Volume",
+                        value = volumeValue,
+                        unit = volumeUnit,
+                        valueFontSize = 28.sp,
+                    )
                 }
             }
         }
         item {
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = HevyntSurfaceRaised,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("SESSION NOTE") },
-                minLines = 3,
-                colors = hevyntTextFieldColors(),
-            )
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
+                    HevyntTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = "Session note",
+                        placeholder = "How did the workout feel?",
+                        singleLine = false,
+                        minHeight = 96.dp,
+                        maxLines = 5,
+                    )
+                }
+            }
         }
         item {
             if (photoFile != null) {
@@ -110,69 +164,80 @@ fun WorkoutRecapScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(220.dp)
-                        .clip(MaterialTheme.shapes.medium),
+                        .clip(RoundedCornerShape(24.dp)),
                     contentScale = ContentScale.Crop,
                 )
                 Row(
-                    Modifier.fillMaxWidth().padding(top = 10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    HevyntOutlineButton(
+                    HevyntTonalButton(
                         onClick = {
                             picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         },
                         enabled = !isPhotoBusy,
                         modifier = Modifier.weight(1f),
-                    ) { Text("REPLACE PHOTO") }
-                    HevyntOutlineButton(
+                    ) {
+                        Text("Replace photo", fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    HevyntTonalButton(
                         onClick = onRemovePhoto,
                         enabled = !isPhotoBusy,
+                        destructive = true,
                     ) {
-                        Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error)
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = "Remove photo",
+                            tint = HevyntError,
+                            modifier = Modifier.size(19.dp),
+                        )
                     }
                 }
             } else {
-                HevyntOutlineButton(
+                HevyntTonalButton(
                     onClick = {
                         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     },
                     enabled = !isPhotoBusy,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
                 ) {
-                    Icon(Icons.Outlined.Add, null, modifier = Modifier.size(20.dp))
-                    Text(if (isPhotoBusy) "  SAVING PHOTO…" else "  ADD WORKOUT PHOTO")
+                    Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(19.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (isPhotoBusy) "Saving photo…" else "Add workout photo",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
             }
         }
         errorMessage?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.error, fontSize = 14.sp) }
+            item {
+                Text(
+                    text = message,
+                    color = HevyntError,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+            }
         }
         item {
+            Spacer(Modifier.height(4.dp))
             HevyntPrimaryButton(
                 onClick = { onDone(note.trim()) },
                 enabled = !isPhotoBusy,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-            ) { Text("DONE", style = MaterialTheme.typography.labelLarge) }
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                Text("Done", fontSize = 15.5.sp, fontWeight = FontWeight.Bold)
+            }
             Spacer(Modifier.height(18.dp))
         }
-    }
-}
-
-@Composable
-private fun RecapMetric(label: String, value: String) {
-    Column {
-        Text(
-            value,
-            fontFamily = com.yifeng.commandcenter.ui.theme.HevyntDisplayFont,
-            fontSize = 26.sp,
-            color = com.yifeng.commandcenter.ui.theme.HevyntTextPrimary,
-        )
-        Text(
-            label,
-            color = HevyntTextSecondary,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(top = 2.dp),
-        )
     }
 }
 

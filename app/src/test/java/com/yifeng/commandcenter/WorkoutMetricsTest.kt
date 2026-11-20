@@ -40,7 +40,19 @@ class WorkoutMetricsTest {
     fun `formats weights without redundant decimal zeros`() {
         assertEquals("120", formatWeight(120.0))
         assertEquals("82.5", formatWeight(82.5))
+        assertEquals("1.25", formatWeight(1.25))
         assertEquals("0", formatWeight(0.0))
+    }
+
+    @Test
+    fun `rounds repeating decimals and floating point noise cleanly`() {
+        assertEquals("105.33", formatWeight(105.33333333333333))
+        assertEquals("105.3", formatWeight(105.33333333333333, maxDecimals = 1))
+        assertEquals("28.3", formatWeight(28.33333333333333, maxDecimals = 1))
+        assertEquals("82.5", formatWeight(82.50000000000001))
+        assertEquals("91.3", formatWeight(91.25, maxDecimals = 1))
+        assertEquals("0", formatWeight(-0.001, maxDecimals = 1))
+        assertEquals("0", formatWeight(Double.NaN))
     }
 
     private fun workout(vararg sets: WorkoutSet) = ActiveWorkout(

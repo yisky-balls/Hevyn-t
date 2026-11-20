@@ -23,18 +23,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,12 +55,19 @@ import com.yifeng.commandcenter.data.WorkoutCalendar
 import com.yifeng.commandcenter.data.WorkoutDateRange
 import com.yifeng.commandcenter.data.WorkoutWeekDay
 import com.yifeng.commandcenter.data.formatWeight
+import com.yifeng.commandcenter.history.ExerciseProgressMetric
+import com.yifeng.commandcenter.history.ExerciseProgressOption
+import com.yifeng.commandcenter.history.HistoricalExerciseSetRow
 import com.yifeng.commandcenter.history.MonthlyWorkoutAggregate
 import com.yifeng.commandcenter.history.WorkoutHistorySession
+import com.yifeng.commandcenter.metrics.BodyMetricsCalculator
+import com.yifeng.commandcenter.metrics.BodyMetricsPeriod
+import com.yifeng.commandcenter.metrics.BodyMetricsSyncState
 import com.yifeng.commandcenter.ui.theme.HevyntAccent
+import com.yifeng.commandcenter.ui.theme.HevyntBorderSubtle
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
-import com.yifeng.commandcenter.ui.theme.HevyntDivider
-import com.yifeng.commandcenter.ui.theme.HevyntSurfaceInteractive
+import com.yifeng.commandcenter.ui.theme.HevyntOutline
+import com.yifeng.commandcenter.ui.theme.HevyntRestBlue
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
 import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
@@ -74,7 +78,6 @@ import java.util.Date
 import java.util.Locale
 
 private val HollowDotColor = Color(0xFF48474C)
-private val OutlinedPillBorderColor = Color(0xFF3A3A3E)
 
 @Composable
 fun HomeScreen(
@@ -86,6 +89,14 @@ fun HomeScreen(
     isGlyphSupported: Boolean = false,
     isGlyphTimerEnabled: Boolean = true,
     isGlyphPulseEnabled: Boolean = true,
+    isSoftLockSupported: Boolean = false,
+    isSoftLockEnabled: Boolean = false,
+    isSoftLockServiceEnabled: Boolean = false,
+    bodyMetrics: BodyMetricsSyncState = BodyMetricsSyncState(),
+    exerciseProgressRows: List<HistoricalExerciseSetRow> = emptyList(),
+    exerciseProgressOptions: List<ExerciseProgressOption> = emptyList(),
+    selectedProgressExerciseKey: String? = null,
+    exerciseProgressMetric: ExerciseProgressMetric = ExerciseProgressMetric.TOP_WEIGHT,
     onContinueWorkout: () -> Unit = {},
     onOpenPrograms: () -> Unit,
     onOpenJournal: () -> Unit = {},
@@ -95,11 +106,22 @@ fun HomeScreen(
     onRepeatLastWorkout: () -> Unit = {},
     onImportPlan: () -> Unit = {},
     onManageSavedExercises: () -> Unit = {},
+    onOpenBodyMetrics: () -> Unit = {},
+    onConfigureBodyMetrics: () -> Unit = {},
+    onSelectExerciseProgressMetric: (ExerciseProgressMetric) -> Unit = {},
+    onOpenExerciseProgressPicker: () -> Unit = {},
+    onOpenExerciseProgress: () -> Unit = {},
     onToggleGlyphTimer: (Boolean) -> Unit = {},
     onToggleGlyphPulse: (Boolean) -> Unit = {},
+    onToggleSoftLock: (Boolean) -> Unit = {},
+    onOpenSoftLockSettings: () -> Unit = {},
 ) {
-    val routine = likelyNext?.routine ?: routines.firstOrNull()
-    val todayMillis = remember { System.currentTimeMillis() }
+    val routine = likelyNext?.routine
+        ?: routines.firstOrNull { it.exerciseCount > 0 }
+        ?: routines.firstOrNull()
+    val todayMillis = remember(workoutHistory.firstOrNull()?.completedAtMillis) {
+        System.currentTimeMillis()
+    }
     val todayDateString = remember(todayMillis) {
         SimpleDateFormat("EEEE d MMM", Locale.getDefault()).format(Date(todayMillis))
     }
@@ -129,8 +151,13 @@ fun HomeScreen(
             isGlyphSupported = isGlyphSupported,
             isGlyphTimerEnabled = isGlyphTimerEnabled,
             isGlyphPulseEnabled = isGlyphPulseEnabled,
+            isSoftLockSupported = isSoftLockSupported,
+            isSoftLockEnabled = isSoftLockEnabled,
+            isSoftLockServiceEnabled = isSoftLockServiceEnabled,
             onToggleGlyphTimer = onToggleGlyphTimer,
             onToggleGlyphPulse = onToggleGlyphPulse,
+            onToggleSoftLock = onToggleSoftLock,
+            onOpenSoftLockSettings = onOpenSoftLockSettings,
             onImportPlan = {
                 showSettingsDialog = false
                 onImportPlan()
@@ -138,6 +165,11 @@ fun HomeScreen(
             onManageSavedExercises = {
                 showSettingsDialog = false
                 onManageSavedExercises()
+            },
+            isBodyMetricsConfigured = bodyMetrics.isConfigured,
+            onConfigureBodyMetrics = {
+                showSettingsDialog = false
+                onConfigureBodyMetrics()
             },
             onDismiss = { showSettingsDialog = false },
         )
@@ -148,7 +180,7 @@ fun HomeScreen(
             .fillMaxSize()
             .verticalScroll(scrollState)
             .padding(horizontal = HevyntPageHorizontalPadding)
-            .padding(top = 10.dp, bottom = 20.dp),
+            .padding(top = 10.dp, bottom = 124.dp),
     ) {
         HomeTopBar(
             dateText = todayDateString,
@@ -175,6 +207,25 @@ fun HomeScreen(
                 }
             },
             onBrowsePrograms = onOpenPrograms,
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        BodyMetricsHomeCard(
+            syncState = bodyMetrics,
+            onClick = onOpenBodyMetrics,
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        ExerciseProgressHomeCard(
+            rows = exerciseProgressRows,
+            options = exerciseProgressOptions,
+            selectedExerciseKey = selectedProgressExerciseKey,
+            metric = exerciseProgressMetric,
+            onSelectMetric = onSelectExerciseProgressMetric,
+            onOpenPicker = onOpenExerciseProgressPicker,
+            onOpenDetail = onOpenExerciseProgress,
         )
 
         Spacer(Modifier.height(10.dp))
@@ -213,53 +264,45 @@ private fun HomeTopBar(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
+    if (menuExpanded) {
+        HevyntActionSheet(
+            title = "Library",
+            actions = listOf(
+                HevyntSheetAction(
+                    label = "Browse routines",
+                    icon = Icons.Outlined.PlayArrow,
+                    onClick = onOpenPrograms,
+                ),
+                HevyntSheetAction(
+                    label = "Manage saved exercises",
+                    icon = Icons.AutoMirrored.Outlined.List,
+                    onClick = onManageSavedExercises,
+                ),
+                HevyntSheetAction(
+                    label = "Import workout plan",
+                    icon = Icons.Outlined.KeyboardArrowDown,
+                    onClick = onImportPlan,
+                ),
+            ),
+            onDismiss = { menuExpanded = false },
+        )
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box {
-            IconButton(
-                onClick = { menuExpanded = true },
-                modifier = Modifier.size(40.dp),
-            ) {
-                Icon(
-                    Icons.Outlined.Menu,
-                    contentDescription = "Library menu",
-                    tint = HevyntTextPrimary,
-                )
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-                containerColor = HevyntSurfaceInteractive,
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Browse routines") },
-                    leadingIcon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
-                    onClick = {
-                        menuExpanded = false
-                        onOpenPrograms()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Manage saved exercises") },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },
-                    onClick = {
-                        menuExpanded = false
-                        onManageSavedExercises()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Import workout plan") },
-                    leadingIcon = { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null) },
-                    onClick = {
-                        menuExpanded = false
-                        onImportPlan()
-                    },
-                )
-            }
+        IconButton(
+            onClick = { menuExpanded = true },
+            modifier = Modifier.size(40.dp),
+        ) {
+            Icon(
+                Icons.Outlined.Menu,
+                contentDescription = "Library menu",
+                tint = HevyntTextPrimary,
+            )
         }
         Spacer(Modifier.weight(1f))
         Text(
@@ -441,10 +484,7 @@ private fun ThisWeekCard(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .clickable {
-                                val range = WorkoutDateRange(day.timestampMillis, day.timestampMillis + 86_400_000L)
-                                onOpenDay(range)
-                            }
+                            .clickable { onOpenDay(day.range) }
                             .padding(horizontal = 6.dp, vertical = 4.dp),
                     ) {
                         Text(
@@ -644,7 +684,7 @@ private fun LastSessionCard(
                 val dateStr = SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(session.completedAtMillis))
                 val volumeStr = formatWeightWithCommas(session.totalVolumeKg)
                 Text(
-                    text = "$dateStr · ${session.completedSetCount} sets · $volumeStr kg",
+                    text = "$dateStr · ${session.completedSetCount} set${if (session.completedSetCount == 1) "" else "s"} · $volumeStr kg",
                     color = HevyntTextSecondary,
                     fontSize = 13.5.sp,
                 )
@@ -653,7 +693,7 @@ private fun LastSessionCard(
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = Color.Transparent,
-                    border = BorderStroke(1.dp, OutlinedPillBorderColor),
+                    border = BorderStroke(1.dp, HevyntBorderSubtle),
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
                         .clickable(onClick = onRepeat),
@@ -672,115 +712,293 @@ private fun LastSessionCard(
 }
 
 @Composable
+private fun BodyMetricsHomeCard(
+    syncState: BodyMetricsSyncState,
+    onClick: () -> Unit,
+) {
+    val summary = remember(syncState.entries) {
+        BodyMetricsCalculator.summarize(syncState.entries, BodyMetricsPeriod.DAYS_30)
+    }
+
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = HevyntSurfaceRaised,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .clickable(onClick = onClick),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HevyntSignalDot(color = HevyntAccent)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Body metrics",
+                        color = HevyntTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Text(
+                    text = if (!syncState.isConfigured) {
+                        "Connect ›"
+                    } else if (syncState.isSyncing) {
+                        "Syncing…"
+                    } else {
+                        "30D ›"
+                    },
+                    color = if (!syncState.isConfigured) HevyntAccent else HevyntTextSecondary,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+
+            if (!syncState.isConfigured) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Track weight & calories from your Google Sheet",
+                    color = HevyntTextSecondary,
+                    fontSize = 13.5.sp,
+                )
+            } else {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Weight",
+                            color = HevyntTextSecondary,
+                            fontSize = 12.sp,
+                        )
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = summary.latestWeightKg?.let { "${formatWeightKg(it)} kg" } ?: "—",
+                                fontFamily = HevyntDisplayFont,
+                                fontSize = 24.sp,
+                                color = HevyntTextPrimary,
+                            )
+                            summary.weightDeltaKg?.let { delta ->
+                                val sign = if (delta >= 0) "+" else ""
+                                Text(
+                                    text = "$sign${formatWeightKg(delta)}",
+                                    color = if (delta <= 0) HevyntRestBlue else HevyntAccent,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(bottom = 3.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    if (summary.weightPoints.size >= 2) {
+                        WeightMiniSparkline(
+                            points = summary.weightPoints,
+                            modifier = Modifier
+                                .width(72.dp)
+                                .height(36.dp)
+                                .padding(horizontal = 4.dp),
+                        )
+                    }
+
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier.padding(start = 8.dp),
+                    ) {
+                        Text(
+                            text = "Avg kcal",
+                            color = HevyntTextSecondary,
+                            fontSize = 12.sp,
+                        )
+                        Text(
+                            text = summary.avgCalories?.let { formatCaloriesCount(it) } ?: "—",
+                            fontFamily = HevyntDisplayFont,
+                            fontSize = 24.sp,
+                            color = HevyntTextPrimary,
+                        )
+                    }
+                }
+
+                if (syncState.lastError != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = syncState.lastError,
+                        color = HevyntAccent,
+                        fontSize = 12.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun HomeSettingsDialog(
     isGlyphSupported: Boolean,
     isGlyphTimerEnabled: Boolean,
     isGlyphPulseEnabled: Boolean,
+    isSoftLockSupported: Boolean,
+    isSoftLockEnabled: Boolean,
+    isSoftLockServiceEnabled: Boolean,
     onToggleGlyphTimer: (Boolean) -> Unit,
     onToggleGlyphPulse: (Boolean) -> Unit,
+    onToggleSoftLock: (Boolean) -> Unit,
+    onOpenSoftLockSettings: () -> Unit,
     onImportPlan: () -> Unit,
     onManageSavedExercises: () -> Unit,
+    isBodyMetricsConfigured: Boolean,
+    onConfigureBodyMetrics: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    HevyntDialog(
-        onDismissRequest = onDismiss,
-        title = {
+    HevyntSheet(
+        onDismiss = onDismiss,
+        title = "Settings & library",
+    ) {
+        if (isSoftLockSupported) {
             Text(
-                text = "SETTINGS & LIBRARY",
-                fontFamily = HevyntDisplayFont,
-                fontSize = 20.sp,
+                text = "Rest timer",
+                color = HevyntTextSecondary,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
             )
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                if (isGlyphSupported) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Glyph rest timer", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                "Rear LED countdown during rest",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = HevyntTextSecondary,
-                            )
-                        }
+            HevyntSheetSection {
+                HevyntSheetRow(
+                    label = "Soft lock on timer end",
+                    subtitle = "Lock screen when rest finishes (keeps biometrics)",
+                    onClick = { onToggleSoftLock(!isSoftLockEnabled) },
+                    trailing = {
+                        Switch(
+                            checked = isSoftLockEnabled,
+                            onCheckedChange = onToggleSoftLock,
+                            colors = hevyntSwitchColors(),
+                        )
+                    },
+                )
+                if (isSoftLockEnabled || isSoftLockServiceEnabled) {
+                    HevyntDottedRule(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = HevyntOutline.copy(alpha = 0.7f),
+                    )
+                    HevyntSheetRow(
+                        label = "Accessibility service",
+                        subtitle = if (isSoftLockServiceEnabled) {
+                            "Active · tap to manage in Android settings"
+                        } else {
+                            "Required · tap to enable Hevyn’t Soft Lock (allow restricted settings if sideloaded)"
+                        },
+                        icon = Icons.Outlined.Lock,
+                        onClick = onOpenSoftLockSettings,
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+
+        if (isGlyphSupported) {
+            Text(
+                text = "Glyph interface",
+                color = HevyntTextSecondary,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+            )
+            HevyntSheetSection {
+                HevyntSheetRow(
+                    label = "Glyph rest timer",
+                    subtitle = "Rear LED countdown during rest",
+                    onClick = { onToggleGlyphTimer(!isGlyphTimerEnabled) },
+                    trailing = {
                         Switch(
                             checked = isGlyphTimerEnabled,
                             onCheckedChange = onToggleGlyphTimer,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
+                            colors = hevyntSwitchColors(),
                         )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Pulse on completion", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                "Flash all zones when rest finishes",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = HevyntTextSecondary,
-                            )
-                        }
+                    },
+                )
+                HevyntDottedRule(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = HevyntOutline.copy(alpha = 0.7f),
+                )
+                HevyntSheetRow(
+                    label = "Pulse on completion",
+                    subtitle = "Flash all zones when rest finishes",
+                    enabled = isGlyphTimerEnabled,
+                    onClick = { onToggleGlyphPulse(!isGlyphPulseEnabled) },
+                    trailing = {
                         Switch(
                             checked = isGlyphPulseEnabled,
                             onCheckedChange = onToggleGlyphPulse,
                             enabled = isGlyphTimerEnabled,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
+                            colors = hevyntSwitchColors(),
                         )
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
-                    Spacer(Modifier.height(10.dp))
-                }
-                TextButton(
-                    onClick = onManageSavedExercises,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        "Manage saved exercises",
-                        modifier = Modifier.fillMaxWidth(),
-                        color = HevyntTextPrimary,
-                    )
-                }
-                TextButton(
-                    onClick = onImportPlan,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        "Import workout plan",
-                        modifier = Modifier.fillMaxWidth(),
-                        color = HevyntTextPrimary,
-                    )
-                }
+                    },
+                )
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("DONE", color = HevyntAccent, fontWeight = FontWeight.SemiBold)
-            }
-        },
-    )
+            Spacer(Modifier.height(16.dp))
+        }
+
+        Text(
+            text = "Library",
+            color = HevyntTextSecondary,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+        )
+        HevyntSheetSection {
+            HevyntSheetRow(
+                label = "Manage saved exercises",
+                subtitle = "Rename, merge, or clean up duplicates",
+                icon = Icons.AutoMirrored.Outlined.List,
+                onClick = onManageSavedExercises,
+            )
+            HevyntDottedRule(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = HevyntOutline.copy(alpha = 0.7f),
+            )
+            HevyntSheetRow(
+                label = "Import workout plan",
+                subtitle = "Load routines from a JSON file",
+                icon = Icons.Outlined.KeyboardArrowDown,
+                onClick = onImportPlan,
+            )
+            HevyntDottedRule(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = HevyntOutline.copy(alpha = 0.7f),
+            )
+            HevyntSheetRow(
+                label = "Body metrics (Google Sheet)",
+                subtitle = if (isBodyMetricsConfigured) {
+                    "Connected · tap to update link"
+                } else {
+                    "Connect a Google Sheet for weight & calories"
+                },
+                icon = Icons.Outlined.Refresh,
+                onClick = onConfigureBodyMetrics,
+            )
+        }
+    }
 }
 
 private fun formatLastDone(lastPerformedMillis: Long?): String {
     if (lastPerformedMillis == null) return "not performed yet"
-    val diffMillis = System.currentTimeMillis() - lastPerformedMillis
-    val days = (diffMillis / 86_400_000L).toInt()
+    val days = WorkoutCalendar.daysBetweenLocalDates(lastPerformedMillis)
     return when {
         days == 0 -> "last done today"
         days == 1 -> "last done yesterday"

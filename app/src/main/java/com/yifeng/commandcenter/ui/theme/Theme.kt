@@ -43,6 +43,3 @@ fun HevyntTheme(
         content = content
     )
 }
-
-@Composable
-fun CommandcenterTheme(content: @Composable () -> Unit) = HevyntTheme(content)

@@ -5,63 +5,54 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.launch
-import com.yifeng.commandcenter.ui.theme.HevyntAccentContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.List
-import androidx.compose.material.icons.outlined.Build
-import androidx.compose.material.icons.outlined.Home
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yifeng.commandcenter.timer.RestTimerManager
-import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
+import com.yifeng.commandcenter.ui.theme.HevyntAccent
+import com.yifeng.commandcenter.ui.theme.HevyntAccentContainer
+import com.yifeng.commandcenter.ui.theme.HevyntError
 import com.yifeng.commandcenter.ui.theme.HevyntOutline
-import com.yifeng.commandcenter.ui.theme.HevyntSurface
 import com.yifeng.commandcenter.ui.theme.HevyntSurfaceRaised
+import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import kotlinx.coroutines.flow.collectLatest
 
@@ -79,12 +70,12 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
         initialPage = initialPageIndex,
         pageCount = { topLevelPages.size },
     )
-    val coroutineScope = rememberCoroutineScope()
 
+    val currentSelectedPage by rememberUpdatedState(state.selectedPage)
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.collect { settledIndex ->
             val page = topLevelPages.getOrNull(settledIndex) ?: return@collect
-            if (state.selectedPage != page) {
+            if (currentSelectedPage != page) {
                 viewModel.selectPage(page)
             }
         }
@@ -127,75 +118,47 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
     }
 
     state.finishPrompt?.let { prompt ->
-        HevyntDialog(
-            onDismissRequest = viewModel::dismissFinishPrompt,
-            title = {
-                Text(
-                    if (prompt == FinishPrompt.Unfinished) "UNFINISHED SETS" else "NO COMPLETED SETS",
-                    fontFamily = HevyntDisplayFont,
-                )
+        HevyntConfirmDialog(
+            title = if (prompt == FinishPrompt.Unfinished) "Unfinished sets" else "No completed sets",
+            message = if (prompt == FinishPrompt.Unfinished) {
+                "Some sets are unfinished. Continue the workout or save them unchecked."
+            } else {
+                "Empty workouts are never saved. Return to the workout or discard it."
             },
-            text = {
-                Text(
-                    if (prompt == FinishPrompt.Unfinished) {
-                        "Some sets are unfinished. Continue the workout or save them unchecked."
-                    } else {
-                        "Empty workouts are never saved. Return to the workout or discard it."
-                    },
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::confirmFinishPrompt) {
-                    Text(
-                        if (prompt == FinishPrompt.Unfinished) "SAVE WORKOUT" else "DISCARD",
-                        color = if (prompt == FinishPrompt.Empty) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissFinishPrompt) {
-                    Text(if (prompt == FinishPrompt.Unfinished) "CONTINUE WORKOUT" else "RETURN")
-                }
-            },
+            confirmText = if (prompt == FinishPrompt.Unfinished) "Save workout" else "Discard",
+            dismissText = if (prompt == FinishPrompt.Unfinished) "Continue" else "Return",
+            isDestructive = prompt == FinishPrompt.Empty,
+            onConfirm = viewModel::confirmFinishPrompt,
+            onDismiss = viewModel::dismissFinishPrompt,
         )
     }
 
     state.errorMessage?.let { message ->
-        HevyntDialog(
-            onDismissRequest = viewModel::dismissError,
-            title = { Text("SOMETHING WENT WRONG", fontFamily = HevyntDisplayFont) },
-            text = { Text(message) },
-            confirmButton = {
-                TextButton(onClick = viewModel::dismissError) { Text("OK") }
-            },
+        HevyntInfoDialog(
+            title = "Something went wrong",
+            message = message,
+            onDismiss = viewModel::dismissError,
         )
     }
 
     if (state.showDeleteHistoryDialog) {
-        HevyntDialog(
-            onDismissRequest = viewModel::dismissDeleteHistory,
-            title = { Text("DELETE SESSION?", fontFamily = HevyntDisplayFont) },
-            text = { Text("This removes the workout and its app-owned photo from this device.") },
-            confirmButton = {
-                TextButton(onClick = viewModel::confirmDeleteHistory) {
-                    Text("DELETE", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissDeleteHistory) { Text("CANCEL") }
-            },
+        HevyntConfirmDialog(
+            title = "Delete session?",
+            message = "This removes the workout and its app-owned photo from this device.",
+            confirmText = "Delete",
+            dismissText = "Cancel",
+            isDestructive = true,
+            onConfirm = viewModel::confirmDeleteHistory,
+            onDismiss = viewModel::dismissDeleteHistory,
         )
     }
 
     if (state.showDiscardSavedExercisesConfirm) {
         HevyntConfirmDialog(
-            title = "DISCARD UNSAVED CHANGES?",
+            title = "Discard unsaved changes?",
             message = "You have uncommitted modifications. Discard all changes to saved exercises?",
-            confirmText = "DISCARD",
+            confirmText = "Discard",
+            dismissText = "Cancel",
             isDestructive = true,
             onConfirm = viewModel::confirmDiscardSavedExercises,
             onDismiss = viewModel::dismissDiscardSavedExercisesConfirm,
@@ -203,124 +166,163 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
     }
 
     state.workoutPlanPreview?.let { preview ->
-        HevyntDialog(
-            onDismissRequest = viewModel::dismissWorkoutPlanPreview,
-            title = {
-                Text(
-                    "IMPORT WORKOUT PLAN",
-                    fontFamily = HevyntDisplayFont,
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        text = preview.programName,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "${preview.routineCount} routines · ${preview.exerciseCount} exercises · ${preview.totalSets} planned sets",
-                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = HevyntTextSecondary,
-                    )
-                    HevyntDottedRule()
-                    Spacer(Modifier.height(8.dp))
-                    preview.routineNames.forEach { routineName ->
+        HevyntSheet(
+            onDismiss = viewModel::dismissWorkoutPlanPreview,
+            title = "Import workout plan",
+            subtitle = preview.programName,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    HevyntChip(text = "${preview.routineCount} routines")
+                    HevyntChip(text = "${preview.exerciseCount} exercises")
+                    HevyntChip(text = "${preview.totalSets} sets")
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                HevyntSheetSection {
+                    preview.routineNames.forEachIndexed { index, routineName ->
+                        if (index > 0) {
+                            HevyntDottedRule(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = HevyntOutline.copy(alpha = 0.7f),
+                            )
+                        }
                         Text(
                             text = routineName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(vertical = 3.dp),
-                        )
-                    }
-                    if (preview.alreadyExists) {
-                        Spacer(Modifier.height(12.dp))
-                        HevyntDottedRule()
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "This program is already installed.",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        Text(
-                            text = "Replace imported program? Existing unrelated routines will remain untouched.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = HevyntTextSecondary,
-                            modifier = Modifier.padding(top = 2.dp),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = HevyntTextPrimary,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         )
                     }
                 }
-            },
-            confirmButton = {
+
                 if (preview.alreadyExists) {
-                    Row {
-                        TextButton(onClick = viewModel::dismissWorkoutPlanPreview) {
-                            Text("KEEP EXISTING")
-                        }
-                        TextButton(onClick = { viewModel.confirmWorkoutPlanImport(replace = true) }) {
-                            Text("REPLACE", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = HevyntAccentContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                            Text(
+                                text = "This program is already installed",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = HevyntError,
+                            )
+                            Text(
+                                text = "Replacing it updates imported routines while keeping unrelated routines untouched.",
+                                fontSize = 12.5.sp,
+                                color = HevyntTextSecondary,
+                                modifier = Modifier.padding(top = 3.dp),
+                            )
                         }
                     }
-                } else {
-                    TextButton(onClick = { viewModel.confirmWorkoutPlanImport(replace = false) }) {
-                        Text("IMPORT", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    HevyntTonalButton(
+                        onClick = viewModel::dismissWorkoutPlanPreview,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            text = if (preview.alreadyExists) "Keep existing" else "Cancel",
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = HevyntTextSecondary,
+                        )
+                    }
+                    HevyntPrimaryButton(
+                        onClick = { viewModel.confirmWorkoutPlanImport(replace = preview.alreadyExists) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            text = if (preview.alreadyExists) "Replace" else "Import",
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissWorkoutPlanPreview) {
-                    Text("CANCEL")
-                }
-            },
-        )
+            }
+        }
     }
 
     state.workoutPlanImportError?.let { error ->
-        HevyntDialog(
-            onDismissRequest = viewModel::dismissWorkoutPlanImportError,
-            title = { Text("UNABLE TO IMPORT PLAN", fontFamily = HevyntDisplayFont) },
-            text = { Text(error) },
-            confirmButton = {
-                TextButton(onClick = viewModel::dismissWorkoutPlanImportError) { Text("OK") }
-            },
+        HevyntInfoDialog(
+            title = "Unable to import plan",
+            message = error,
+            onDismiss = viewModel::dismissWorkoutPlanImportError,
         )
     }
+
+    if (state.showBodyMetricsConfigDialog) {
+        BodyMetricsConfigSheet(
+            currentUrl = state.bodyMetrics.sheetUrl,
+            isConfigured = state.bodyMetrics.isConfigured,
+            onSave = viewModel::saveBodyMetricsSheetUrl,
+            onDisconnect = viewModel::disconnectBodyMetricsSheet,
+            onDismiss = viewModel::dismissBodyMetricsConfig,
+        )
+    }
+
+    if (state.showProgramSheetConfigDialog) {
+        ProgramSheetConfigSheet(
+            currentUrl = state.programSheet.sheetUrl,
+            isConfigured = state.programSheet.isConfigured,
+            onSave = viewModel::saveProgramSheetUrl,
+            onDisconnect = viewModel::disconnectProgramSheet,
+            onDismiss = viewModel::dismissProgramSheetConfig,
+        )
+    }
+
+    if (state.showExerciseProgressPicker) {
+        ExercisePickerSheet(
+            options = state.exerciseProgressOptions,
+            selectedExerciseKey = state.selectedProgressExerciseKey,
+            onSelect = viewModel::selectProgressExercise,
+            onDismiss = viewModel::dismissExerciseProgressPicker,
+        )
+    }
+
+    val showBottomBar = state.recapGraph == null &&
+        (state.activeWorkout == null || !state.isWorkoutExpanded) &&
+        !state.isSavedExercisesOpen &&
+        !state.isBodyMetricsOpen &&
+        !state.isExerciseProgressOpen
+    val layoutDirection = LocalLayoutDirection.current
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            if (state.recapGraph == null && (state.activeWorkout == null || !state.isWorkoutExpanded) && !state.isSavedExercisesOpen) {
-                Column {
-                    state.activeWorkout?.takeIf { !state.isWorkoutExpanded }?.let { workout ->
-                        MinimizedWorkoutBar(
-                            workout = workout,
-                            onResume = viewModel::resumeWorkout,
-                            onDiscard = viewModel::discardWorkout,
-                        )
-                    }
-                    HevyntBottomBar(
-                        selectedPage = state.selectedPage,
-                        onPageSelected = { page ->
-                            coroutineScope.launch {
-                                val targetIndex: Int = topLevelPages.indexOf(page)
-                                if (targetIndex != -1) {
-                                    pagerState.animateScrollToPage(targetIndex)
-                                }
-                            }
-                            viewModel.selectPage(page)
-                        },
-                    )
-                }
-            }
-        },
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .then(
+                    if (showBottomBar) {
+                        Modifier.padding(
+                            top = innerPadding.calculateTopPadding(),
+                            start = innerPadding.calculateStartPadding(layoutDirection),
+                            end = innerPadding.calculateEndPadding(layoutDirection),
+                        )
+                    } else {
+                        Modifier.padding(innerPadding)
+                    },
+                ),
         ) {
             val workout = state.activeWorkout
             val recap = state.recapGraph
@@ -380,6 +382,7 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                         onToggleGlyphTimer = viewModel::setGlyphTimerEnabled,
                         onToggleGlyphPulse = viewModel::setGlyphPulseEnabled,
                         onStartRestTimer = viewModel::startRestTimerForExercise,
+                        onSubtractRestTime = viewModel::subtractRestTime,
                         onAddRestTime = viewModel::addRestTime,
                         onSkipRestTime = viewModel::skipRestTime,
                     )
@@ -387,7 +390,6 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
             } else if (state.isSavedExercisesOpen && state.savedExercisesDraft != null) {
                 SavedExercisesScreen(
                     draft = state.savedExercisesDraft!!,
-                    onRenameExercise = viewModel::renameSavedExercise,
                     onEditExerciseDetails = viewModel::editSavedExerciseDetails,
                     onMergeExercises = viewModel::mergeSavedExercises,
                     onDeleteExercise = viewModel::deleteSavedExercise,
@@ -396,17 +398,52 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                     onCommit = viewModel::commitSavedExercises,
                     onBack = viewModel::handleBackFromSavedExercises,
                 )
+            } else if (state.isBodyMetricsOpen) {
+                BodyMetricsScreen(
+                    syncState = state.bodyMetrics,
+                    selectedPeriod = state.bodyMetricsPeriod,
+                    onSelectPeriod = viewModel::selectBodyMetricsPeriod,
+                    onRefresh = { viewModel.refreshBodyMetrics(force = true) },
+                    onOpenConfig = viewModel::openBodyMetricsConfig,
+                    onBack = viewModel::closeBodyMetrics,
+                )
+            } else if (state.isExerciseProgressOpen) {
+                ExerciseProgressScreen(
+                    rows = state.exerciseProgressRows,
+                    options = state.exerciseProgressOptions,
+                    selectedExerciseKey = state.selectedProgressExerciseKey,
+                    metric = state.exerciseProgressMetric,
+                    period = state.exerciseProgressPeriod,
+                    onSelectMetric = viewModel::selectExerciseProgressMetric,
+                    onSelectPeriod = viewModel::selectExerciseProgressPeriod,
+                    onOpenPicker = viewModel::openExerciseProgressPicker,
+                    onBack = viewModel::closeExerciseProgress,
+                )
             } else {
+                val allRoutines = remember(state.routineFolders) { state.routines }
+                val canRepeatLast = remember(state.workoutHistory) {
+                    state.workoutHistory.any { !it.isLegacySummaryOnly }
+                }
+                val onImportPlan = remember(openDocumentLauncher) {
+                    { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) }
+                }
+                val onRefreshProgramSheet = remember(viewModel) {
+                    { viewModel.refreshProgramSheet(force = true) }
+                }
                 HorizontalPager(
                     state = pagerState,
-                    userScrollEnabled = selectedGraph == null && !state.isSavedExercisesOpen,
+                    beyondViewportPageCount = 2,
+                    userScrollEnabled = selectedGraph == null &&
+                        !state.isSavedExercisesOpen &&
+                        !state.isBodyMetricsOpen &&
+                        !state.isExerciseProgressOpen,
                     modifier = Modifier.fillMaxSize(),
                 ) { pageIndex: Int ->
                     val page = topLevelPages[pageIndex]
                     pageStateHolder.SaveableStateProvider("page:$page") {
                         when (page) {
                             AppPage.Home -> HomeScreen(
-                                routines = state.routines,
+                                routines = allRoutines,
                                 workoutHistory = state.workoutHistory,
                                 likelyNext = state.likelyNextRoutine,
                                 activeWorkout = state.activeWorkout,
@@ -414,6 +451,14 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                                 isGlyphSupported = state.isGlyphSupported,
                                 isGlyphTimerEnabled = state.isGlyphTimerEnabled,
                                 isGlyphPulseEnabled = state.isGlyphPulseEnabled,
+                                isSoftLockSupported = state.isSoftLockSupported,
+                                isSoftLockEnabled = state.isSoftLockEnabled,
+                                isSoftLockServiceEnabled = state.isSoftLockServiceEnabled,
+                                bodyMetrics = state.bodyMetrics,
+                                exerciseProgressRows = state.exerciseProgressRows,
+                                exerciseProgressOptions = state.exerciseProgressOptions,
+                                selectedProgressExerciseKey = state.selectedProgressExerciseKey,
+                                exerciseProgressMetric = state.exerciseProgressMetric,
                                 onContinueWorkout = viewModel::resumeWorkout,
                                 onOpenPrograms = viewModel::openPrograms,
                                 onOpenJournal = viewModel::openJournal,
@@ -421,17 +466,24 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                                 onOpenSession = viewModel::openHistorySession,
                                 onOpenDay = viewModel::openDay,
                                 onRepeatLastWorkout = viewModel::repeatLastWorkout,
-                                onImportPlan = { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) },
+                                onImportPlan = onImportPlan,
                                 onManageSavedExercises = viewModel::openSavedExercises,
+                                onOpenBodyMetrics = viewModel::openBodyMetrics,
+                                onConfigureBodyMetrics = viewModel::openBodyMetricsConfig,
+                                onSelectExerciseProgressMetric = viewModel::selectExerciseProgressMetric,
+                                onOpenExerciseProgressPicker = viewModel::openExerciseProgressPicker,
+                                onOpenExerciseProgress = viewModel::openExerciseProgress,
                                 onToggleGlyphTimer = viewModel::setGlyphTimerEnabled,
                                 onToggleGlyphPulse = viewModel::setGlyphPulseEnabled,
+                                onToggleSoftLock = viewModel::setSoftLockEnabled,
+                                onOpenSoftLockSettings = viewModel::openSoftLockAccessibilitySettings,
                             )
 
                             AppPage.Workout -> WorkoutProgramsScreen(
                                 folders = state.routineFolders,
                                 likelyNext = state.likelyNextRoutine,
                                 activeWorkout = state.activeWorkout,
-                                canRepeatLast = state.workoutHistory.any { !it.isLegacySummaryOnly },
+                                canRepeatLast = canRepeatLast,
                                 listState = workoutListState,
                                 onContinueWorkout = viewModel::resumeWorkout,
                                 onStartRoutine = viewModel::startRoutine,
@@ -442,8 +494,14 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                                 onDeleteRoutine = viewModel::deleteRoutine,
                                 onStartEmpty = viewModel::startEmptyWorkout,
                                 onRepeatLast = viewModel::repeatLastWorkout,
-                                onImportPlan = { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) },
+                                onImportPlan = onImportPlan,
                                 onManageSavedExercises = viewModel::openSavedExercises,
+                                programSheet = state.programSheet,
+                                onOpenProgramSheetConfig = viewModel::openProgramSheetConfig,
+                                onRefreshProgramSheet = onRefreshProgramSheet,
+                                onSelectProgramSheetWeek = viewModel::selectProgramSheetWeek,
+                                onStartProgramSheetDay = viewModel::startProgramSheetDay,
+                                onReorderRoutines = viewModel::reorderRoutines,
                             )
 
                             AppPage.Journal -> if (selectedGraph != null) {
@@ -452,6 +510,9 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                                     photoFile = selectedGraph.photos.firstOrNull()?.let {
                                         state.journalPhotoFiles[it.id]
                                     },
+                                    isPhotoBusy = state.isPhotoBusy,
+                                    onPhotoSelected = viewModel::selectHistoryPhoto,
+                                    onRemovePhoto = viewModel::removeHistoryPhoto,
                                     onBack = viewModel::goBackFromHistory,
                                     onDelete = viewModel::requestDeleteHistory,
                                 )
@@ -470,33 +531,67 @@ fun FitnessApp(viewModel: HevyntAppViewModel) {
                 }
             }
 
-            state.timerState
-                ?.takeIf { !state.isWorkoutExpanded }
-                ?.let { timer -> workout?.let { RestTimerManager.resolveState(timer, it) } }
-                ?.let { timer ->
-                    RestTimerBar(
-                        state = timer,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(horizontal = HevyntPageHorizontalPadding, vertical = 6.dp),
-                        onSubtract = viewModel::subtractRestTime,
-                        onAdd = viewModel::addRestTime,
-                        onSkip = viewModel::skipRestTime,
+            if (showBottomBar) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
+                ) {
+                    state.timerState
+                        ?.let { timer -> workout?.let { RestTimerManager.resolveState(timer, it) } }
+                        ?.let { timer ->
+                            RestTimerBar(
+                                state = timer,
+                                modifier = Modifier
+                                    .padding(horizontal = HevyntPageHorizontalPadding, vertical = 6.dp),
+                                onSubtract = viewModel::subtractRestTime,
+                                onAdd = viewModel::addRestTime,
+                                onSkip = viewModel::skipRestTime,
+                            )
+                        }
+                    state.activeWorkout?.takeIf { !state.isWorkoutExpanded }?.let { minimized ->
+                        MinimizedWorkoutBar(
+                            workout = minimized,
+                            onResume = viewModel::resumeWorkout,
+                            onDiscard = viewModel::discardWorkout,
+                        )
+                    }
+                    HevyntBottomBar(
+                        selectedPage = state.selectedPage,
+                        onPageSelected = viewModel::selectPage,
                     )
                 }
+            }
 
             if (state.isWorkoutSaving) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.92f))
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f))
                         .clickable(onClick = {}),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(16.dp))
-                        Text("SAVING WORKOUT", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = HevyntSurfaceRaised,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 32.dp, vertical = 26.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            CircularProgressIndicator(
+                                color = HevyntAccent,
+                                strokeWidth = 3.dp,
+                                modifier = Modifier.size(32.dp),
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = "Saving workout…",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = HevyntTextPrimary,
+                            )
+                        }
                     }
                 }
             }

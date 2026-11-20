@@ -63,6 +63,31 @@ abstract class WorkoutHistoryDao {
 
     @Query(
         """
+        SELECT
+            workout_exercises.id AS workoutExerciseId,
+            workout_exercises.source_routine_exercise_id AS sourceRoutineExerciseId,
+            workout_exercises.name AS exerciseName,
+            workout_sessions.completed_at_millis AS completedAtMillis,
+            workout_sets.position AS setPosition,
+            workout_sets.weight_kg AS weightKg,
+            workout_sets.repetitions AS repetitions
+        FROM workout_exercises
+        INNER JOIN workout_sessions
+            ON workout_sessions.id = workout_exercises.session_id
+        INNER JOIN workout_sets
+            ON workout_sets.workout_exercise_id = workout_exercises.id
+        WHERE workout_sessions.is_legacy_summary_only = 0
+          AND workout_sets.completed = 1
+        ORDER BY workout_sessions.completed_at_millis ASC,
+                 workout_exercises.position ASC,
+                 workout_sets.position ASC,
+                 workout_sets.id ASC
+        """,
+    )
+    abstract fun observeCompletedExerciseSets(): Flow<List<HistoricalExerciseSetRow>>
+
+    @Query(
+        """
         SELECT id FROM workout_sessions
         WHERE is_legacy_summary_only = 0
           AND EXISTS (
@@ -96,11 +121,14 @@ abstract class WorkoutHistoryDao {
     @Query("UPDATE workout_sessions SET note = :note WHERE id = :sessionId")
     abstract suspend fun updateNote(sessionId: String, note: String): Int
 
+    @Query("SELECT DISTINCT name FROM workout_exercises")
+    protected abstract suspend fun distinctExerciseNames(): List<String>
+
+    @Query("UPDATE workout_exercises SET name = :newName WHERE name = :oldName")
+    protected abstract suspend fun renameExerciseRows(oldName: String, newName: String): Int
+
     @Query("DELETE FROM workout_sessions WHERE id = :sessionId")
     abstract suspend fun deleteSessionRow(sessionId: String): Int
-
-    @Query("DELETE FROM workout_photos WHERE id = :photoId")
-    abstract suspend fun deletePhotoRow(photoId: String): Int
 
     @Query("DELETE FROM workout_photos WHERE session_id = :sessionId")
     protected abstract suspend fun deleteSessionPhotoRows(sessionId: String): Int
@@ -169,6 +197,19 @@ abstract class WorkoutHistoryDao {
         val removedPaths = sessionPhotoPaths(sessionId)
         deleteSessionPhotoRows(sessionId)
         return removedPaths
+    }
+
+    @Transaction
+    open suspend fun renameExercises(renamesByNormalizedKey: Map<String, String>): Int {
+        if (renamesByNormalizedKey.isEmpty()) return 0
+        var updatedCount = 0
+        distinctExerciseNames().forEach { existingName ->
+            val targetName = renamesByNormalizedKey[normalizeExerciseName(existingName)]
+            if (targetName != null && targetName != existingName) {
+                updatedCount += renameExerciseRows(existingName, targetName)
+            }
+        }
+        return updatedCount
     }
 
     @Transaction

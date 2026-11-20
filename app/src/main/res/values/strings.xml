@@ -3,17 +3,10 @@
     <string name="workout_widget_compact_name">Workout · Strip (4×1)</string>
     <string name="workout_widget_main_name">Workout · Compact (4×2)</string>
     <string name="workout_widget_full_name">Workout · Full (4×3)</string>
-    <string name="workout_widget_brand">HEVYNT</string>
-    <string name="workout_widget_likely_next">LIKELY NEXT</string>
-    <string name="workout_widget_active">● ACTIVE</string>
-    <string name="workout_widget_preview_routine">LOWER 2</string>
-    <string name="workout_widget_preview_metadata">4 exercises · last 6d ago</string>
-    <string name="workout_widget_preview_exercises">4 exercises</string>
-    <string name="workout_widget_preview_progress">7 / 12 sets</string>
-    <string name="workout_widget_open">OPEN</string>
-    <string name="workout_widget_start">▶ START</string>
-    <string name="workout_widget_continue">▶ CONTINUE</string>
-    <string name="workout_widget_continue_compact">CONTINUE</string>
-    <string name="workout_widget_glyph_on">● GLYPH ON</string>
-    <string name="workout_widget_glyph_off">○ GLYPH OFF</string>
+    <string name="soft_lock_accessibility_label">Hevyn’t Soft Lock</string>
+    <string name="soft_lock_accessibility_description">Automatically turns off and locks the screen when your Hevyn’t rest timer finishes. Does not read screen content or collect any data.</string>
+    <string name="timer_action_subtract_15s">-15s</string>
+    <string name="timer_action_add_15s">+15s</string>
+    <string name="timer_action_skip">Skip</string>
+    <string name="timer_badge_soft_lock">LOCK</string>
 </resources>

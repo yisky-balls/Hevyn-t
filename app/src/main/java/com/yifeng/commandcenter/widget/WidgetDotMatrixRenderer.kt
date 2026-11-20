@@ -1,10 +1,12 @@
 package com.yifeng.commandcenter.widget
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.util.TypedValue
 import androidx.core.content.res.ResourcesCompat
 import com.yifeng.commandcenter.R
 import java.io.File
@@ -23,6 +25,7 @@ object WidgetDotMatrixRenderer {
         }
     }
 
+    @SuppressLint("ResourceType")
     private fun createTypeface(context: Context): Typeface {
         // 1. Try to load bundled Doto font with ROND=0 (square matrix) axis
         try {
@@ -62,8 +65,9 @@ object WidgetDotMatrixRenderer {
         textColor: Int = 0xFFFFFFFF.toInt(),
         letterSpacing: Float = 0f,
     ): Bitmap {
-        val density = context.resources.displayMetrics.scaledDensity.coerceAtLeast(1f)
-        val pxSize = textSizeSp * density
+        val metrics = context.resources.displayMetrics
+        val density = metrics.density.coerceAtLeast(1f)
+        val pxSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, textSizeSp, metrics)
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = getTypeface(context)

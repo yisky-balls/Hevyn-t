@@ -11,6 +11,10 @@ data class WorkoutDateRange(
 ) {
     operator fun contains(millis: Long): Boolean =
         millis >= startMillisInclusive && millis < endMillisExclusive
+
+    /** True when the range spans more than a single local day (e.g. a month filter). */
+    val isMultiDay: Boolean
+        get() = (endMillisExclusive - startMillisInclusive) > 36L * 60L * 60L * 1000L
 }
 
 data class WorkoutWeekDay(
@@ -19,6 +23,7 @@ data class WorkoutWeekDay(
     val isToday: Boolean,
     val hasWorkout: Boolean,
     val timestampMillis: Long,
+    val range: WorkoutDateRange = WorkoutDateRange(timestampMillis, timestampMillis + 86_400_000L),
 )
 
 data class WorkoutMonth(
@@ -139,6 +144,7 @@ object WorkoutCalendar {
         val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
         return (0..6).map { i ->
             val dayCal = (cal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, i) }
+            val nextDayCal = (dayCal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 1) }
             val y = dayCal.get(Calendar.YEAR)
             val doy = dayCal.get(Calendar.DAY_OF_YEAR)
             val isToday = y == todayYear && doy == todayDayOfYear
@@ -149,8 +155,37 @@ object WorkoutCalendar {
                 isToday = isToday,
                 hasWorkout = hasWorkout,
                 timestampMillis = dayCal.timeInMillis,
+                range = WorkoutDateRange(dayCal.timeInMillis, nextDayCal.timeInMillis),
             )
         }
+    }
+
+    /**
+     * Computes whole local calendar days between [earlierMillis] and [laterMillis], avoiding
+     * 24-hour division bugs across midnight or DST boundaries.
+     */
+    fun daysBetweenLocalDates(
+        earlierMillis: Long,
+        laterMillis: Long = System.currentTimeMillis(),
+        timeZone: TimeZone = TimeZone.getDefault(),
+    ): Int {
+        val earlier = Calendar.getInstance(timeZone).apply {
+            timeInMillis = earlierMillis
+            set(Calendar.HOUR_OF_DAY, 12)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val later = Calendar.getInstance(timeZone).apply {
+            timeInMillis = laterMillis
+            set(Calendar.HOUR_OF_DAY, 12)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return Math.round((later.timeInMillis - earlier.timeInMillis).toDouble() / 86_400_000.0)
+            .toInt()
+            .coerceAtLeast(0)
     }
 
     fun formatVolumeTonnage(volumeKg: Double): String {

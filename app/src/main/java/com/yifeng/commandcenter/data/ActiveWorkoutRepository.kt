@@ -113,10 +113,33 @@ class ActiveWorkoutRepository(context: Context) {
             updated
         }
 
+    /** Atomically updates only a live active workout, leaving routine-builder drafts untouched. */
+    fun updateLiveWorkout(transform: (ActiveWorkout) -> ActiveWorkout?): ActiveWorkout? =
+        synchronized(WORKOUT_LOCK) {
+            if (finishingWorkoutId() != null) return@synchronized null
+            val session = loadSession() ?: return@synchronized null
+            if (session.routineBuildTarget != null) return@synchronized null
+            val updated = transform(session.workout) ?: return@synchronized null
+            saveLocked(session.copy(workout = updated))
+            updated
+        }
+
     fun completeSet(exerciseId: String, setId: String): SetCompletionResult? =
         synchronized(WORKOUT_LOCK) {
             if (finishingWorkoutId() != null) return@synchronized null
             val session = loadSession() ?: return@synchronized null
+            val result = ActiveWorkoutOperations.completeSet(session.workout, exerciseId, setId)
+                ?: return@synchronized null
+            saveLocked(session.copy(workout = result.workout))
+            result
+        }
+
+    /** Atomically completes a set only on a live active workout (never on a routine-builder draft). */
+    fun completeLiveSet(exerciseId: String, setId: String): SetCompletionResult? =
+        synchronized(WORKOUT_LOCK) {
+            if (finishingWorkoutId() != null) return@synchronized null
+            val session = loadSession() ?: return@synchronized null
+            if (session.routineBuildTarget != null) return@synchronized null
             val result = ActiveWorkoutOperations.completeSet(session.workout, exerciseId, setId)
                 ?: return@synchronized null
             saveLocked(session.copy(workout = result.workout))

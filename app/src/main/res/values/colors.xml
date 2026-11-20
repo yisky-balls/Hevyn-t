@@ -1,23 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Hevynt Theme Palette (aligned with ui/theme/Color.kt) -->
-    <color name="hevynt_accent">#FFFF3B30</color>
-    <color name="hevynt_accent_container">#FF2A1212</color>
-    <color name="hevynt_canvas">#FF0A0A0C</color>
-    <color name="hevynt_surface">#FF131316</color>
-    <color name="hevynt_surface_raised">#FF1A1A20</color>
-    <color name="hevynt_surface_interactive">#FF24242C</color>
+    <color name="hevynt_canvas">#FF000000</color>
+    <color name="hevynt_surface_raised">#FF1B1B1D</color>
+    <color name="hevynt_surface_interactive">#FF262628</color>
+    <color name="hevynt_border_subtle">#FF3A3A3E</color>
+    <color name="hevynt_rest_blue">#FF7C8CF8</color>
+    <color name="hevynt_rest_track">#FF28282B</color>
+    <color name="hevynt_accent">#FFE5202E</color>
+    <color name="hevynt_accent_container">#FF2A1416</color>
+    <color name="hevynt_accent_border">#66E5202E</color>
     <color name="hevynt_text_primary">#FFFFFFFF</color>
     <color name="hevynt_text_secondary">#FF8E8E93</color>
-    <color name="hevynt_text_tertiary">#FF636366</color>
-    <color name="hevynt_outline">#FF2C2C34</color>
-    <color name="hevynt_divider">#FF1E1E24</color>
-    <color name="hevynt_error">#FFFF453A</color>
-    <color name="hevynt_rest_blue">#FF8292FD</color>
-
-    <!-- Widget Specific Drawables -->
-    <color name="hevynt_widget_background">#F2131316</color>
-    <color name="hevynt_widget_action_fill">#FF24242C</color>
-    <color name="hevynt_widget_action_outline">#FF2C2C34</color>
-    <color name="hevynt_widget_card">#FF18181D</color>
+    <color name="hevynt_rest_badge_bg">#297C8CF8</color>
 </resources>

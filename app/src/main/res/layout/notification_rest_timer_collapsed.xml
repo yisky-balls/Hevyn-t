@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingVertical="2dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingEnd="8dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Chronometer
+                android:id="@+id/timer_chronometer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:countDown="true"
+                android:fontFamily="@font/doto_variable"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.04"
+                android:textColor="@color/hevynt_rest_blue"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/timer_soft_lock_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_timer_notification_badge"
+                android:includeFontPadding="false"
+                android:paddingHorizontal="5dp"
+                android:paddingVertical="2dp"
+                android:text="@string/timer_badge_soft_lock"
+                android:textColor="@color/hevynt_rest_blue"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/timer_subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/hevynt_text_secondary"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/timer_btn_subtract"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:background="@drawable/bg_timer_notification_pill"
+            android:gravity="center"
+            android:paddingHorizontal="9dp"
+            android:text="@string/timer_action_subtract_15s"
+            android:textColor="@color/hevynt_text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/timer_btn_add"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:layout_marginStart="5dp"
+            android:background="@drawable/bg_timer_notification_pill"
+            android:gravity="center"
+            android:paddingHorizontal="9dp"
+            android:text="@string/timer_action_add_15s"
+            android:textColor="@color/hevynt_text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/timer_btn_skip"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:layout_marginStart="5dp"
+            android:background="@drawable/bg_timer_notification_skip"
+            android:gravity="center"
+            android:paddingHorizontal="10dp"
+            android:text="@string/timer_action_skip"
+            android:textColor="@color/hevynt_accent"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

@@ -148,4 +148,55 @@ class SavedExercisesOperationsTest {
         val discardedDraft = updatedDraft.copy(currentFolders = draft.initialFolders)
         assertFalse(discardedDraft.hasChanges)
     }
+
+    @Test
+    fun `extractSavedExercises picks most frequent raw spelling as canonical name`() {
+        val lowerFirst = RoutineExercise(id = "l1", name = "bench press", sets = listOf(WorkoutSet(id = "s1")))
+        val proper1 = RoutineExercise(id = "p1", name = "Bench Press", sets = listOf(WorkoutSet(id = "s2")))
+        val proper2 = RoutineExercise(id = "p2", name = "Bench Press", sets = listOf(WorkoutSet(id = "s3")))
+        val folder = RoutineFolder(
+            id = "f1",
+            name = "Main",
+            routines = listOf(
+                Routine(id = "r1", name = "Day 1", exercises = listOf(lowerFirst)),
+                Routine(id = "r2", name = "Day 2", exercises = listOf(proper1)),
+                Routine(id = "r3", name = "Day 3", exercises = listOf(proper2)),
+            ),
+        )
+
+        val summary = SavedExercisesOperations.extractSavedExercises(listOf(folder)).single()
+        assertEquals("Bench Press", summary.canonicalName)
+        assertEquals(listOf("bench press"), summary.variantNames)
+    }
+
+    @Test
+    fun `renameExercise merges in-routine duplicates when renamed to existing exercise`() {
+        val routine = Routine(id = "r1", name = "Push", exercises = listOf(bench1, dbPress))
+        val folder = RoutineFolder(id = "f1", name = "Main", routines = listOf(routine))
+
+        val renamed = SavedExercisesOperations.renameExercise(
+            folders = listOf(folder),
+            oldName = "DB Incline Press",
+            newName = "Bench Press",
+            newNotes = "Unified note",
+            newRestSeconds = 165,
+        )
+
+        val exercises = renamed.single().routines.single().exercises
+        assertEquals(1, exercises.size)
+        assertEquals("Bench Press", exercises.single().name)
+        assertEquals(2, exercises.single().sets.size)
+        assertEquals("Unified note", exercises.single().notes)
+        assertEquals(165, exercises.single().restSeconds)
+    }
+
+    @Test
+    fun `recordHistoryRename preserves transitive rename chains`() {
+        val step1 = SavedExercisesOperations.recordHistoryRename(emptyMap(), "DB Press", "Dumbbell Press")
+        val step2 = SavedExercisesOperations.recordHistoryRename(step1, "Dumbbell Press", "Flat Dumbbell Press")
+
+        assertEquals("Flat Dumbbell Press", step2["dbpress"])
+        assertEquals("Flat Dumbbell Press", step2["dumbbellpress"])
+        assertEquals("Flat Dumbbell Press", step2["flatdumbbellpress"])
+    }
 }

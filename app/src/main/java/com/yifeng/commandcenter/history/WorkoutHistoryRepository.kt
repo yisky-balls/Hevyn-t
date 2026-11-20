@@ -6,7 +6,6 @@ import com.yifeng.commandcenter.data.LastWorkoutSummary
 import com.yifeng.commandcenter.widget.WorkoutWidgetUpdateDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 
 class WorkoutHistoryRepository private constructor(
     private val dao: WorkoutHistoryDao,
@@ -17,9 +16,6 @@ class WorkoutHistoryRepository private constructor(
             .workoutHistoryDao(),
         widgetRefreshCallback(context),
     )
-
-    fun observeSessions(): Flow<List<WorkoutHistorySession>> =
-        dao.observeSessions().map { sessions -> sessions.map(WorkoutSessionEntity::toModel) }
 
     fun observeJournalEntries(): Flow<List<WorkoutJournalEntry>> =
         combine(dao.observeSessions(), dao.observePhotos()) { sessions, photos ->
@@ -36,6 +32,9 @@ class WorkoutHistoryRepository private constructor(
 
     suspend fun sessions(): List<WorkoutHistorySession> =
         dao.sessions().map(WorkoutSessionEntity::toModel)
+
+    fun observeCompletedExerciseSets(): Flow<List<HistoricalExerciseSetRow>> =
+        dao.observeCompletedExerciseSets()
 
     suspend fun graph(sessionId: String): WorkoutHistoryGraph? = dao.graph(sessionId)
 
@@ -60,6 +59,18 @@ class WorkoutHistoryRepository private constructor(
             workout = workout,
             rows = dao.completedExerciseSetsBefore(workout.startedAtMillis),
         )
+
+    /** Resolves both previous sets and exercise history using a single database query. */
+    suspend fun workoutHistoryContext(
+        workout: ActiveWorkout,
+    ): Pair<Map<String, PreviousSetPerformance>, Map<String, ExerciseHistorySummary>> {
+        val rows = dao.completedExerciseSetsBefore(workout.startedAtMillis)
+        return PreviousSetResolver.resolveRows(workout = workout, rows = rows) to
+            PreviousSetResolver.resolveExerciseHistoryRows(workout = workout, rows = rows)
+    }
+
+    suspend fun renameExercises(renamesByNormalizedKey: Map<String, String>): Int =
+        dao.renameExercises(renamesByNormalizedKey)
 
     suspend fun saveCompletedWorkout(graph: WorkoutHistoryGraph) {
         dao.insertGraph(graph)

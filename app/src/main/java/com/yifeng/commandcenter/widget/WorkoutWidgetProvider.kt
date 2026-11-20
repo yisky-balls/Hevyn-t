@@ -22,9 +22,9 @@ import com.yifeng.commandcenter.data.LikelyNextRoutineResolver
 import com.yifeng.commandcenter.data.RoutineRepository
 import com.yifeng.commandcenter.data.RoutineWorkoutMapper
 import com.yifeng.commandcenter.data.WorkoutProgress
-import com.yifeng.commandcenter.glyph.GlyphPreferences
 import com.yifeng.commandcenter.history.WorkoutHistoryRepository
 import com.yifeng.commandcenter.timer.RestTimerManager
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -98,29 +98,25 @@ class WorkoutWidgetUpdateReceiver : BroadcastReceiver() {
                     WorkoutWidgetUpdateDispatcher.refreshRequested(appContext, generation)
                 }
             }
-            ACTION_TOGGLE_GLYPH -> {
-                val current = GlyphPreferences.isTimerEnabled(context)
-                GlyphPreferences.setTimerEnabled(context, !current)
-                launchAsync(context) { appContext ->
-                    WorkoutWidgetUpdateDispatcher.refreshNow(appContext)
-                }
-            }
             ACTION_START_NEXT_WORKOUT -> {
                 launchAsync(context) { appContext ->
                     val routineRepo = RoutineRepository(appContext)
                     routineRepo.initialize()
                     val historyRepo = WorkoutHistoryRepository(appContext)
                     val history = historyRepo.sessions()
+                    val summaries = routineRepo.summaries()
                     val recommendation = LikelyNextRoutineResolver.resolve(
-                        folders = routineRepo.summaries(),
+                        folders = summaries,
                         history = history,
                     ).recommendation
+                    val allRoutines = summaries.flatMap { it.routines }
                     val routineSummary = recommendation?.routine
-                        ?: routineRepo.summaries().flatMap { it.routines }.firstOrNull()
+                        ?: allRoutines.firstOrNull { it.exerciseCount > 0 }
+                        ?: allRoutines.firstOrNull()
 
                     android.util.Log.i(TAG, "ACTION_START_NEXT_WORKOUT resolved routine=${routineSummary?.name} id=${routineSummary?.id}")
 
-                    if (routineSummary != null) {
+                    if (routineSummary != null && routineSummary.exerciseCount > 0) {
                         val fullRoutine = routineRepo.routine(routineSummary.id)
                         if (fullRoutine != null) {
                             var workout = RoutineWorkoutMapper.fromRoutine(fullRoutine)
@@ -142,14 +138,16 @@ class WorkoutWidgetUpdateReceiver : BroadcastReceiver() {
                             android.util.Log.e(TAG, "fullRoutine was null for routine id=${routineSummary.id}")
                         }
                     } else {
-                        android.util.Log.e(TAG, "No routineSummary available to start!")
+                        android.util.Log.e(TAG, "No non-empty routineSummary available to start!")
                     }
                 }
             }
             ACTION_COMPLETE_SET -> {
                 launchAsync(context) { appContext ->
                     val repository = ActiveWorkoutRepository(appContext)
-                    val workout = repository.load()
+                    val workout = repository.loadSession()
+                        ?.takeIf { it.routineBuildTarget == null }
+                        ?.workout
                     if (workout != null) {
                         val target = WorkoutProgress.firstUnfinishedSet(workout)
                         if (target != null) {
@@ -164,22 +162,18 @@ class WorkoutWidgetUpdateReceiver : BroadcastReceiver() {
                 if (delta != 0.0) {
                     launchAsync(context) { appContext ->
                         val repository = ActiveWorkoutRepository(appContext)
-                        val workout = repository.load()
-                        if (workout != null) {
-                            val target = WorkoutProgress.firstUnfinishedSet(workout)
-                            if (target != null) {
-                                val updated = ActiveWorkoutOperations.updateSet(
-                                    workout,
-                                    target.exerciseId,
-                                    target.setId,
-                                ) { set ->
-                                    ActiveWorkoutOperations.adjustWeight(set, delta)
-                                }
-                                if (updated != null) {
-                                    repository.save(ActiveWorkoutSession(updated))
-                                    WorkoutWidgetUpdateDispatcher.refreshNow(appContext)
-                                }
+                        val updated = repository.updateLiveWorkout { workout ->
+                            val target = WorkoutProgress.firstUnfinishedSet(workout) ?: return@updateLiveWorkout null
+                            ActiveWorkoutOperations.updateSet(
+                                workout,
+                                target.exerciseId,
+                                target.setId,
+                            ) { set ->
+                                ActiveWorkoutOperations.adjustWeight(set, delta)
                             }
+                        }
+                        if (updated != null) {
+                            WorkoutWidgetUpdateDispatcher.refreshNow(appContext)
                         }
                     }
                 }
@@ -189,22 +183,18 @@ class WorkoutWidgetUpdateReceiver : BroadcastReceiver() {
                 if (delta != 0) {
                     launchAsync(context) { appContext ->
                         val repository = ActiveWorkoutRepository(appContext)
-                        val workout = repository.load()
-                        if (workout != null) {
-                            val target = WorkoutProgress.firstUnfinishedSet(workout)
-                            if (target != null) {
-                                val updated = ActiveWorkoutOperations.updateSet(
-                                    workout,
-                                    target.exerciseId,
-                                    target.setId,
-                                ) { set ->
-                                    ActiveWorkoutOperations.adjustReps(set, delta)
-                                }
-                                if (updated != null) {
-                                    repository.save(ActiveWorkoutSession(updated))
-                                    WorkoutWidgetUpdateDispatcher.refreshNow(appContext)
-                                }
+                        val updated = repository.updateLiveWorkout { workout ->
+                            val target = WorkoutProgress.firstUnfinishedSet(workout) ?: return@updateLiveWorkout null
+                            ActiveWorkoutOperations.updateSet(
+                                workout,
+                                target.exerciseId,
+                                target.setId,
+                            ) { set ->
+                                ActiveWorkoutOperations.adjustReps(set, delta)
                             }
+                        }
+                        if (updated != null) {
+                            WorkoutWidgetUpdateDispatcher.refreshNow(appContext)
                         }
                     }
                 }
@@ -226,7 +216,6 @@ class WorkoutWidgetUpdateReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION_REFRESH = "com.yifeng.commandcenter.widget.REFRESH"
-        const val ACTION_TOGGLE_GLYPH = "com.yifeng.commandcenter.widget.TOGGLE_GLYPH"
         const val ACTION_START_NEXT_WORKOUT = "com.yifeng.commandcenter.widget.START_NEXT_WORKOUT"
         const val ACTION_COMPLETE_SET = "com.yifeng.commandcenter.widget.COMPLETE_SET"
         const val ACTION_ADJUST_WEIGHT = "com.yifeng.commandcenter.widget.ADJUST_WEIGHT"
@@ -302,22 +291,22 @@ object WorkoutWidgetUpdateDispatcher {
 }
 
 internal fun cleanRoutineName(name: String): String =
-    name.replace(
-        Regex("^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN|DAY\\s*\\d+)\\s*[-—–:.]\\s*", RegexOption.IGNORE_CASE),
-        "",
-    ).trim()
+    com.yifeng.commandcenter.data.cleanRoutineName(name)
 
 internal object WorkoutWidgetCountdownTicker {
     private var job: kotlinx.coroutines.Job? = null
+    @Volatile
+    private var targetEndMillis: Long = 0L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     @Synchronized
     fun start(context: Context, endMillis: Long) {
+        targetEndMillis = endMillis
         if (job?.isActive == true) return
         val appContext = context.applicationContext ?: context
         job = scope.launch {
-            while (System.currentTimeMillis() < endMillis) {
-                val remaining = endMillis - System.currentTimeMillis()
+            while (System.currentTimeMillis() < targetEndMillis) {
+                val remaining = targetEndMillis - System.currentTimeMillis()
                 if (remaining <= 0) break
                 val delayMillis = (remaining % 1000L).let { if (it == 0L) 1000L else it }
                 delay(delayMillis.coerceIn(200L, 1000L))
@@ -329,6 +318,7 @@ internal object WorkoutWidgetCountdownTicker {
 
     @Synchronized
     fun stop() {
+        targetEndMillis = 0L
         job?.cancel()
         job = null
     }
@@ -389,18 +379,6 @@ internal object WorkoutWidgetUpdater {
             setVisible(R.id.widget_compact_active, state is WorkoutWidgetState.Active)
             when (state) {
                 is WorkoutWidgetState.Idle -> {
-                    val cleanName = cleanRoutineName(state.nextRoutineName).uppercase()
-                    val titleBitmap = WidgetDotMatrixRenderer.renderText(
-                        context = context,
-                        text = cleanName,
-                        textSizeSp = 20f,
-                        textColor = 0xFFFFFFFF.toInt(),
-                    )
-                    setImageViewBitmap(R.id.widget_compact_idle_title_img, titleBitmap)
-                    setTextViewText(
-                        R.id.widget_compact_idle_metadata,
-                        "${state.exerciseCount} exercises",
-                    )
                     setOnClickPendingIntent(R.id.widget_compact_idle_play, startNextWorkout(context))
                     setOnClickPendingIntent(R.id.widget_compact_idle_info, openWorkout(context))
                 }
@@ -416,7 +394,7 @@ internal object WorkoutWidgetUpdater {
                         val ss = remaining % 60
                         WidgetDotMatrixRenderer.renderText(
                             context = context,
-                            text = String.format("%02d:%02d", mm, ss),
+                            text = String.format(Locale.US, "%02d:%02d", mm, ss),
                             textSizeSp = 22f,
                             textColor = 0xFF7C8CF8.toInt(),
                         )
@@ -442,24 +420,8 @@ internal object WorkoutWidgetUpdater {
 
             when (state) {
                 is WorkoutWidgetState.Idle -> {
-                    val cleanName = cleanRoutineName(state.nextRoutineName).uppercase()
-                    val titleBitmap = WidgetDotMatrixRenderer.renderText(
-                        context = context,
-                        text = cleanName,
-                        textSizeSp = 24f,
-                        textColor = 0xFFFFFFFF.toInt(),
-                    )
-                    setImageViewBitmap(R.id.widget_main_compact_idle_title_img, titleBitmap)
-                    setTextViewText(
-                        R.id.widget_main_compact_idle_count,
-                        "${state.exerciseCount} exercises",
-                    )
-                    setTextViewText(
-                        R.id.widget_main_compact_idle_preview,
-                        state.commaExercisePreview,
-                    )
                     setOnClickPendingIntent(R.id.widget_main_compact_idle_start_btn, startNextWorkout(context))
-                    setOnClickPendingIntent(R.id.widget_main_compact_idle_header, openWorkout(context))
+                    setOnClickPendingIntent(R.id.widget_main_compact_idle_scene, openWorkout(context))
                 }
                 is WorkoutWidgetState.Active -> {
                     setTextViewText(R.id.widget_main_compact_active_exercise, state.currentExerciseName)
@@ -474,7 +436,7 @@ internal object WorkoutWidgetUpdater {
                         val ss = remaining % 60
                         val timerBitmap = WidgetDotMatrixRenderer.renderText(
                             context = context,
-                            text = String.format("%02d:%02d", mm, ss),
+                            text = String.format(Locale.US, "%02d:%02d", mm, ss),
                             textSizeSp = 26f,
                             textColor = 0xFF7C8CF8.toInt(),
                         )
@@ -514,31 +476,8 @@ internal object WorkoutWidgetUpdater {
 
             when (state) {
                 is WorkoutWidgetState.Idle -> {
-                    val cleanName = cleanRoutineName(state.nextRoutineName).uppercase()
-                    val titleBitmap = WidgetDotMatrixRenderer.renderText(
-                        context = context,
-                        text = cleanName,
-                        textSizeSp = 26f,
-                        textColor = 0xFFFFFFFF.toInt(),
-                    )
-                    setImageViewBitmap(R.id.widget_main_full_idle_title_img, titleBitmap)
-                    setTextViewText(
-                        R.id.widget_main_full_idle_count,
-                        "${state.exerciseCount} exercises",
-                    )
-
-                    val p1 = state.previewExercises.getOrNull(0) ?: ""
-                    val p2 = state.previewExercises.getOrNull(1) ?: ""
-                    val p3 = state.previewExercises.getOrNull(2) ?: ""
-                    setTextViewText(R.id.widget_main_full_idle_preview_1, p1)
-                    setTextViewText(R.id.widget_main_full_idle_preview_2, p2)
-                    setTextViewText(R.id.widget_main_full_idle_preview_3, p3)
-                    setVisible(R.id.widget_main_full_idle_preview_1, p1.isNotBlank())
-                    setVisible(R.id.widget_main_full_idle_preview_2, p2.isNotBlank())
-                    setVisible(R.id.widget_main_full_idle_preview_3, p3.isNotBlank())
-
                     setOnClickPendingIntent(R.id.widget_main_full_idle_start_btn, startNextWorkout(context))
-                    setOnClickPendingIntent(R.id.widget_main_full_idle_header, openWorkout(context))
+                    setOnClickPendingIntent(R.id.widget_main_full_idle_scene, openWorkout(context))
                 }
                 is WorkoutWidgetState.Active -> {
                     setTextViewText(R.id.widget_main_full_active_exercise, state.currentExerciseName)
@@ -546,7 +485,7 @@ internal object WorkoutWidgetUpdater {
                     val elapsedSec = ((System.currentTimeMillis() - state.workout.startedAtMillis) / 1000).coerceAtLeast(0)
                     val em = elapsedSec / 60
                     val es = elapsedSec % 60
-                    setTextViewText(R.id.widget_main_full_active_routine, "$cleanRoutine · " + String.format("%02d:%02d", em, es))
+                    setTextViewText(R.id.widget_main_full_active_routine, "$cleanRoutine · " + String.format(Locale.US, "%02d:%02d", em, es))
 
                     setTextViewText(
                         R.id.widget_main_full_active_set_info,
@@ -559,7 +498,7 @@ internal object WorkoutWidgetUpdater {
                         val ss = remaining % 60
                         val timerBitmap = WidgetDotMatrixRenderer.renderText(
                             context = context,
-                            text = String.format("%02d:%02d", mm, ss),
+                            text = String.format(Locale.US, "%02d:%02d", mm, ss),
                             textSizeSp = 36f,
                             textColor = 0xFF7C8CF8.toInt(),
                         )
@@ -602,19 +541,6 @@ internal object WorkoutWidgetUpdater {
                 }
             }
         }
-
-    private fun RemoteViews.bindElapsedChronometer(viewId: Int, startedAtMillis: Long) {
-        val elapsed = (System.currentTimeMillis() - startedAtMillis).coerceAtLeast(0L)
-        setChronometer(viewId, SystemClock.elapsedRealtime() - elapsed, null, true)
-        setChronometerCountDown(viewId, false)
-    }
-
-    private fun RemoteViews.bindCountdownChronometer(viewId: Int, endMillis: Long) {
-        val remainingMillis = endMillis - System.currentTimeMillis()
-        val base = SystemClock.elapsedRealtime() + remainingMillis
-        setChronometer(viewId, base, null, true)
-        setChronometerCountDown(viewId, true)
-    }
 
     private fun adjustWeight(context: Context, deltaKg: Double, requestCode: Int): PendingIntent =
         PendingIntent.getBroadcast(

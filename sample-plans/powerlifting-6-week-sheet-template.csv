@@ -1,0 +1,128 @@
+TRAINING MAX (kg),Valore,Note
+Panca Piana TM,105,Modifica questi 3 valori: tutti i pesi dei Big 3 si aggiornano in automatico
+Squat TM,115,Arrotondati a 2.5 kg con MROUND
+Deadlift TM,150,Sett. 1-5 progressione · Sett. 6 scarico
+
+Settimana,Giorno,Esercizio,Serie,Ripetizioni,Peso,Recupero,Note
+1,MAR — Upper 1 (Panca Primaria),Panca Piana,4,6,"=MROUND($B$2*0.725,2.5)",180,72.5% TM · Fermo pulito al petto
+1,MAR — Upper 1 (Panca Primaria),Shoulder Press alla Smith,3,10,30,120,kg/lato · RIR 2 · Progressione costante
+1,MAR — Upper 1 (Panca Primaria),Lat Machine (presa chiusa),4,10,70,120,RIR 1-2
+1,MAR — Upper 1 (Panca Primaria),Alzate Laterali,3,10,12,90,kg/manubrio · RIR 1
+1,MAR — Upper 1 (Panca Primaria),Pushdown,3,10,68,90,RIR 1
+1,MAR — Upper 1 (Panca Primaria),Hammer Curl,3,12,14,90,kg/manubrio · RIR 1
+1,GIO — Lower 1 (Squat Primario),Squat,4,6,"=MROUND($B$3*0.725,2.5)",180,72.5% TM · Spinta costante
+1,GIO — Lower 1 (Squat Primario),Leg Press,3,10,155,120,RIR 1-2
+1,GIO — Lower 1 (Squat Primario),Leg Curl,3,10,42.5,90,RIR 1
+1,GIO — Lower 1 (Squat Primario),Leg Extension,3,12,95,90,RIR 1
+1,GIO — Lower 1 (Squat Primario),Cable Crunch,3,12,68,90,Controllato
+1,SAB — Upper 2 + Squat Secondario,Squat,4,5,"=MROUND($B$3*0.65,2.5)",180,65% TM · Tecnico e fluido
+1,SAB — Upper 2 + Squat Secondario,Panca Piana,4,8,"=MROUND($B$2*0.65,2.5)",180,65% TM · Volume e fermo
+1,SAB — Upper 2 + Squat Secondario,Rows,4,10,59,120,RIR 1-2 · Appoggio petto
+1,SAB — Upper 2 + Squat Secondario,Hammer Curl,3,12,14,90,kg/manubrio · RIR 1
+1,SAB — Upper 2 + Squat Secondario,Estensioni Tricipiti (manubri),3,12,12,90,kg/manubrio · RIR 1
+1,DOM — Lower 2 (Stacco Primario),Deadlift,4,4,"=MROUND($B$4*0.725,2.5)",180,72.5% TM · Reset completo a terra
+1,DOM — Lower 2 (Stacco Primario),Leg Press,3,10,155,120,RIR 1-2
+1,DOM — Lower 2 (Stacco Primario),Leg Curl,3,10,42.5,90,RIR 1
+1,DOM — Lower 2 (Stacco Primario),Leg Extension,3,12,95,90,RIR 1
+1,DOM — Lower 2 (Stacco Primario),Cable Crunch,3,12,68,90,Controllato
+2,MAR — Upper 1 (Panca Primaria),Panca Piana,4,6,"=MROUND($B$2*0.75,2.5)",180,75% TM · Fermo pulito al petto
+2,MAR — Upper 1 (Panca Primaria),Shoulder Press alla Smith,3,10,32.5,120,kg/lato · RIR 2
+2,MAR — Upper 1 (Panca Primaria),Lat Machine (presa chiusa),4,10,72.5,120,RIR 1-2
+2,MAR — Upper 1 (Panca Primaria),Alzate Laterali,3,10,12,90,kg/manubrio · RIR 1
+2,MAR — Upper 1 (Panca Primaria),Pushdown,3,10,70.5,90,RIR 1
+2,MAR — Upper 1 (Panca Primaria),Hammer Curl,3,12,14,90,kg/manubrio · RIR 1
+2,GIO — Lower 1 (Squat Primario),Squat,4,6,"=MROUND($B$3*0.75,2.5)",180,75% TM
+2,GIO — Lower 1 (Squat Primario),Leg Press,3,10,160,120,RIR 1-2
+2,GIO — Lower 1 (Squat Primario),Leg Curl,3,10,45,90,RIR 1
+2,GIO — Lower 1 (Squat Primario),Leg Extension,3,12,100,90,RIR 1
+2,GIO — Lower 1 (Squat Primario),Cable Crunch,3,12,70.5,90,Controllato
+2,SAB — Upper 2 + Squat Secondario,Squat,4,5,"=MROUND($B$3*0.675,2.5)",180,67.5% TM · Tecnico
+2,SAB — Upper 2 + Squat Secondario,Panca Piana,4,8,"=MROUND($B$2*0.675,2.5)",180,67.5% TM · Volume
+2,SAB — Upper 2 + Squat Secondario,Rows,4,10,61.5,120,RIR 1-2
+2,SAB — Upper 2 + Squat Secondario,Hammer Curl,3,12,14,90,kg/manubrio · RIR 1
+2,SAB — Upper 2 + Squat Secondario,Estensioni Tricipiti (manubri),3,12,12,90,kg/manubrio · RIR 1
+2,DOM — Lower 2 (Stacco Primario),Deadlift,4,4,"=MROUND($B$4*0.75,2.5)",180,75% TM · Reset completo
+2,DOM — Lower 2 (Stacco Primario),Leg Press,3,10,160,120,RIR 1-2
+2,DOM — Lower 2 (Stacco Primario),Leg Curl,3,10,45,90,RIR 1
+2,DOM — Lower 2 (Stacco Primario),Leg Extension,3,12,100,90,RIR 1
+2,DOM — Lower 2 (Stacco Primario),Cable Crunch,3,12,70.5,90,Controllato
+3,MAR — Upper 1 (Panca Primaria),Panca Piana,4,5,"=MROUND($B$2*0.775,2.5)",180,77.5% TM
+3,MAR — Upper 1 (Panca Primaria),Shoulder Press alla Smith,3,10,35,120,kg/lato · RIR 1-2
+3,MAR — Upper 1 (Panca Primaria),Lat Machine (presa chiusa),4,10,77,120,RIR 1-2
+3,MAR — Upper 1 (Panca Primaria),Alzate Laterali,4,10,14,90,kg/manubrio · RIR 1
+3,MAR — Upper 1 (Panca Primaria),Pushdown,3,10,73,90,RIR 1
+3,MAR — Upper 1 (Panca Primaria),Hammer Curl,3,12,16,90,kg/manubrio · RIR 1
+3,GIO — Lower 1 (Squat Primario),Squat,4,5,"=MROUND($B$3*0.775,2.5)",180,77.5% TM
+3,GIO — Lower 1 (Squat Primario),Leg Press,3,10,165,120,RIR 1-2
+3,GIO — Lower 1 (Squat Primario),Leg Curl,3,10,47.5,90,RIR 1
+3,GIO — Lower 1 (Squat Primario),Leg Extension,3,12,105,90,RIR 1
+3,GIO — Lower 1 (Squat Primario),Cable Crunch,3,12,73,90,Controllato
+3,SAB — Upper 2 + Squat Secondario,Squat,4,5,"=MROUND($B$3*0.7,2.5)",180,70% TM · Tecnico
+3,SAB — Upper 2 + Squat Secondario,Panca Piana,4,7,"=MROUND($B$2*0.7,2.5)",180,70% TM · Volume
+3,SAB — Upper 2 + Squat Secondario,Rows,4,10,64,120,RIR 1-2
+3,SAB — Upper 2 + Squat Secondario,Hammer Curl,3,12,16,90,kg/manubrio · RIR 1
+3,SAB — Upper 2 + Squat Secondario,Estensioni Tricipiti (manubri),3,12,14,90,kg/manubrio · RIR 1
+3,DOM — Lower 2 (Stacco Primario),Deadlift,4,4,"=MROUND($B$4*0.775,2.5)",180,77.5% TM
+3,DOM — Lower 2 (Stacco Primario),Leg Press,3,10,165,120,RIR 1-2
+3,DOM — Lower 2 (Stacco Primario),Leg Curl,3,10,47.5,90,RIR 1
+3,DOM — Lower 2 (Stacco Primario),Leg Extension,3,12,105,90,RIR 1
+3,DOM — Lower 2 (Stacco Primario),Cable Crunch,3,12,73,90,Controllato
+4,MAR — Upper 1 (Panca Primaria),Panca Piana,4,5,"=MROUND($B$2*0.8,2.5)",180,80% TM
+4,MAR — Upper 1 (Panca Primaria),Shoulder Press alla Smith,3,8,37.5,120,kg/lato · RIR 1-2
+4,MAR — Upper 1 (Panca Primaria),Lat Machine (presa chiusa),4,8,79.5,120,RIR 1-2
+4,MAR — Upper 1 (Panca Primaria),Alzate Laterali,4,10,14,90,kg/manubrio · RIR 0-1
+4,MAR — Upper 1 (Panca Primaria),Pushdown,3,10,75.5,90,RIR 1
+4,MAR — Upper 1 (Panca Primaria),Hammer Curl,3,10,16,90,kg/manubrio · RIR 0-1
+4,GIO — Lower 1 (Squat Primario),Squat,4,5,"=MROUND($B$3*0.8,2.5)",180,80% TM
+4,GIO — Lower 1 (Squat Primario),Leg Press,3,10,170,120,RIR 1
+4,GIO — Lower 1 (Squat Primario),Leg Curl,3,10,50,90,RIR 1
+4,GIO — Lower 1 (Squat Primario),Leg Extension,3,12,109,90,"Max stack · fermo 1"" in contrazione · RIR 0-1"
+4,GIO — Lower 1 (Squat Primario),Cable Crunch,3,15,75.5,90,Controllato
+4,SAB — Upper 2 + Squat Secondario,Squat,4,4,"=MROUND($B$3*0.725,2.5)",180,72.5% TM · Tecnico
+4,SAB — Upper 2 + Squat Secondario,Panca Piana,4,6,"=MROUND($B$2*0.725,2.5)",180,72.5% TM · Volume
+4,SAB — Upper 2 + Squat Secondario,Rows,4,8,66.5,120,RIR 1-2
+4,SAB — Upper 2 + Squat Secondario,Hammer Curl,3,10,16,90,kg/manubrio · RIR 0-1
+4,SAB — Upper 2 + Squat Secondario,Estensioni Tricipiti (manubri),3,10,14,90,kg/manubrio · RIR 1
+4,DOM — Lower 2 (Stacco Primario),Deadlift,4,3,"=MROUND($B$4*0.8,2.5)",180,80% TM
+4,DOM — Lower 2 (Stacco Primario),Leg Press,3,10,170,120,RIR 1
+4,DOM — Lower 2 (Stacco Primario),Leg Curl,3,10,50,90,RIR 1
+4,DOM — Lower 2 (Stacco Primario),Leg Extension,3,12,109,90,"Max stack · fermo 1"" in contrazione · RIR 0-1"
+4,DOM — Lower 2 (Stacco Primario),Cable Crunch,3,15,75.5,90,Controllato
+5,MAR — Upper 1 (Panca Primaria),Panca Piana,4,4,"=MROUND($B$2*0.825,2.5)",180,82.5% TM · Picco blocco
+5,MAR — Upper 1 (Panca Primaria),Shoulder Press alla Smith,3,8,37.5,120,kg/lato · Consolida o +1.25 kg/lato se facile · RIR 1
+5,MAR — Upper 1 (Panca Primaria),Lat Machine (presa chiusa),4,8,82,120,RIR 1
+5,MAR — Upper 1 (Panca Primaria),Alzate Laterali,4,10,14,90,kg/manubrio · Controllo in cima · RIR 0-1
+5,MAR — Upper 1 (Panca Primaria),Pushdown,3,10,78,90,RIR 1
+5,MAR — Upper 1 (Panca Primaria),Hammer Curl,3,10,18,90,kg/manubrio · RIR 0-1
+5,GIO — Lower 1 (Squat Primario),Squat,4,4,"=MROUND($B$3*0.825,2.5)",180,82.5% TM · Picco blocco
+5,GIO — Lower 1 (Squat Primario),Leg Press,3,10,175,120,RIR 1
+5,GIO — Lower 1 (Squat Primario),Leg Curl,3,10,52.5,90,RIR 1
+5,GIO — Lower 1 (Squat Primario),Leg Extension,3,15,109,90,Max stack · +3 rep o eccentrica lenta · RIR 0-1
+5,GIO — Lower 1 (Squat Primario),Cable Crunch,3,15,78,90,Controllato
+5,SAB — Upper 2 + Squat Secondario,Squat,4,4,"=MROUND($B$3*0.725,2.5)",180,72.5% TM · Lascia margine per lo stacco
+5,SAB — Upper 2 + Squat Secondario,Panca Piana,4,6,"=MROUND($B$2*0.75,2.5)",180,75% TM · Volume
+5,SAB — Upper 2 + Squat Secondario,Rows,4,8,69,120,RIR 1
+5,SAB — Upper 2 + Squat Secondario,Hammer Curl,3,10,18,90,kg/manubrio · RIR 0-1
+5,SAB — Upper 2 + Squat Secondario,Estensioni Tricipiti (manubri),3,10,16,90,kg/manubrio · RIR 1
+5,DOM — Lower 2 (Stacco Primario),Deadlift,4,3,"=MROUND($B$4*0.825,2.5)",180,82.5% TM · Picco blocco
+5,DOM — Lower 2 (Stacco Primario),Leg Press,3,10,175,120,RIR 1
+5,DOM — Lower 2 (Stacco Primario),Leg Curl,3,10,52.5,90,RIR 1
+5,DOM — Lower 2 (Stacco Primario),Leg Extension,3,15,109,90,Max stack · +3 rep o eccentrica lenta · RIR 0-1
+5,DOM — Lower 2 (Stacco Primario),Cable Crunch,3,15,78,90,Controllato
+6 (Scarico),MAR — Upper 1 (Panca Primaria),Panca Piana,3,5,"=MROUND($B$2*0.625,2.5)",150,62.5% TM · Scarico tecnico
+6 (Scarico),MAR — Upper 1 (Panca Primaria),Shoulder Press alla Smith,2,10,25,90,kg/lato · Scarico · RIR 3+
+6 (Scarico),MAR — Upper 1 (Panca Primaria),Lat Machine (presa chiusa),2,10,60,90,Scarico · RIR 3+
+6 (Scarico),MAR — Upper 1 (Panca Primaria),Alzate Laterali,2,10,10,60,kg/manubrio · Scarico
+6 (Scarico),MAR — Upper 1 (Panca Primaria),Pushdown,2,10,55,60,Scarico
+6 (Scarico),MAR — Upper 1 (Panca Primaria),Hammer Curl,2,12,12,60,kg/manubrio · Scarico
+6 (Scarico),GIO — Lower 1 (Squat Primario),Squat,3,5,"=MROUND($B$3*0.625,2.5)",150,62.5% TM · Scarico tecnico
+6 (Scarico),GIO — Lower 1 (Squat Primario),Leg Press,2,10,130,90,Scarico · RIR 3+
+6 (Scarico),GIO — Lower 1 (Squat Primario),Leg Curl,2,10,35,60,Scarico
+6 (Scarico),GIO — Lower 1 (Squat Primario),Leg Extension,2,12,80,60,Scarico
+6 (Scarico),GIO — Lower 1 (Squat Primario),Cable Crunch,2,12,55,60,Scarico
+6 (Scarico),SAB — Upper 2 + Squat Secondario,Squat,3,4,"=MROUND($B$3*0.6,2.5)",150,60% TM · Scarico
+6 (Scarico),SAB — Upper 2 + Squat Secondario,Panca Piana,3,6,"=MROUND($B$2*0.6,2.5)",150,60% TM · Scarico
+6 (Scarico),SAB — Upper 2 + Squat Secondario,Rows,2,10,50,90,Scarico · RIR 3+
+6 (Scarico),DOM — Lower 2 (Stacco Primario),Deadlift,3,3,"=MROUND($B$4*0.625,2.5)",150,62.5% TM · Scarico tecnico
+6 (Scarico),DOM — Lower 2 (Stacco Primario),Leg Press,2,10,130,90,Scarico · RIR 3+
+6 (Scarico),DOM — Lower 2 (Stacco Primario),Leg Curl,2,10,35,60,Scarico

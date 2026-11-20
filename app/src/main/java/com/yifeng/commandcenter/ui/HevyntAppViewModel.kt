@@ -29,6 +29,10 @@ import com.yifeng.commandcenter.data.WorkoutPlanPreview
 import com.yifeng.commandcenter.data.WorkoutSet
 import com.yifeng.commandcenter.history.CompletedWorkoutMapper
 import com.yifeng.commandcenter.history.ExerciseAutocomplete
+import com.yifeng.commandcenter.history.ExerciseProgressCalculator
+import com.yifeng.commandcenter.history.ExerciseProgressMetric
+import com.yifeng.commandcenter.history.ExerciseProgressPeriod
+import com.yifeng.commandcenter.history.ExerciseProgressPreferences
 import com.yifeng.commandcenter.history.ExerciseSuggestion
 import com.yifeng.commandcenter.history.ExerciseHistorySummary
 import com.yifeng.commandcenter.history.PreparedRoutineStart
@@ -42,11 +46,21 @@ import com.yifeng.commandcenter.history.WorkoutJournalEntry
 import com.yifeng.commandcenter.history.WorkoutPhotoManager
 import com.yifeng.commandcenter.history.WorkoutPhotoStore
 import com.yifeng.commandcenter.timer.RestTimerManager
+import com.yifeng.commandcenter.timer.RestTimerPreferences
 import com.yifeng.commandcenter.timer.RestTimerState
+import com.yifeng.commandcenter.timer.SoftLockAccessibilityService
 import android.content.SharedPreferences
 import com.yifeng.commandcenter.glyph.GlyphDeviceSupport
 import com.yifeng.commandcenter.glyph.GlyphPreferences
 import com.yifeng.commandcenter.glyph.GlyphRestTimerController
+import com.yifeng.commandcenter.metrics.BodyMetricsPeriod
+import com.yifeng.commandcenter.metrics.BodyMetricsRepository
+import com.yifeng.commandcenter.metrics.BodyMetricsSyncOutcome
+import com.yifeng.commandcenter.metrics.BodyMetricsSyncState
+import com.yifeng.commandcenter.program.ProgramSheetRepository
+import com.yifeng.commandcenter.program.ProgramSheetState
+import com.yifeng.commandcenter.program.ProgramSheetSyncOutcome
+import com.yifeng.commandcenter.program.ProgramSheetWorkoutMapper
 import com.yifeng.commandcenter.widget.WorkoutWidgetUpdateDispatcher
 import java.io.File
 import java.util.UUID
@@ -84,6 +98,11 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         context = application.applicationContext,
         routineRepository = routineRepository,
     )
+    private val bodyMetricsRepository = BodyMetricsRepository(application.applicationContext)
+    private val programSheetRepository = ProgramSheetRepository(application.applicationContext)
+    private val exerciseProgressPreferences = ExerciseProgressPreferences(application.applicationContext)
+    private var bodyMetricsSyncJob: Job? = null
+    private var programSheetSyncJob: Job? = null
     private val routineMutationMutex = Mutex()
     private val routineInitialization: Deferred<RoutineLibraryImportResult> = viewModelScope.async(
         start = CoroutineStart.LAZY,
@@ -106,6 +125,8 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
     private var glyphUpdateJob: Job? = null
 
     private val restoredSession = activeWorkoutRepository.loadSession()
+    private val initialBodyMetrics = bodyMetricsRepository.loadCachedState()
+    private val initialProgramSheet = programSheetRepository.loadCachedState()
     private val _uiState = MutableStateFlow(
         HevyntAppUiState(
             activeWorkout = restoredSession?.workout,
@@ -115,6 +136,13 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
             isGlyphSupported = isGlyphSupported,
             isGlyphTimerEnabled = GlyphPreferences.isTimerEnabled(context),
             isGlyphPulseEnabled = GlyphPreferences.isPulseOnComplete(context),
+            isSoftLockSupported = SoftLockAccessibilityService.isSupportedOnDevice,
+            isSoftLockEnabled = RestTimerPreferences.isSoftLockOnCompleteEnabled(context),
+            isSoftLockServiceEnabled = SoftLockAccessibilityService.isEnabledInSettings(context),
+            bodyMetrics = initialBodyMetrics,
+            programSheet = initialProgramSheet,
+            selectedProgressExerciseKey = exerciseProgressPreferences.getSelectedExerciseKey(),
+            exerciseProgressMetric = exerciseProgressPreferences.getSelectedMetric(),
         ),
     )
     val uiState: StateFlow<HevyntAppUiState> = _uiState.asStateFlow()
@@ -165,10 +193,12 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         GlyphPreferences.registerListener(context, glyphPrefsListener)
         observeRoutineLibrary()
         observeJournal()
+        observeExerciseProgress()
         importLegacyHistory()
         recoverInterruptedFinish(activeWorkoutRepository.pendingFinishWorkoutId())
         refreshDerivedWorkoutState()
         scheduleTimerCompletion(_uiState.value.timerState)
+        syncBodyMetricsIfStale()
     }
 
     override fun onCleared() {
@@ -182,10 +212,14 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun selectPage(page: AppPage) {
         _uiState.update { it.copy(selectedPage = page) }
+        if (page == AppPage.Workout) {
+            syncProgramSheetIfStale()
+        }
     }
 
     fun openPrograms() {
         _uiState.update { it.copy(selectedPage = AppPage.Workout, selectedHistoryGraph = null) }
+        syncProgramSheetIfStale()
     }
 
     fun openJournal() {
@@ -219,11 +253,13 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 runCatching {
                     ensureRoutineLibraryReady()
                     val routine = checkNotNull(routineRepository.routine(routineId))
-                    val workout = RoutineWorkoutMapper.fromRoutine(routine)
+                    val baseWorkout = RoutineWorkoutMapper.fromRoutine(routine)
+                    val workout = ProgramSheetWorkoutMapper.applySheetTargetsToWorkout(
+                        workout = baseWorkout,
+                        week = _uiState.value.programSheet.activeWeek,
+                    )
                     val (previousSets, exerciseHistory) = withContext(Dispatchers.IO) {
-                        val p = workoutHistoryRepository.previousSets(workout)
-                        val e = workoutHistoryRepository.exerciseHistory(workout)
-                        p to e
+                        workoutHistoryRepository.workoutHistoryContext(workout)
                     }
                     preparedRoutineStart = PreparedRoutineStart(workout.id, previousSets, exerciseHistory)
                     val started = withContext(Dispatchers.IO) {
@@ -270,9 +306,7 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 when (val result = repeat()) {
                     is RepeatLastWorkoutResult.Started -> {
                         val (previousSets, exerciseHistory) = withContext(Dispatchers.IO) {
-                            val p = workoutHistoryRepository.previousSets(result.workout)
-                            val e = workoutHistoryRepository.exerciseHistory(result.workout)
-                            p to e
+                            workoutHistoryRepository.workoutHistoryContext(result.workout)
                         }
                         openStartedSession(
                             result.workout,
@@ -400,6 +434,32 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun reorderRoutines(folderId: String, orderedRoutineIds: List<String>) {
+        if (orderedRoutineIds.size < 2) return
+        _uiState.update { state ->
+            state.copy(
+                routineFolders = state.routineFolders.map { folder ->
+                    if (folder.id != folderId) {
+                        folder
+                    } else {
+                        val byId = folder.routines.associateBy { it.id }
+                        val reordered = orderedRoutineIds.mapNotNull(byId::get) +
+                            folder.routines.filter { it.id !in orderedRoutineIds }
+                        folder.copy(routines = reordered)
+                    }
+                },
+            )
+        }
+        viewModelScope.launch {
+            runCatching {
+                routineMutationMutex.withLock {
+                    ensureRoutineLibraryReady()
+                    routineRepository.reorderRoutines(folderId, orderedRoutineIds)
+                }
+            }.onFailure { showError("Routine order could not be saved.") }
+        }
+    }
+
     fun requestExerciseSuggestions() {
         if (!suggestionsStale || suggestionsJob?.isActive == true) return
         suggestionsJob = viewModelScope.launch {
@@ -490,6 +550,7 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
             ActiveWorkoutOperations.removeSet(it, exerciseId, setId)
         }?.let { updated ->
             _uiState.update { it.copy(activeWorkout = updated) }
+            refreshDerivedWorkoutState()
             RestTimerManager.reconcileRemovedSet(context, setId)
             setTimerState(RestTimerManager.getState(context))
         }
@@ -636,6 +697,56 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun selectHistoryPhoto(uri: Uri) {
+        val selected = _uiState.value.selectedHistoryGraph ?: return
+        _uiState.update { it.copy(isPhotoBusy = true, errorMessage = null) }
+        viewModelScope.launch {
+            runCatching {
+                workoutPhotoManager.replaceFromPicker(
+                    sessionId = selected.session.id,
+                    contentResolver = context.contentResolver,
+                    uri = uri,
+                )
+            }.onSuccess { savedPhoto ->
+                val graph = workoutHistoryRepository.graph(selected.session.id)
+                val file = withContext(Dispatchers.IO) {
+                    workoutPhotoManager.existingFile(savedPhoto)
+                }
+                _uiState.update {
+                    it.copy(
+                        selectedHistoryGraph = graph,
+                        journalPhotoFiles = file?.let { photoFile ->
+                            it.journalPhotoFiles + (savedPhoto.id to photoFile)
+                        } ?: it.journalPhotoFiles,
+                    )
+                }
+            }.onFailure {
+                showError(it.message ?: "The photo could not be saved.")
+            }
+            _uiState.update { it.copy(isPhotoBusy = false) }
+        }
+    }
+
+    fun removeHistoryPhoto() {
+        val selected = _uiState.value.selectedHistoryGraph ?: return
+        val photo = selected.photos.firstOrNull() ?: return
+        _uiState.update { it.copy(isPhotoBusy = true) }
+        viewModelScope.launch {
+            runCatching { workoutPhotoManager.remove(photo) }
+                .onSuccess {
+                    val graph = workoutHistoryRepository.graph(selected.session.id)
+                    _uiState.update {
+                        it.copy(
+                            selectedHistoryGraph = graph,
+                            journalPhotoFiles = it.journalPhotoFiles - photo.id,
+                        )
+                    }
+                }
+                .onFailure { showError(it.message ?: "The photo could not be removed.") }
+            _uiState.update { it.copy(isPhotoBusy = false) }
+        }
+    }
+
     fun finishRecap(note: String) {
         val recap = _uiState.value.recapGraph ?: return
         viewModelScope.launch {
@@ -667,6 +778,22 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
     fun addRestTime() {
         RestTimerManager.adjust(context, 15)
         setTimerState(RestTimerManager.getState(context))
+    }
+
+    fun setSoftLockEnabled(enabled: Boolean) {
+        RestTimerPreferences.setSoftLockOnCompleteEnabled(context, enabled)
+        val serviceEnabled = SoftLockAccessibilityService.isEnabledInSettings(context)
+        _uiState.update {
+            it.copy(
+                isSoftLockEnabled = enabled,
+                isSoftLockServiceEnabled = serviceEnabled,
+            )
+        }
+        RestTimerManager.refresh(context)
+    }
+
+    fun openSoftLockAccessibilitySettings() {
+        SoftLockAccessibilityService.openAccessibilitySettings(context)
     }
 
     fun skipRestTime() {
@@ -766,6 +893,7 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 if (interrupted?.workout?.id == pendingFinishId) {
                     val committedGraph = workoutHistoryRepository.graph(pendingFinishId)
                     if (committedGraph != null) {
+                        syncFinishedWorkoutToRoutine(interrupted.workout)
                         val cleared = withContext(Dispatchers.IO) {
                             activeWorkoutRepository.clearFinished(pendingFinishId)
                         }
@@ -815,10 +943,8 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         lastPreviousLookupKey = lookupKey
         previousSetsJob?.cancel()
         previousSetsJob = viewModelScope.launch {
-            val (previousSets, exerciseHistory) = withContext(Dispatchers.Default) {
-                val p = workoutHistoryRepository.previousSets(workout)
-                val e = workoutHistoryRepository.exerciseHistory(workout)
-                p to e
+            val (previousSets, exerciseHistory) = withContext(Dispatchers.IO) {
+                workoutHistoryRepository.workoutHistoryContext(workout)
             }
             if (PreviousLookupKey.from(_uiState.value.activeWorkout) == lookupKey) {
                 _uiState.update { it.copy(previousSets = previousSets, exerciseHistory = exerciseHistory) }
@@ -843,6 +969,9 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 routineBuildTarget = target,
                 isWorkoutExpanded = true,
                 selectedPage = AppPage.Workout,
+                isSavedExercisesOpen = false,
+                savedExercisesDraft = null,
+                showDiscardSavedExercisesConfirm = false,
                 previousSets = preparedPreviousSets ?: it.previousSets,
                 exerciseHistory = preparedExerciseHistory ?: it.exerciseHistory,
             )
@@ -912,6 +1041,8 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
             )
             coordinator.finish(workout, System.currentTimeMillis())
                 .onSuccess { graph ->
+                    syncFinishedWorkoutToRoutine(workout)
+                    maybeAdvanceProgramSheetWeek(workout)
                     RestTimerManager.cancel(context)
                     setTimerState(null)
                     _uiState.update {
@@ -923,11 +1054,33 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                             recapGraph = graph,
                         )
                     }
+                    suggestionsStale = true
                 }
                 .onFailure {
                     showError("The workout could not be saved. Your active workout is still available.")
                 }
             _uiState.update { it.copy(isWorkoutSaving = false) }
+        }
+    }
+
+    private suspend fun syncFinishedWorkoutToRoutine(workout: ActiveWorkout) {
+        if (_uiState.value.programSheet.isConfigured) return
+        val routineId = workout.sourceRoutineId ?: return
+        runCatching {
+            routineMutationMutex.withLock {
+                ensureRoutineLibraryReady()
+                val (folderId, existingRoutine) = routineRepository.routineWithFolder(routineId)
+                    ?: return@withLock
+                val updatedRoutine = RoutineWorkoutMapper.syncRoutineFromWorkout(
+                    existingRoutine = existingRoutine,
+                    workout = workout,
+                ) ?: return@withLock
+                routineRepository.saveRoutine(
+                    folderId = folderId,
+                    routine = updatedRoutine,
+                    existingRoutineId = existingRoutine.id,
+                )
+            }
         }
     }
 
@@ -1019,19 +1172,6 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun loadWorkoutPlanFromJson(json: String) {
-        viewModelScope.launch {
-            when (val result = workoutPlanCoordinator.loadPlanFromJson(json)) {
-                is WorkoutPlanParseResult.Failure -> {
-                    _uiState.update { it.copy(workoutPlanImportError = result.error) }
-                }
-                is WorkoutPlanParseResult.Success -> {
-                    handleParsedWorkoutPlan(result.plan)
-                }
-            }
-        }
-    }
-
     private suspend fun handleParsedWorkoutPlan(plan: com.yifeng.commandcenter.data.WorkoutPlanDto) {
         ensureRoutineLibraryReady()
         val exists = workoutPlanCoordinator.checkPlanExists(plan.programId)
@@ -1085,6 +1225,10 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun openSavedExercises() {
+        if (_uiState.value.activeWorkout != null) {
+            showError("Finish or discard the active workout before managing saved exercises.")
+            return
+        }
         viewModelScope.launch {
             runCatching {
                 ensureRoutineLibraryReady()
@@ -1105,18 +1249,6 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun renameSavedExercise(oldName: String, newName: String) {
-        _uiState.update { current ->
-            val draft = current.savedExercisesDraft ?: return@update current
-            val updated = SavedExercisesOperations.renameExercise(
-                folders = draft.currentFolders,
-                oldName = oldName,
-                newName = newName,
-            )
-            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
-        }
-    }
-
     fun editSavedExerciseDetails(oldName: String, newName: String, notes: String, restSeconds: Int) {
         _uiState.update { current ->
             val draft = current.savedExercisesDraft ?: return@update current
@@ -1127,7 +1259,17 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 newNotes = notes,
                 newRestSeconds = restSeconds,
             )
-            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
+            val updatedRenames = SavedExercisesOperations.recordHistoryRename(
+                existing = draft.historyRenames,
+                oldName = oldName,
+                newName = newName,
+            )
+            current.copy(
+                savedExercisesDraft = draft.copy(
+                    currentFolders = updated,
+                    historyRenames = updatedRenames,
+                ),
+            )
         }
     }
 
@@ -1139,7 +1281,17 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 sourceName = sourceName,
                 targetName = targetName,
             )
-            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
+            val updatedRenames = SavedExercisesOperations.recordHistoryRename(
+                existing = draft.historyRenames,
+                oldName = sourceName,
+                newName = targetName,
+            )
+            current.copy(
+                savedExercisesDraft = draft.copy(
+                    currentFolders = updated,
+                    historyRenames = updatedRenames,
+                ),
+            )
         }
     }
 
@@ -1169,8 +1321,24 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
     fun deduplicateAllSavedExercises() {
         _uiState.update { current ->
             val draft = current.savedExercisesDraft ?: return@update current
+            val summariesBefore = draft.exercises
             val updated = SavedExercisesOperations.deduplicateAll(draft.currentFolders)
-            current.copy(savedExercisesDraft = draft.copy(currentFolders = updated))
+            var updatedRenames = draft.historyRenames
+            summariesBefore.forEach { summary ->
+                if (summary.hasCasingOrWhitespaceVariants) {
+                    updatedRenames = SavedExercisesOperations.recordHistoryRename(
+                        existing = updatedRenames,
+                        oldName = summary.canonicalName,
+                        newName = summary.canonicalName,
+                    )
+                }
+            }
+            current.copy(
+                savedExercisesDraft = draft.copy(
+                    currentFolders = updated,
+                    historyRenames = updatedRenames,
+                ),
+            )
         }
     }
 
@@ -1181,6 +1349,9 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
                 routineMutationMutex.withLock {
                     ensureRoutineLibraryReady()
                     routineRepository.replaceFolders(draft.currentFolders)
+                    if (draft.historyRenames.isNotEmpty()) {
+                        workoutHistoryRepository.renameExercises(draft.historyRenames)
+                    }
                 }
             }.onSuccess {
                 _uiState.update {
@@ -1224,6 +1395,313 @@ class HevyntAppViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun dismissDiscardSavedExercisesConfirm() {
         _uiState.update { it.copy(showDiscardSavedExercisesConfirm = false) }
+    }
+
+    // --- Body Metrics (Google Sheets sync) ---
+
+    fun onAppResumed() {
+        val serviceEnabled = SoftLockAccessibilityService.isEnabledInSettings(context)
+        if (_uiState.value.isSoftLockServiceEnabled != serviceEnabled) {
+            _uiState.update { it.copy(isSoftLockServiceEnabled = serviceEnabled) }
+            RestTimerManager.refresh(context)
+        }
+        syncBodyMetricsIfStale()
+    }
+
+    fun openBodyMetrics() {
+        val metrics = _uiState.value.bodyMetrics
+        if (!metrics.isConfigured) {
+            _uiState.update { it.copy(showBodyMetricsConfigDialog = true) }
+        } else {
+            _uiState.update { it.copy(isBodyMetricsOpen = true) }
+            syncBodyMetricsIfStale()
+        }
+    }
+
+    fun closeBodyMetrics() {
+        _uiState.update { it.copy(isBodyMetricsOpen = false) }
+    }
+
+    fun selectBodyMetricsPeriod(period: BodyMetricsPeriod) {
+        _uiState.update { it.copy(bodyMetricsPeriod = period) }
+    }
+
+    fun openBodyMetricsConfig() {
+        _uiState.update { it.copy(showBodyMetricsConfigDialog = true) }
+    }
+
+    fun dismissBodyMetricsConfig() {
+        _uiState.update { it.copy(showBodyMetricsConfigDialog = false) }
+    }
+
+    fun saveBodyMetricsSheetUrl(rawUrl: String) {
+        val trimmed = rawUrl.trim()
+        bodyMetricsRepository.saveSheetUrl(trimmed)
+        _uiState.update {
+            it.copy(
+                showBodyMetricsConfigDialog = false,
+                isBodyMetricsOpen = true,
+                bodyMetrics = it.bodyMetrics.copy(
+                    sheetUrl = trimmed,
+                    lastError = null,
+                ),
+            )
+        }
+        refreshBodyMetrics(force = true)
+    }
+
+    fun disconnectBodyMetricsSheet() {
+        bodyMetricsSyncJob?.cancel()
+        bodyMetricsRepository.clearConfiguration()
+        _uiState.update {
+            it.copy(
+                showBodyMetricsConfigDialog = false,
+                isBodyMetricsOpen = false,
+                bodyMetrics = BodyMetricsSyncState(),
+            )
+        }
+    }
+
+    fun refreshBodyMetrics(force: Boolean = true) {
+        val current = _uiState.value.bodyMetrics
+        if (!current.isConfigured) return
+        if (!force && current.isSyncing) return
+        if (force && bodyMetricsSyncJob?.isActive == true) {
+            bodyMetricsSyncJob?.cancel()
+        }
+        val targetUrl = current.sheetUrl
+        bodyMetricsSyncJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(bodyMetrics = it.bodyMetrics.copy(isSyncing = true, lastError = null))
+            }
+            when (val outcome = bodyMetricsRepository.syncFromUrl(targetUrl)) {
+                is BodyMetricsSyncOutcome.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            bodyMetrics = it.bodyMetrics.copy(
+                                sheetUrl = targetUrl,
+                                entries = outcome.entries,
+                                lastSyncedAtMillis = outcome.syncedAtMillis,
+                                isSyncing = false,
+                                lastError = null,
+                            ),
+                        )
+                    }
+                }
+                is BodyMetricsSyncOutcome.Failure -> {
+                    _uiState.update {
+                        it.copy(
+                            bodyMetrics = it.bodyMetrics.copy(
+                                isSyncing = false,
+                                lastError = outcome.message,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun syncBodyMetricsIfStale() {
+        val current = _uiState.value.bodyMetrics
+        if (!current.isConfigured || current.isSyncing) return
+        if (bodyMetricsRepository.isStale(current.lastSyncedAtMillis)) {
+            refreshBodyMetrics(force = false)
+        }
+    }
+
+    // --- Google Sheet Program ---
+
+    fun openProgramSheetConfig() {
+        _uiState.update { it.copy(showProgramSheetConfigDialog = true) }
+    }
+
+    fun dismissProgramSheetConfig() {
+        _uiState.update { it.copy(showProgramSheetConfigDialog = false) }
+    }
+
+    fun saveProgramSheetUrl(rawUrl: String) {
+        val trimmed = rawUrl.trim()
+        _uiState.update {
+            it.copy(
+                showProgramSheetConfigDialog = false,
+                programSheet = it.programSheet.copy(
+                    sheetUrl = trimmed,
+                    lastError = null,
+                ),
+            )
+        }
+        refreshProgramSheet(force = true)
+    }
+
+    fun disconnectProgramSheet() {
+        programSheetSyncJob?.cancel()
+        programSheetRepository.clearConfiguration()
+        _uiState.update {
+            it.copy(
+                showProgramSheetConfigDialog = false,
+                programSheet = ProgramSheetState(),
+            )
+        }
+    }
+
+    fun selectProgramSheetWeek(weekNumber: Int) {
+        programSheetRepository.setActiveWeek(weekNumber)
+        _uiState.update {
+            it.copy(programSheet = it.programSheet.copy(activeWeekNumber = weekNumber))
+        }
+    }
+
+    private fun syncProgramSheetIfStale() {
+        val current = _uiState.value.programSheet
+        if (!current.isConfigured || current.isSyncing) return
+        if (programSheetRepository.isStale(current.lastSyncedAtMillis)) {
+            refreshProgramSheet(force = false)
+        }
+    }
+
+    private fun maybeAdvanceProgramSheetWeek(workout: ActiveWorkout) {
+        val current = _uiState.value.programSheet
+        if (!current.hasData) return
+        val nextWeek = ProgramSheetWorkoutMapper.nextWeekAfterFinishing(workout, current) ?: return
+        selectProgramSheetWeek(nextWeek)
+    }
+
+    fun refreshProgramSheet(force: Boolean = true) {
+        val current = _uiState.value.programSheet
+        if (!current.isConfigured) return
+        if (!force && current.isSyncing) return
+        if (force && programSheetSyncJob?.isActive == true) {
+            programSheetSyncJob?.cancel()
+        }
+        val targetUrl = current.sheetUrl
+        programSheetSyncJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(programSheet = it.programSheet.copy(isSyncing = true, lastError = null))
+            }
+            when (val outcome = programSheetRepository.syncFromUrl(targetUrl)) {
+                is ProgramSheetSyncOutcome.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            programSheet = it.programSheet.copy(
+                                sheetUrl = targetUrl,
+                                weeks = outcome.weeks,
+                                activeWeekNumber = outcome.activeWeekNumber,
+                                lastSyncedAtMillis = outcome.syncedAtMillis,
+                                isSyncing = false,
+                                lastError = null,
+                            ),
+                        )
+                    }
+                }
+                is ProgramSheetSyncOutcome.Failure -> {
+                    _uiState.update {
+                        it.copy(
+                            programSheet = it.programSheet.copy(
+                                isSyncing = false,
+                                lastError = outcome.message,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun startProgramSheetDay(weekNumber: Int, dayName: String) {
+        if (resumeExistingWorkoutIfPresent() || workoutStartJob?.isActive == true) return
+        val week = _uiState.value.programSheet.weeks.firstOrNull { it.weekNumber == weekNumber } ?: return
+        val day = week.days.firstOrNull { it.dayName == dayName } ?: return
+        workoutStartJob = viewModelScope.launch {
+            try {
+                runCatching {
+                    val workout = ProgramSheetWorkoutMapper.fromSheetDay(week = week, day = day)
+                    val (previousSets, exerciseHistory) = withContext(Dispatchers.IO) {
+                        workoutHistoryRepository.workoutHistoryContext(workout)
+                    }
+                    preparedRoutineStart = PreparedRoutineStart(workout.id, previousSets, exerciseHistory)
+                    val started = withContext(Dispatchers.IO) {
+                        activeWorkoutRepository.startIfIdle(ActiveWorkoutSession(workout))
+                    }
+                    Triple(workout, previousSets to exerciseHistory, started)
+                }.onSuccess { (workout, historyPair, started) ->
+                    if (started) {
+                        openStartedSession(
+                            workout,
+                            target = null,
+                            preparedPreviousSets = historyPair.first,
+                            preparedExerciseHistory = historyPair.second,
+                        )
+                    } else {
+                        resumePersistedWorkout()
+                    }
+                }.onFailure { failure ->
+                    if (failure is CancellationException) throw failure
+                    showError("This workout could not be started from the Google Sheet.")
+                }
+            } finally {
+                preparedRoutineStart = null
+            }
+        }
+    }
+
+    // --- Exercise Progress ---
+
+    private fun observeExerciseProgress() {
+        viewModelScope.launch {
+            workoutHistoryRepository.observeCompletedExerciseSets().collectLatest { rows ->
+                val options = withContext(Dispatchers.Default) {
+                    ExerciseProgressCalculator.buildOptions(rows)
+                }
+                _uiState.update { current ->
+                    val currentKey = current.selectedProgressExerciseKey
+                    val resolvedKey = when {
+                        currentKey != null && options.any { it.normalizedKey == currentKey } -> currentKey
+                        else -> options.firstOrNull()?.normalizedKey
+                    }
+                    current.copy(
+                        exerciseProgressRows = rows,
+                        exerciseProgressOptions = options,
+                        selectedProgressExerciseKey = resolvedKey,
+                    )
+                }
+            }
+        }
+    }
+
+    fun openExerciseProgress() {
+        _uiState.update { it.copy(isExerciseProgressOpen = true) }
+    }
+
+    fun closeExerciseProgress() {
+        _uiState.update { it.copy(isExerciseProgressOpen = false) }
+    }
+
+    fun openExerciseProgressPicker() {
+        _uiState.update { it.copy(showExerciseProgressPicker = true) }
+    }
+
+    fun dismissExerciseProgressPicker() {
+        _uiState.update { it.copy(showExerciseProgressPicker = false) }
+    }
+
+    fun selectProgressExercise(normalizedKey: String) {
+        exerciseProgressPreferences.setSelectedExerciseKey(normalizedKey)
+        _uiState.update {
+            it.copy(
+                selectedProgressExerciseKey = normalizedKey,
+                showExerciseProgressPicker = false,
+            )
+        }
+    }
+
+    fun selectExerciseProgressMetric(metric: ExerciseProgressMetric) {
+        exerciseProgressPreferences.setSelectedMetric(metric)
+        _uiState.update { it.copy(exerciseProgressMetric = metric) }
+    }
+
+    fun selectExerciseProgressPeriod(period: ExerciseProgressPeriod) {
+        _uiState.update { it.copy(exerciseProgressPeriod = period) }
     }
 
     private fun showError(message: String) {

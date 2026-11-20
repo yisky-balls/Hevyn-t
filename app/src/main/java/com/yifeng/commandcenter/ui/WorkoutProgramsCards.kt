@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,34 +25,44 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.yifeng.commandcenter.R
 import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.RoutineFolderSummary
 import com.yifeng.commandcenter.data.RoutineRecommendation
 import com.yifeng.commandcenter.data.RoutineSummary
+import com.yifeng.commandcenter.data.WorkoutCalendar
+import com.yifeng.commandcenter.data.cleanRoutineName as stripRoutineDayPrefix
 import com.yifeng.commandcenter.ui.theme.HevyntAccent
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntDivider
@@ -65,11 +76,7 @@ import kotlinx.coroutines.delay
 private val RoutinePlayCircleBg = Color(0xFF222225)
 private val RoutinePlayCircleBorder = Color(0xFF333338)
 
-internal fun cleanRoutineName(name: String): String =
-    name.replace(
-        Regex("^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN|DAY\\s*\\d+)\\s*[-—–:.]\\s*", RegexOption.IGNORE_CASE),
-        "",
-    ).trim()
+internal fun cleanRoutineName(name: String): String = stripRoutineDayPrefix(name)
 
 @Composable
 internal fun ContinueWorkoutCard(workout: ActiveWorkout, onContinue: () -> Unit) {
@@ -209,6 +216,8 @@ internal fun HeroUpNextCard(
 
 @Composable
 internal fun QuickActionsRow(
+    canStartEmpty: Boolean = true,
+    canRepeatLast: Boolean = true,
     onStartEmpty: () -> Unit,
     onRepeatLast: () -> Unit,
     modifier: Modifier = Modifier,
@@ -217,6 +226,7 @@ internal fun QuickActionsRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        val emptyContentColor = if (canStartEmpty) HevyntTextPrimary else HevyntTextSecondary.copy(alpha = 0.5f)
         Surface(
             shape = RoundedCornerShape(26.dp),
             color = HevyntSurfaceRaised,
@@ -224,7 +234,7 @@ internal fun QuickActionsRow(
                 .weight(1f)
                 .height(52.dp)
                 .clip(RoundedCornerShape(26.dp))
-                .clickable(onClick = onStartEmpty),
+                .clickable(enabled = canStartEmpty, onClick = onStartEmpty),
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -234,19 +244,20 @@ internal fun QuickActionsRow(
                 Icon(
                     imageVector = Icons.Outlined.Add,
                     contentDescription = null,
-                    tint = HevyntTextPrimary,
+                    tint = emptyContentColor,
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "Empty workout",
-                    color = HevyntTextPrimary,
+                    color = emptyContentColor,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
                 )
             }
         }
 
+        val repeatContentColor = if (canRepeatLast) HevyntTextPrimary else HevyntTextSecondary.copy(alpha = 0.5f)
         Surface(
             shape = RoundedCornerShape(26.dp),
             color = HevyntSurfaceRaised,
@@ -254,7 +265,7 @@ internal fun QuickActionsRow(
                 .weight(1f)
                 .height(52.dp)
                 .clip(RoundedCornerShape(26.dp))
-                .clickable(onClick = onRepeatLast),
+                .clickable(enabled = canRepeatLast, onClick = onRepeatLast),
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -264,13 +275,13 @@ internal fun QuickActionsRow(
                 Icon(
                     imageVector = Icons.Outlined.Refresh,
                     contentDescription = null,
-                    tint = HevyntTextPrimary,
+                    tint = repeatContentColor,
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "Repeat last",
-                    color = HevyntTextPrimary,
+                    color = repeatContentColor,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
                 )
@@ -293,8 +304,47 @@ internal fun RoutineFolderCard(
     onAddRoutine: () -> Unit,
     onEditRoutine: (String) -> Unit,
     onDeleteRoutine: (String) -> Unit,
+    onReorderRoutines: (List<String>) -> Unit = {},
 ) {
     var folderMenuExpanded by rememberSaveable(folder.id) { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    var localRoutines by remember(folder.id) { mutableStateOf(folder.routines) }
+    var draggingRoutineId by remember(folder.id) { mutableStateOf<String?>(null) }
+    var dragOffsetY by remember(folder.id) { mutableFloatStateOf(0f) }
+    val itemHeightsPx = remember(folder.id) { mutableStateMapOf<String, Int>() }
+
+    LaunchedEffect(folder.routines, draggingRoutineId) {
+        if (draggingRoutineId == null) {
+            localRoutines = folder.routines
+        }
+    }
+
+    if (folderMenuExpanded) {
+        val countLabel = "${folder.routines.size} routine${if (folder.routines.size == 1) "" else "s"}"
+        HevyntActionSheet(
+            title = folder.name,
+            subtitle = countLabel,
+            actions = listOf(
+                HevyntSheetAction(
+                    label = "Add routine",
+                    icon = Icons.Outlined.Add,
+                    onClick = onAddRoutine,
+                ),
+                HevyntSheetAction(
+                    label = "Rename folder",
+                    icon = Icons.Outlined.Edit,
+                    onClick = onEditFolder,
+                ),
+                HevyntSheetAction(
+                    label = "Delete folder",
+                    icon = Icons.Outlined.Delete,
+                    destructive = true,
+                    onClick = onDeleteFolder,
+                ),
+            ),
+            onDismiss = { folderMenuExpanded = false },
+        )
+    }
 
     Surface(
         shape = RoundedCornerShape(24.dp),
@@ -302,69 +352,44 @@ internal fun RoutineFolderCard(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Box {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(
-                            onClick = onToggleExpand,
-                            onLongClick = { folderMenuExpanded = true },
-                        )
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = folder.name,
-                            fontWeight = FontWeight.Bold,
-                            color = HevyntTextPrimary,
-                            fontSize = 18.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            text = "${folder.routines.size} routine${if (folder.routines.size == 1) "" else "s"}",
-                            color = HevyntTextSecondary,
-                            fontSize = 13.sp,
-                        )
-                    }
-
-                    Icon(
-                        imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-                        contentDescription = if (expanded) "Collapse" else "Expand",
-                        tint = HevyntTextSecondary,
-                        modifier = Modifier.size(22.dp),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        onClick = onToggleExpand,
+                        onLongClick = { folderMenuExpanded = true },
+                    )
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = folder.name,
+                        fontWeight = FontWeight.Bold,
+                        color = HevyntTextPrimary,
+                        fontSize = 18.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = "${folder.routines.size} routine${if (folder.routines.size == 1) "" else "s"}",
+                        color = HevyntTextSecondary,
+                        fontSize = 13.sp,
                     )
                 }
 
-                DropdownMenu(
-                    expanded = folderMenuExpanded,
-                    onDismissRequest = { folderMenuExpanded = false },
-                    containerColor = HevyntSurfaceInteractive,
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Add routine") },
-                        leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                        onClick = { folderMenuExpanded = false; onAddRoutine() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Rename folder") },
-                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                        onClick = { folderMenuExpanded = false; onEditFolder() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete folder", color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                        },
-                        onClick = { folderMenuExpanded = false; onDeleteFolder() },
-                    )
-                }
+                Icon(
+                    imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = HevyntTextSecondary,
+                    modifier = Modifier.size(22.dp),
+                )
             }
 
             if (expanded) {
-                folder.routines.forEach { routine ->
+                localRoutines.forEach { routine ->
+                    val isDragging = draggingRoutineId == routine.id
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 18.dp)
@@ -380,82 +405,171 @@ internal fun RoutineFolderCard(
 
                     var routineMenuExpanded by rememberSaveable(routine.id) { mutableStateOf(false) }
 
-                    Box {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .combinedClickable(
-                                    onClick = { onOpenRoutine(routine.id) },
-                                    onLongClick = { routineMenuExpanded = true },
-                                )
-                                .padding(horizontal = 18.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(end = 12.dp),
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (isUpNext) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(6.dp)
-                                                .background(HevyntAccent, CircleShape),
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                    }
-                                    Text(
-                                        text = cleanTitle,
-                                        fontWeight = FontWeight.Bold,
-                                        color = HevyntTextPrimary,
-                                        fontSize = 17.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                                Spacer(Modifier.height(3.dp))
-                                Text(
-                                    text = subtitle,
-                                    color = HevyntTextSecondary,
-                                    fontSize = 13.sp,
-                                )
-                            }
+                    if (routineMenuExpanded) {
+                        HevyntActionSheet(
+                            title = cleanTitle,
+                            subtitle = "${routine.exerciseCount} exercise${if (routine.exerciseCount == 1) "" else "s"}",
+                            actions = listOf(
+                                HevyntSheetAction(
+                                    label = "Edit routine",
+                                    icon = Icons.Outlined.Edit,
+                                    onClick = { onEditRoutine(routine.id) },
+                                ),
+                                HevyntSheetAction(
+                                    label = "Delete routine",
+                                    icon = Icons.Outlined.Delete,
+                                    destructive = true,
+                                    onClick = { onDeleteRoutine(routine.id) },
+                                ),
+                            ),
+                            onDismiss = { routineMenuExpanded = false },
+                        )
+                    }
 
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(RoutinePlayCircleBg)
-                                    .border(1.dp, RoutinePlayCircleBorder, CircleShape)
-                                    .clickable { onStartRoutine(routine.id) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_play_arrow_filled),
-                                    contentDescription = "Start routine",
-                                    tint = HevyntTextPrimary,
-                                    modifier = Modifier.size(14.dp),
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .zIndex(if (isDragging) 1f else 0f)
+                            .onSizeChanged { size ->
+                                if (size.height > 0) itemHeightsPx[routine.id] = size.height
+                            }
+                            .graphicsLayer {
+                                if (isDragging) {
+                                    translationY = dragOffsetY
+                                    scaleX = 1.02f
+                                    scaleY = 1.02f
+                                    shadowElevation = 12f
+                                }
+                            }
+                            .background(
+                                color = if (isDragging) HevyntSurfaceInteractive else Color.Transparent,
+                                shape = RoundedCornerShape(16.dp),
+                            )
+                            .pointerInput(folder.id, routine.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        if (localRoutines.size < 2) return@detectDragGesturesAfterLongPress
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        draggingRoutineId = routine.id
+                                        dragOffsetY = 0f
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        if (draggingRoutineId != routine.id) return@detectDragGesturesAfterLongPress
+                                        change.consume()
+                                        dragOffsetY += dragAmount.y
+                                        val currentIndex = localRoutines.indexOfFirst { it.id == routine.id }
+                                        if (currentIndex < 0) return@detectDragGesturesAfterLongPress
+
+                                        if (dragOffsetY > 0f && currentIndex < localRoutines.lastIndex) {
+                                            val nextItem = localRoutines[currentIndex + 1]
+                                            val threshold = (itemHeightsPx[nextItem.id] ?: 160) * 0.55f
+                                            if (dragOffsetY >= threshold) {
+                                                val mutable = localRoutines.toMutableList()
+                                                val moved = mutable.removeAt(currentIndex)
+                                                mutable.add(currentIndex + 1, moved)
+                                                localRoutines = mutable
+                                                dragOffsetY -= (itemHeightsPx[nextItem.id] ?: 160).toFloat()
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            }
+                                        } else if (dragOffsetY < 0f && currentIndex > 0) {
+                                            val prevItem = localRoutines[currentIndex - 1]
+                                            val threshold = (itemHeightsPx[prevItem.id] ?: 160) * 0.55f
+                                            if (-dragOffsetY >= threshold) {
+                                                val mutable = localRoutines.toMutableList()
+                                                val moved = mutable.removeAt(currentIndex)
+                                                mutable.add(currentIndex - 1, moved)
+                                                localRoutines = mutable
+                                                dragOffsetY += (itemHeightsPx[prevItem.id] ?: 160).toFloat()
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            }
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        if (draggingRoutineId == routine.id) {
+                                            val orderedIds = localRoutines.map { it.id }
+                                            draggingRoutineId = null
+                                            dragOffsetY = 0f
+                                            if (orderedIds != folder.routines.map { it.id }) {
+                                                onReorderRoutines(orderedIds)
+                                            }
+                                        }
+                                    },
+                                    onDragCancel = {
+                                        draggingRoutineId = null
+                                        dragOffsetY = 0f
+                                        localRoutines = folder.routines
+                                    },
                                 )
                             }
+                            .clickable(enabled = draggingRoutineId == null) { onOpenRoutine(routine.id) }
+                            .padding(start = 18.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 6.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isUpNext) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(HevyntAccent, CircleShape),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                Text(
+                                    text = cleanTitle,
+                                    fontWeight = FontWeight.Bold,
+                                    color = HevyntTextPrimary,
+                                    fontSize = 17.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = subtitle,
+                                color = HevyntTextSecondary,
+                                fontSize = 13.sp,
+                            )
                         }
 
-                        DropdownMenu(
-                            expanded = routineMenuExpanded,
-                            onDismissRequest = { routineMenuExpanded = false },
-                            containerColor = HevyntSurfaceInteractive,
+                        IconButton(
+                            onClick = { routineMenuExpanded = true },
+                            modifier = Modifier.size(36.dp),
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Edit routine") },
-                                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                                onClick = { routineMenuExpanded = false; onEditRoutine(routine.id) },
+                            Icon(
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = "Routine options",
+                                tint = HevyntTextSecondary,
+                                modifier = Modifier.size(18.dp),
                             )
-                            DropdownMenuItem(
-                                text = { Text("Delete routine", color = MaterialTheme.colorScheme.error) },
-                                leadingIcon = {
-                                    Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        }
+
+                        Spacer(Modifier.width(4.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(RoutinePlayCircleBg)
+                                .border(1.dp, RoutinePlayCircleBorder, CircleShape)
+                                .clickable {
+                                    if (routine.exerciseCount > 0) {
+                                        onStartRoutine(routine.id)
+                                    } else {
+                                        onOpenRoutine(routine.id)
+                                    }
                                 },
-                                onClick = { routineMenuExpanded = false; onDeleteRoutine(routine.id) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_play_arrow_filled),
+                                contentDescription = if (routine.exerciseCount > 0) "Start routine" else "Edit routine",
+                                tint = if (routine.exerciseCount > 0) HevyntTextPrimary else HevyntTextSecondary,
+                                modifier = Modifier.size(14.dp),
                             )
                         }
                     }
@@ -466,10 +580,10 @@ internal fun RoutineFolderCard(
 }
 
 internal fun formatLastDoneShort(completedAtMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
-    val elapsedDays = TimeUnit.MILLISECONDS.toDays((nowMillis - completedAtMillis).coerceAtLeast(0L))
+    val elapsedDays = WorkoutCalendar.daysBetweenLocalDates(completedAtMillis, nowMillis)
     return when (elapsedDays) {
-        0L -> "Last done today"
-        1L -> "Last done yesterday"
+        0 -> "Last done today"
+        1 -> "Last done yesterday"
         else -> "Last done ${elapsedDays}d ago"
     }
 }

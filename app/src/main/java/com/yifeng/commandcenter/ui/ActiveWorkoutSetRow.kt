@@ -25,8 +25,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -127,6 +125,34 @@ internal fun SetRow(
 
     val isActive = !set.completed && isSelected
 
+    if (menuExpanded) {
+        val subtitle = previous?.let { "Previous · ${PreviousSetResolver.format(it)}" }
+        HevyntActionSheet(
+            title = "Set ${index + 1}",
+            subtitle = subtitle,
+            actions = listOf(
+                HevyntSheetAction(
+                    label = "Duplicate set",
+                    icon = Icons.Outlined.Add,
+                    onClick = onDuplicate,
+                ),
+                HevyntSheetAction(
+                    label = "Copy previous",
+                    icon = Icons.Outlined.Refresh,
+                    enabled = previous != null || precedingSet != null,
+                    onClick = onCopy,
+                ),
+                HevyntSheetAction(
+                    label = "Remove set",
+                    icon = Icons.Outlined.Delete,
+                    destructive = true,
+                    onClick = onDelete,
+                ),
+            ),
+            onDismiss = { menuExpanded = false },
+        )
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -157,69 +183,6 @@ internal fun SetRow(
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                     )
                 }
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-                containerColor = HevyntSurfaceInteractive,
-            ) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = "DUPLICATE SET",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onDuplicate()
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Outlined.Add,
-                            contentDescription = null,
-                        )
-                    },
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = "COPY PREVIOUS",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    },
-                    enabled = previous != null || precedingSet != null,
-                    onClick = {
-                        menuExpanded = false
-                        onCopy()
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Outlined.Refresh,
-                            contentDescription = null,
-                        )
-                    },
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = "REMOVE SET",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onDelete()
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Outlined.Delete,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                    },
-                )
             }
         }
 

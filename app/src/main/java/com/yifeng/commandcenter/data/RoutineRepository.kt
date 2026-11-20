@@ -1,7 +1,6 @@
 package com.yifeng.commandcenter.data
 
 import android.content.Context
-import android.content.SharedPreferences
 import com.yifeng.commandcenter.widget.WorkoutWidgetUpdateDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -74,6 +73,9 @@ class RoutineRepository private constructor(
 
     suspend fun routine(routineId: String): Routine? = dao.routine(routineId)?.toModel()
 
+    suspend fun routineWithFolder(routineId: String): Pair<String, Routine>? =
+        dao.routine(routineId)?.let { it.routine.folderId to it.toModel() }
+
     suspend fun createFolder(name: String, id: String = UUID.randomUUID().toString()) {
         val nextPosition = (dao.maxFolderPosition() ?: -1) + 1
         dao.upsertFolder(RoutineFolderEntity(id = id, name = name, position = nextPosition))
@@ -92,6 +94,11 @@ class RoutineRepository private constructor(
 
     suspend fun deleteRoutine(routineId: String) {
         dao.deleteRoutineById(routineId)
+        notifyLibraryChanged()
+    }
+
+    suspend fun reorderRoutines(folderId: String, orderedRoutineIds: List<String>) {
+        dao.reorderRoutines(folderId, orderedRoutineIds)
         notifyLibraryChanged()
     }
 

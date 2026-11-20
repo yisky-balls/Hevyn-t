@@ -35,12 +35,21 @@ data class SavedExerciseSummary(
 
 /**
  * Working draft state for managing saved exercises before committing changes to Room.
+ *
+ * [historyRenames] maps normalized old exercise keys to their new canonical names so that
+ * committing also updates past workout history and keeps ExerciseAutocomplete and PreviousSetResolver
+ * consistent with the edited catalog.
  */
 data class SavedExercisesDraft(
     val initialFolders: List<RoutineFolder>,
     val currentFolders: List<RoutineFolder>,
+    val historyRenames: Map<String, String> = emptyMap(),
 ) {
     val hasChanges: Boolean get() = initialFolders != currentFolders
-    val exercises: List<SavedExerciseSummary> get() = SavedExercisesOperations.extractSavedExercises(currentFolders)
-    val duplicateCount: Int get() = SavedExercisesOperations.countDuplicates(currentFolders)
+    val exercises: List<SavedExerciseSummary> by lazy {
+        SavedExercisesOperations.extractSavedExercises(currentFolders)
+    }
+    val duplicateCount: Int by lazy {
+        SavedExercisesOperations.countDuplicates(exercises)
+    }
 }

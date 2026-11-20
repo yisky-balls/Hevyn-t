@@ -330,6 +330,12 @@ class FakeRoutineLibraryDao : RoutineLibraryDao() {
         return 1
     }
 
+    override suspend fun updateRoutinePosition(folderId: String, routineId: String, position: Int): Int {
+        val current = routines[routineId]?.takeIf { it.folderId == folderId } ?: return 0
+        routines[routineId] = current.copy(position = position)
+        return 1
+    }
+
     override suspend fun maxFolderPosition(): Int? = folders.values.maxOfOrNull { it.position }
     override suspend fun maxRoutinePosition(folderId: String): Int? =
         routines.values.filter { it.folderId == folderId }.maxOfOrNull { it.position }

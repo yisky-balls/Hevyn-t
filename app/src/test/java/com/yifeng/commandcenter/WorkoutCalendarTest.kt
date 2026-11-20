@@ -130,6 +130,25 @@ class WorkoutCalendarTest {
         assertEquals("400 kg", WorkoutCalendar.formatVolumeTonnage(400.0))
     }
 
+    @Test
+    fun daysBetweenLocalDates_distinguishesYesterdayNightFromTodayMorning() {
+        val yesterdayNight = date(2026, Calendar.NOVEMBER, 10, hour = 22)
+        val todayMorning = date(2026, Calendar.NOVEMBER, 11, hour = 8)
+        val sameDayLater = date(2026, Calendar.NOVEMBER, 10, hour = 23)
+
+        assertEquals(1, WorkoutCalendar.daysBetweenLocalDates(yesterdayNight, todayMorning, utc))
+        assertEquals(0, WorkoutCalendar.daysBetweenLocalDates(yesterdayNight, sameDayLater, utc))
+    }
+
+    @Test
+    fun dateRanges_distinguishSingleDayFromMultiDayRanges() {
+        val dayRange = WorkoutCalendar.dayRange(2026, Calendar.NOVEMBER, 11, utc)
+        val monthRange = WorkoutCalendar.monthRange(2026, Calendar.NOVEMBER, utc)
+
+        assertTrue(!dayRange.isMultiDay)
+        assertTrue(monthRange.isMultiDay)
+    }
+
     private fun session(
         id: String,
         completedAtMillis: Long,

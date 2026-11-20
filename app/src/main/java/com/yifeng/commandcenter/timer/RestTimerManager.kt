@@ -11,6 +11,9 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
+import android.view.View
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -87,12 +90,12 @@ object RestTimerManager {
         val current = readStoredState(context) ?: return
         val now = System.currentTimeMillis()
         if (current.endMillis <= now) {
-            complete(context)
+            complete(context, triggerSoftLock = false)
             return
         }
         val adjustedEnd = TimerMath.adjustedRestEndTime(current.endMillis, now, deltaSeconds)
         if (adjustedEnd <= now) {
-            complete(context)
+            complete(context, triggerSoftLock = false)
             return
         }
         val adjustedDuration = (current.durationSeconds + deltaSeconds).coerceAtLeast(1)
@@ -107,14 +110,15 @@ object RestTimerManager {
         if (current != null && current.endMillis > now) {
             adjust(context, seconds)
         } else {
-            val workout = ActiveWorkoutRepository(context).load()
+            val session = ActiveWorkoutRepository(context).loadSession()
+            val workout = session?.takeIf { it.routineBuildTarget == null }?.workout
             val target = workout?.let { WorkoutProgress.firstUnfinishedSet(it) }
             val exerciseName = target?.exerciseName ?: "Rest"
             start(
                 context = context,
                 durationSeconds = seconds,
                 completedExerciseId = target?.exerciseId ?: "",
-                completedSetId = target?.setId ?: "",
+                completedSetId = "",
                 exerciseName = exerciseName,
             )
         }
@@ -141,8 +145,14 @@ object RestTimerManager {
     fun reconcileRemovedSet(context: Context, setId: String) {
         NotificationManagerCompat.from(context).cancel(ACTIVE_SET_NOTIFICATION_ID)
         val state = readStoredState(context) ?: return
-        if (state.completedSetId == setId) {
+        val updatedState = if (state.completedSetId == setId) {
             state.copy(completedSetId = "").also { saveState(context, it) }
+        } else {
+            state
+        }
+        if (resolveTarget(context, updatedState) == null) {
+            cancel(context)
+            return
         }
         refresh(context)
     }
@@ -150,7 +160,7 @@ object RestTimerManager {
     fun completeSet(context: Context, exerciseId: String?, setId: String?) {
         if (exerciseId.isNullOrBlank() || setId.isNullOrBlank()) return
         val repository = ActiveWorkoutRepository(context)
-        val result = repository.completeSet(exerciseId, setId) ?: return
+        val result = repository.completeLiveSet(exerciseId, setId) ?: return
         NotificationManagerCompat.from(context).cancel(ACTIVE_SET_NOTIFICATION_ID)
         if (result.nextTarget == null) {
             clearState(context)
@@ -169,7 +179,11 @@ object RestTimerManager {
     }
 
     @SuppressLint("MissingPermission")
-    fun complete(context: Context, expectedEndMillis: Long? = null) {
+    fun complete(
+        context: Context,
+        expectedEndMillis: Long? = null,
+        triggerSoftLock: Boolean = true,
+    ) {
         val state = readStoredState(context) ?: return
         if (expectedEndMillis != null && state.endMillis != expectedEndMillis) return
         if (System.currentTimeMillis() < state.endMillis) return
@@ -180,6 +194,9 @@ object RestTimerManager {
         NotificationManagerCompat.from(context).cancel(COMPLETE_NOTIFICATION_ID)
         if (target != null) showActiveSetNotification(context, target, restComplete = true)
         else showWorkoutCompleteNotification(context)
+        if (triggerSoftLock && RestTimerPreferences.isSoftLockOnCompleteEnabled(context)) {
+            SoftLockAccessibilityService.lockScreen(context)
+        }
     }
 
     fun refresh(context: Context) {
@@ -241,44 +258,106 @@ object RestTimerManager {
             Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val remainingMillis = (state.endMillis - now).coerceAtLeast(1L)
+        val chronometerBase = SystemClock.elapsedRealtime() + remainingMillis
+        val titleText = NotificationText.plain(state.exerciseName)
+        val subtitleText = state.nextTarget?.let {
+            "Next: ${NotificationText.plain(it.exerciseName)} • ${targetDescription(it)}"
+        } ?: "Final rest"
+        val progressPermille = if (state.durationSeconds <= 0) {
+            0
+        } else {
+            ((remainingMillis.toDouble() / (state.durationSeconds * 1_000.0)) * 1_000.0)
+                .toInt()
+                .coerceIn(0, 1_000)
+        }
+        val showSoftLockBadge = RestTimerPreferences.isSoftLockOnCompleteEnabled(context) &&
+            SoftLockAccessibilityService.isEnabledInSettings(context)
+
+        val collapsedViews = RemoteViews(
+            context.packageName,
+            R.layout.notification_rest_timer_collapsed,
+        ).apply {
+            bindTimerRemoteViews(
+                context = context,
+                views = this,
+                chronometerBase = chronometerBase,
+                subtitleText = subtitleText,
+                showSoftLockBadge = showSoftLockBadge,
+            )
+        }
+        val expandedViews = RemoteViews(
+            context.packageName,
+            R.layout.notification_rest_timer_expanded,
+        ).apply {
+            bindTimerRemoteViews(
+                context = context,
+                views = this,
+                chronometerBase = chronometerBase,
+                subtitleText = subtitleText,
+                showSoftLockBadge = showSoftLockBadge,
+            )
+            setTextViewText(R.id.timer_title, titleText)
+            setProgressBar(R.id.timer_progress, 1_000, progressPermille, false)
+        }
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ACTIVE)
             .setSmallIcon(R.drawable.ic_timer_notification)
-            .setContentTitle(NotificationText.plain(state.exerciseName))
-            .setContentText(
-                state.nextTarget?.let {
-                    "Next: ${NotificationText.plain(it.exerciseName)} • ${targetDescription(it)}"
-                }
-                    ?: "Final rest"
-            )
+            .setColor(ContextCompat.getColor(context, R.color.hevynt_rest_blue))
+            .setContentTitle(titleText)
+            .setContentText(subtitleText)
             .setContentIntent(launchIntent)
-            .setWhen(state.endMillis)
-            .setUsesChronometer(true)
-            .setChronometerCountDown(true)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsedViews)
+            .setCustomBigContentView(expandedViews)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
-            .setTimeoutAfter((state.endMillis - now).coerceAtLeast(1L))
+            .setTimeoutAfter(remainingMillis)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(action(context, ACTION_SKIP, 11, "Skip"))
-            .addAction(action(context, ACTION_SUBTRACT, 12, "-15s"))
-            .addAction(action(context, ACTION_ADD, 13, "+15s"))
             .build()
         NotificationManagerCompat.from(context).notify(ACTIVE_NOTIFICATION_ID, notification)
     }
 
-    private fun action(
+    private fun bindTimerRemoteViews(
+        context: Context,
+        views: RemoteViews,
+        chronometerBase: Long,
+        subtitleText: String,
+        showSoftLockBadge: Boolean,
+    ) {
+        views.setChronometer(R.id.timer_chronometer, chronometerBase, null, true)
+        views.setChronometerCountDown(R.id.timer_chronometer, true)
+        views.setTextViewText(R.id.timer_subtitle, subtitleText)
+        views.setViewVisibility(
+            R.id.timer_soft_lock_badge,
+            if (showSoftLockBadge) View.VISIBLE else View.GONE,
+        )
+        views.setOnClickPendingIntent(
+            R.id.timer_btn_subtract,
+            actionPendingIntent(context, ACTION_SUBTRACT, 12),
+        )
+        views.setOnClickPendingIntent(
+            R.id.timer_btn_add,
+            actionPendingIntent(context, ACTION_ADD, 13),
+        )
+        views.setOnClickPendingIntent(
+            R.id.timer_btn_skip,
+            actionPendingIntent(context, ACTION_SKIP, 11),
+        )
+    }
+
+    private fun actionPendingIntent(
         context: Context,
         action: String,
         requestCode: Int,
-        label: String,
-    ): NotificationCompat.Action {
+    ): PendingIntent {
         val intent = Intent(context, RestTimerReceiver::class.java).setAction(action)
-        val pendingIntent = PendingIntent.getBroadcast(
+        return PendingIntent.getBroadcast(
             context,
             requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        return NotificationCompat.Action(R.drawable.ic_timer_notification, label, pendingIntent)
     }
 
     private fun saveState(context: Context, state: RestTimerState) {

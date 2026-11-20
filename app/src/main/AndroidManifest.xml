@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools" >
 
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Nothing Glyph Developer Kit: required to control rear LED strip on Nothing phones -->
@@ -43,6 +44,18 @@
         <receiver
             android:name=".timer.RestTimerReceiver"
             android:exported="false" />
+        <service
+            android:name=".timer.SoftLockAccessibilityService"
+            android:exported="false"
+            android:label="@string/soft_lock_accessibility_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/soft_lock_accessibility_service" />
+        </service>
         <receiver
             android:name=".widget.CompactWorkoutWidgetProvider"
             android:label="@string/workout_widget_compact_name"
@@ -78,17 +91,7 @@
         </receiver>
         <receiver
             android:name=".widget.WorkoutWidgetUpdateReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.yifeng.commandcenter.widget.START_NEXT_WORKOUT" />
-                <action android:name="com.yifeng.commandcenter.widget.COMPLETE_SET" />
-                <action android:name="com.yifeng.commandcenter.widget.ADJUST_WEIGHT" />
-                <action android:name="com.yifeng.commandcenter.widget.ADJUST_REPS" />
-                <action android:name="com.yifeng.commandcenter.widget.SKIP_REST" />
-                <action android:name="com.yifeng.commandcenter.widget.ADD_REST_30" />
-                <action android:name="com.yifeng.commandcenter.widget.REFRESH" />
-            </intent-filter>
-        </receiver>
+            android:exported="false" />
     </application>
 
 </manifest>

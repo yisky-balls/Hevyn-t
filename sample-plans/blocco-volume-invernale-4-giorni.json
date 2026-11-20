@@ -1,0 +1,167 @@
+{
+  "format": "hevynt-workout-plan",
+  "version": 1,
+  "programId": "blocco-volume-invernale-4-giorni",
+  "programName": "Scheda 4 Giorni – Blocco Volume Invernale",
+  "folder": {
+    "name": "Blocco Volume Invernale",
+    "routines": [
+      {
+        "id": "mar-upper-1",
+        "name": "MAR — Upper 1 (Panca Primaria)",
+        "exercises": [
+          {
+            "name": "Panca Piana",
+            "notes": "4×6 @ 77,5–82,5 kg (RPE 7–8)\nFermo breve ma pulito al petto\nProgressione lineare: +2,5 kg/sett per 4–5 sett (scarico sett 5–6)",
+            "restSeconds": 180,
+            "sets": 4
+          },
+          {
+            "name": "Shoulder Press alla Smith",
+            "notes": "3×8–10 @ RIR 1–2\nOttimo transfer su spalla anteriore e spinta (mantieni RIR 2 se affatica la spalla in vista del sabato)",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Trazioni o Lat Machine",
+            "notes": "4×8–10 @ RIR 1–2\nTirata verticale per bilanciare le spinte",
+            "restSeconds": 120,
+            "sets": 4
+          },
+          {
+            "name": "Alzate Laterali",
+            "notes": "3–4×12–15 @ RIR 0–1\nFocus deltoide laterale",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Pushdown o French Press",
+            "notes": "3×10–12 @ RIR 1\nVolume tricipiti",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Curl Bicipiti (a scelta)",
+            "notes": "3×10–12 @ RIR 0–1\nSerie normali, primo stimolo bicipiti",
+            "restSeconds": 90,
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "id": "gio-lower-1",
+        "name": "GIO — Lower 1 (Squat Primario)",
+        "exercises": [
+          {
+            "name": "Squat",
+            "notes": "4×6 @ 85–90 kg (RPE 7–8)\nSeduta principale di volume, spinta costante\nProgressione lineare: +2,5 kg/sett per 4–5 sett (scarico sett 5–6)",
+            "restSeconds": 180,
+            "sets": 4
+          },
+          {
+            "name": "Leg Press o Hack Squat",
+            "notes": "3×10–12 @ RIR 1–2\nAccumulo puro sui quadricipiti",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Leg Curl (seduto o sdraiato)",
+            "notes": "3×10–12 @ RIR 1\nFemorali e stabilità del ginocchio",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Leg Extension",
+            "notes": "3×12–15 @ RIR 0–1\nIsolamento quadricipiti senza stress assiale",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Addome (Cable Crunch o Leg Raise)",
+            "notes": "3×12–15 (Controllato)\nStabilità del core per squat e stacco",
+            "restSeconds": 90,
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "id": "sab-upper-2",
+        "name": "SAB — Upper 2 + Squat Secondario",
+        "exercises": [
+          {
+            "name": "Squat",
+            "notes": "4×5 @ 77,5–82,5 kg (RPE 6–7)\nTecnico e fluido, lascia margine per lo stacco (se affatica lo stacco di domenica, tieni il carico fermo)",
+            "restSeconds": 180,
+            "sets": 4
+          },
+          {
+            "name": "Panca Piana",
+            "notes": "4×8 @ 70–75 kg (RPE 7)\nVolume puro e controllo del fermo\nProgressione lineare: +2,5 kg/sett per 4–5 sett (scarico sett 5–6)",
+            "restSeconds": 180,
+            "sets": 4
+          },
+          {
+            "name": "Rows (T-bar, Chest Supported o macchina)",
+            "notes": "4×8–10 @ RIR 1–2\nPreferire appoggio petto per salvare i lombari",
+            "restSeconds": 120,
+            "sets": 4
+          },
+          {
+            "name": "Face Pull o Rear Delt Machine",
+            "notes": "3×15 (Controllato)\nDeltoide posteriore e salute della spalla",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Curl Bicipiti (a scelta)",
+            "notes": "3×10–12 @ RIR 0–1\nSerie normali",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Estensioni Tricipiti (cavo o manubri)",
+            "notes": "3×10–12 @ RIR 1\nSerie normali",
+            "restSeconds": 90,
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "id": "dom-lower-2",
+        "name": "DOM — Lower 2 (Stacco Primario)",
+        "exercises": [
+          {
+            "name": "Deadlift",
+            "notes": "4×4 @ 112,5–117,5 kg (RPE 7–7.5)\nReset completo a terra a ogni ripetizione\nProgressione lineare: +2,5 kg/sett per 4–5 sett (scarico sett 5–6)",
+            "restSeconds": 180,
+            "sets": 4
+          },
+          {
+            "name": "Leg Press (o Bulgarian Split Squat)",
+            "notes": "3×10–12 @ RIR 1–2\nVolume gambe senza gravare sulla bassa schiena",
+            "restSeconds": 120,
+            "sets": 3
+          },
+          {
+            "name": "Leg Curl (seduto o sdraiato)",
+            "notes": "3×10–12 @ RIR 1\nRinforzo femorali post-stacco",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Leg Extension",
+            "notes": "3×12–15 @ RIR 0–1\nSecondo stimolo quadricipiti",
+            "restSeconds": 90,
+            "sets": 3
+          },
+          {
+            "name": "Polpacci o Addome",
+            "notes": "3×12–15 (Controllato)\nChiusura leggera della seduta",
+            "restSeconds": 90,
+            "sets": 3
+          }
+        ]
+      }
+    ]
+  }
+}

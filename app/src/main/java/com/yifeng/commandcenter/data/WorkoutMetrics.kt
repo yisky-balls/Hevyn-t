@@ -1,6 +1,7 @@
 package com.yifeng.commandcenter.data
 
 import java.math.BigDecimal
+import java.math.RoundingMode
 
 data class WorkoutMetrics(
     val completedSets: Int,
@@ -30,5 +31,10 @@ object WorkoutMetricsCalculator {
     }
 }
 
-fun formatWeight(value: Double): String =
-    BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
+fun formatWeight(value: Double, maxDecimals: Int = 2): String {
+    if (!value.isFinite()) return "0"
+    val rounded = BigDecimal.valueOf(value)
+        .setScale(maxDecimals.coerceAtLeast(0), RoundingMode.HALF_UP)
+        .stripTrailingZeros()
+    return if (rounded.compareTo(BigDecimal.ZERO) == 0) "0" else rounded.toPlainString()
+}

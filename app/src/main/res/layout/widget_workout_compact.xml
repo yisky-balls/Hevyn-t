@@ -76,7 +76,7 @@
             android:src="@drawable/ic_check_white" />
     </LinearLayout>
 
-    <!-- Idle State: 4x1 Strip -->
+    <!-- Idle State: 4x1 Strip (Cozy Mini Dot-Matrix Campfire) -->
     <LinearLayout
         android:id="@+id/widget_compact_idle"
         android:layout_width="match_parent"
@@ -85,45 +85,31 @@
         android:orientation="horizontal"
         android:visibility="visible">
 
-        <!-- Left Info -->
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/widget_compact_idle_info"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="10dp"
             android:layout_weight="1"
-            android:orientation="vertical">
+            android:clickable="true"
+            android:focusable="true">
 
-            <ImageView
-                android:id="@+id/widget_compact_idle_title_img"
-                android:layout_width="wrap_content"
-                android:layout_height="22dp"
-                android:adjustViewBounds="true"
-                android:contentDescription="Routine title"
-                android:scaleType="fitStart"
-                android:src="@drawable/widget_preview_lower_b" />
+            <include layout="@layout/widget_campfire_mini_scene" />
+        </FrameLayout>
 
-            <TextView
-                android:id="@+id/widget_compact_idle_metadata"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:fontFamily="sans-serif"
-                android:includeFontPadding="false"
-                android:text="6 exercises"
-                android:textColor="#FF8E8E93"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <!-- Right: Circular Red Play Button to Start Workout -->
+        <!-- Right: Discreet Circular Play Button to Start Workout -->
         <ImageButton
             android:id="@+id/widget_compact_idle_play"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:background="@drawable/widget_circle_red_bg"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/widget_idle_play_bg"
             android:clickable="true"
             android:contentDescription="Start workout"
             android:focusable="true"
-            android:padding="12dp"
+            android:paddingStart="13dp"
+            android:paddingTop="11dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="11dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_play_arrow_filled" />
     </LinearLayout>

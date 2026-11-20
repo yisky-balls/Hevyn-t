@@ -34,12 +34,17 @@ object SavedExercisesOperations {
         }
 
         return usageMap.values.map { usages ->
-            val distinctRawNames = usages.map { it.exerciseName }.distinct()
-            // Pick canonical name: the most common raw name, or the one with best capitalization
-            val canonicalName = distinctRawNames
-                .groupingBy { it }
-                .eachCount()
-                .maxByOrNull { it.value }
+            val rawNameCounts = usages.groupingBy { it.exerciseName }.eachCount()
+            val distinctRawNames = rawNameCounts.keys.toList()
+            // Pick canonical name: most frequent raw spelling, breaking ties by preferring
+            // capitalized/mixed-case variants over all-lowercase, then alphabetical order.
+            val canonicalName = rawNameCounts.entries
+                .sortedWith(
+                    compareByDescending<Map.Entry<String, Int>> { it.value }
+                        .thenByDescending { entry -> entry.key.any(Char::isUpperCase) }
+                        .thenBy { it.key }
+                )
+                .firstOrNull()
                 ?.key
                 ?: usages.first().exerciseName
 
@@ -70,6 +75,8 @@ object SavedExercisesOperations {
 
     /**
      * Renames an exercise and optionally updates its notes/rest duration across all routines.
+     * If renaming causes a routine to contain multiple exercises with the same normalized name,
+     * they are merged cleanly into a single entry.
      */
     fun renameExercise(
         folders: List<RoutineFolder>,
@@ -80,14 +87,23 @@ object SavedExercisesOperations {
     ): List<RoutineFolder> {
         val oldKey = normalizeExerciseName(oldName)
         val cleanNewName = newName.trim()
-        if (oldKey.isEmpty() || cleanNewName.isEmpty()) return folders
+        val newKey = normalizeExerciseName(cleanNewName)
+        if (oldKey.isEmpty() || newKey.isEmpty()) return folders
 
-        return folders.map { folder ->
+        val updated = folders.map { folder ->
             folder.copy(
                 routines = folder.routines.map { routine ->
                     routine.copy(
                         exercises = routine.exercises.map { exercise ->
-                            if (normalizeExerciseName(exercise.name) == oldKey) {
+                            val currentKey = normalizeExerciseName(exercise.name)
+                            if (currentKey == oldKey) {
+                                exercise.copy(
+                                    name = cleanNewName,
+                                    notes = newNotes ?: exercise.notes,
+                                    restSeconds = newRestSeconds ?: exercise.restSeconds,
+                                )
+                            } else if (currentKey == newKey && oldKey != newKey) {
+                                // Unify target exercise spelling/details if merging via Edit dialog
                                 exercise.copy(
                                     name = cleanNewName,
                                     notes = newNotes ?: exercise.notes,
@@ -100,6 +116,12 @@ object SavedExercisesOperations {
                     )
                 }
             )
+        }
+
+        return if (oldKey != newKey) {
+            deduplicateRoutinesForExercise(updated, cleanNewName)
+        } else {
+            updated
         }
     }
 
@@ -118,10 +140,7 @@ object SavedExercisesOperations {
         val cleanTargetName = targetName.trim()
         if (sourceKey.isEmpty() || targetKey.isEmpty() || sourceKey == targetKey) return folders
 
-        // First rename source to target
         val renamedFolders = renameExercise(folders, sourceName, cleanTargetName)
-
-        // Then deduplicate any routine that now contains duplicate target exercises
         return deduplicateRoutinesForExercise(renamedFolders, cleanTargetName)
     }
 
@@ -210,8 +229,10 @@ object SavedExercisesOperations {
      * - Extra occurrences within the same routine
      * - Occurrences with casing/spacing variants differing from the canonical name
      */
-    fun countDuplicates(folders: List<RoutineFolder>): Int {
-        val summaries = extractSavedExercises(folders)
+    fun countDuplicates(folders: List<RoutineFolder>): Int =
+        countDuplicates(extractSavedExercises(folders))
+
+    internal fun countDuplicates(summaries: List<SavedExerciseSummary>): Int {
         var count = 0
         summaries.forEach { summary ->
             if (summary.hasCasingOrWhitespaceVariants) {
@@ -226,6 +247,28 @@ object SavedExercisesOperations {
             }
         }
         return count
+    }
+
+    /**
+     * Records a rename/merge mapping `(normalizedOldKey -> newCanonicalName)` while preserving
+     * transitive chains (e.g. A -> B followed by B -> C yields A -> C and B -> C).
+     */
+    fun recordHistoryRename(
+        existing: Map<String, String>,
+        oldName: String,
+        newName: String,
+    ): Map<String, String> {
+        val oldKey = normalizeExerciseName(oldName)
+        val cleanNew = newName.trim()
+        val newKey = normalizeExerciseName(cleanNew)
+        if (oldKey.isEmpty() || newKey.isEmpty()) return existing
+
+        val updated = existing.mapValues { (_, target) ->
+            if (normalizeExerciseName(target) == oldKey) cleanNew else target
+        }.toMutableMap()
+        updated[oldKey] = cleanNew
+        updated[newKey] = cleanNew
+        return updated
     }
 
     private fun deduplicateRoutinesForExercise(
@@ -248,20 +291,21 @@ object SavedExercisesOperations {
     }
 
     private fun deduplicateRoutineExercises(routine: Routine): Routine {
-        val seenKeys = mutableSetOf<String>()
         val deduplicatedExercises = mutableListOf<RoutineExercise>()
 
         routine.exercises.forEach { exercise ->
             val key = normalizeExerciseName(exercise.name)
-            val existing = deduplicatedExercises.firstOrNull { normalizeExerciseName(it.name) == key }
-            if (existing == null) {
-                seenKeys.add(key)
+            val existingIndex = deduplicatedExercises.indexOfFirst {
+                normalizeExerciseName(it.name) == key
+            }
+            if (existingIndex < 0) {
                 deduplicatedExercises.add(exercise)
             } else {
-                // Merge sets of duplicate into the first instance
-                val updatedIndex = deduplicatedExercises.indexOf(existing)
-                val combinedSets = existing.sets + exercise.sets
-                deduplicatedExercises[updatedIndex] = existing.copy(sets = combinedSets)
+                val existing = deduplicatedExercises[existingIndex]
+                deduplicatedExercises[existingIndex] = existing.copy(
+                    notes = existing.notes.ifBlank { exercise.notes },
+                    sets = existing.sets + exercise.sets,
+                )
             }
         }
 

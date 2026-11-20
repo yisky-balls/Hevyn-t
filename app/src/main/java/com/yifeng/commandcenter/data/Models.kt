@@ -83,3 +83,11 @@ fun defaultSets(): List<WorkoutSet> = listOf(
     WorkoutSet(),
     WorkoutSet(),
 )
+
+private val DAY_PREFIX_REGEX = Regex(
+    "^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN|DAY\\s*\\d+)\\s*[-—–:.]\\s*",
+    RegexOption.IGNORE_CASE,
+)
+
+fun cleanRoutineName(name: String): String =
+    name.replace(DAY_PREFIX_REGEX, "").trim()

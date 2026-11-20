@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "commandcenter"
+rootProject.name = "hevynt"
 include(":app")

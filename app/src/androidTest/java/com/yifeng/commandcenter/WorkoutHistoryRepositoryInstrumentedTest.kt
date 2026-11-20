@@ -360,7 +360,25 @@ class WorkoutHistoryRepositoryInstrumentedTest {
         assertEquals("session", repository.graph("session")?.session?.id)
     }
 
-    private fun repeatableGraph(id: String, completedAtMillis: Long) = WorkoutHistoryGraph(
+    @Test
+    fun renameExercisesUpdatesHistoricalNamesByNormalizedKey() = runBlocking {
+        repository.saveCompletedWorkout(repeatableGraph("s1", 10_000L, "bench press"))
+        repository.saveCompletedWorkout(repeatableGraph("s2", 20_000L, "Bench-Press!"))
+        repository.saveCompletedWorkout(repeatableGraph("s3", 30_000L, "Back Squat"))
+
+        val updatedRows = repository.renameExercises(mapOf("benchpress" to "Barbell Bench Press"))
+
+        assertEquals(2, updatedRows)
+        assertEquals("Barbell Bench Press", repository.graph("s1")?.exercises?.single()?.exercise?.name)
+        assertEquals("Barbell Bench Press", repository.graph("s2")?.exercises?.single()?.exercise?.name)
+        assertEquals("Back Squat", repository.graph("s3")?.exercises?.single()?.exercise?.name)
+    }
+
+    private fun repeatableGraph(
+        id: String,
+        completedAtMillis: Long,
+        exerciseName: String = "Press",
+    ) = WorkoutHistoryGraph(
         session = WorkoutHistorySession(
             id = id,
             sourceRoutineId = "routine-$id",
@@ -379,7 +397,7 @@ class WorkoutHistoryRepositoryInstrumentedTest {
                     id = "exercise-$id",
                     sessionId = id,
                     sourceRoutineExerciseId = "source-$id",
-                    name = "Press",
+                    name = exerciseName,
                     note = "",
                     restSeconds = 90,
                     position = 0,

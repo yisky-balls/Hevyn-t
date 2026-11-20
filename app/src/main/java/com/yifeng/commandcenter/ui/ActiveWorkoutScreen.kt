@@ -23,10 +23,9 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -82,6 +81,7 @@ fun ActiveWorkoutScreen(
     onToggleGlyphTimer: (Boolean) -> Unit = {},
     onToggleGlyphPulse: (Boolean) -> Unit = {},
     onStartRestTimer: (String) -> Unit = {},
+    onSubtractRestTime: () -> Unit = {},
     onAddRestTime: () -> Unit = {},
     onSkipRestTime: () -> Unit = {},
 ) {
@@ -95,8 +95,18 @@ fun ActiveWorkoutScreen(
         val idx = workout.exercises.indexOfFirst { ex -> ex.sets.any { !it.completed } }
         if (idx >= 0) idx else 0
     }
-    var userActiveIndex by rememberSaveable(workout.id) { mutableIntStateOf(-1) }
-    val activeExerciseIndex = if (userActiveIndex in workout.exercises.indices) userActiveIndex else autoActiveIndex
+    var userActiveExerciseId by rememberSaveable(workout.id) { mutableStateOf<String?>(null) }
+    var selectNewestExercise by remember { mutableStateOf(false) }
+    LaunchedEffect(workout.exercises.size, selectNewestExercise) {
+        if (selectNewestExercise) {
+            userActiveExerciseId = workout.exercises.lastOrNull()?.id
+            selectNewestExercise = false
+        }
+    }
+    val userIndex = userActiveExerciseId?.let { id ->
+        workout.exercises.indexOfFirst { it.id == id }
+    } ?: -1
+    val activeExerciseIndex = if (userIndex in workout.exercises.indices) userIndex else autoActiveIndex
     var showAllUpcoming by rememberSaveable(workout.id) { mutableStateOf(false) }
 
     restExerciseId?.let { exerciseId ->
@@ -143,6 +153,7 @@ fun ActiveWorkoutScreen(
                 ) {
                     RestTimerBar(
                         state = timerState,
+                        onSubtract = onSubtractRestTime,
                         onAdd = onAddRestTime,
                         onSkip = onSkipRestTime,
                     )
@@ -203,13 +214,19 @@ fun ActiveWorkoutScreen(
                     onNameChanged = { onExerciseNameChanged(activeExercise.id, it) },
                     onNotesChanged = { onExerciseNotesChanged(activeExercise.id, it) },
                     onDelete = {
-                        userActiveIndex = -1
+                        userActiveExerciseId = null
                         onExerciseRemoved(activeExercise.id)
                     },
                     canMoveUp = activeExerciseIndex > 0,
                     canMoveDown = activeExerciseIndex < workout.exercises.lastIndex,
-                    onMoveUp = { onExerciseMoved(activeExercise.id, -1) },
-                    onMoveDown = { onExerciseMoved(activeExercise.id, 1) },
+                    onMoveUp = {
+                        userActiveExerciseId = activeExercise.id
+                        onExerciseMoved(activeExercise.id, -1)
+                    },
+                    onMoveDown = {
+                        userActiveExerciseId = activeExercise.id
+                        onExerciseMoved(activeExercise.id, 1)
+                    },
                     onEditRest = { restExerciseId = activeExercise.id },
                     onSetChanged = { setId, updated -> onSetChanged(activeExercise.id, setId, updated) },
                     onSetCompletionChanged = { setId, completed ->
@@ -248,7 +265,7 @@ fun ActiveWorkoutScreen(
                         previousSets = previousSets,
                         exerciseHistory = exerciseHistory,
                         onSelectExercise = { targetIndex ->
-                            userActiveIndex = targetIndex
+                            userActiveExerciseId = workout.exercises.getOrNull(targetIndex)?.id
                             showAllUpcoming = false
                             scope.launch { listState.animateScrollToItem(0) }
                         },
@@ -270,7 +287,7 @@ fun ActiveWorkoutScreen(
                         onAddExercise(suggestion)
                         isAddingExercise = false
                         if (!isRoutineBuilder) {
-                            userActiveIndex = workout.exercises.size
+                            selectNewestExercise = true
                         }
                     },
                     onDismiss = { isAddingExercise = false },
@@ -278,23 +295,37 @@ fun ActiveWorkoutScreen(
             }
         } else if (workout.exercises.isNotEmpty() && isRoutineBuilder) {
             item(key = "add-exercise") {
-                TextButton(
-                    onClick = {
-                        onRequestExerciseSuggestions()
-                        isAddingExercise = true
-                    },
+                Surface(
+                    shape = RoundedCornerShape(26.dp),
+                    color = HevyntSurfaceRaised,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .height(44.dp),
+                        .padding(horizontal = HevyntPageHorizontalPadding, vertical = 8.dp)
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(26.dp))
+                        .clickable {
+                            onRequestExerciseSuggestions()
+                            isAddingExercise = true
+                        },
                 ) {
-                    Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(
-                        text = "  Add exercise",
-                        color = HevyntTextSecondary,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Add,
+                            contentDescription = null,
+                            tint = HevyntTextPrimary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = "  Add exercise",
+                            color = HevyntTextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
         }

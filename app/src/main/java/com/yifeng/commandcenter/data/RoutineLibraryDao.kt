@@ -117,6 +117,16 @@ abstract class RoutineLibraryDao {
     @Query("DELETE FROM routines WHERE id = :routineId")
     abstract suspend fun deleteRoutineById(routineId: String): Int
 
+    @Query("UPDATE routines SET position = :position WHERE id = :routineId AND folder_id = :folderId")
+    protected abstract suspend fun updateRoutinePosition(folderId: String, routineId: String, position: Int): Int
+
+    @Transaction
+    open suspend fun reorderRoutines(folderId: String, orderedRoutineIds: List<String>) {
+        orderedRoutineIds.forEachIndexed { index, routineId ->
+            updateRoutinePosition(folderId = folderId, routineId = routineId, position = index)
+        }
+    }
+
     @Query("SELECT MAX(position) FROM routine_folders")
     abstract suspend fun maxFolderPosition(): Int?
 

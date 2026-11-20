@@ -128,6 +128,7 @@ class GlyphRestTimerController(private val context: Context) {
     private var lastSegmentCount = -1
     @Volatile private var currentTimerState: RestTimerState? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var pulseOffRunnable: Runnable? = null
 
     /**
      * Initialise the Glyph SDK and open a session.
@@ -174,6 +175,7 @@ class GlyphRestTimerController(private val context: Context) {
      * @param state The current rest timer state, or `null` if no timer is active.
      */
     fun updateTimer(state: RestTimerState?) {
+        cancelPendingPulseOff()
         currentTimerState = state
         if (!sessionOpen) return
         renderTimer(state)
@@ -215,6 +217,7 @@ class GlyphRestTimerController(private val context: Context) {
      * @param pulseEnabled Whether the pulse animation should play.
      */
     fun onTimerComplete(pulseEnabled: Boolean) {
+        cancelPendingPulseOff()
         currentTimerState = null
         lastSegmentCount = 0
         if (!sessionOpen) return
@@ -230,6 +233,7 @@ class GlyphRestTimerController(private val context: Context) {
      * Shut down the Glyph SDK session.
      */
     fun shutdown() {
+        cancelPendingPulseOff()
         currentTimerState = null
         lastSegmentCount = -1
         val gm = glyphManager ?: return
@@ -295,12 +299,23 @@ class GlyphRestTimerController(private val context: Context) {
             Log.d(TAG, "Glyph completion pulse started")
 
             val animDuration = PULSE_CYCLES.toLong() * (PULSE_PERIOD_MS + PULSE_INTERVAL_MS) + 200L
-            handler.postDelayed({
-                turnOff()
-            }, animDuration)
+            cancelPendingPulseOff()
+            val runnable = Runnable {
+                pulseOffRunnable = null
+                if (currentTimerState == null) {
+                    turnOff()
+                }
+            }
+            pulseOffRunnable = runnable
+            handler.postDelayed(runnable, animDuration)
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to play Glyph completion pulse", t)
         }
+    }
+
+    private fun cancelPendingPulseOff() {
+        pulseOffRunnable?.let { handler.removeCallbacks(it) }
+        pulseOffRunnable = null
     }
 
     /** Turn off all Glyph zones. */

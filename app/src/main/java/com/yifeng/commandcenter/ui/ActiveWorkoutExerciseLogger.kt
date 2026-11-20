@@ -22,17 +22,18 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -150,84 +151,47 @@ internal fun ExerciseLogger(
     }
 
     if (confirmExerciseDelete) {
-        HevyntDialog(
-            onDismissRequest = { confirmExerciseDelete = false },
-            title = {
-                Text(
-                    text = "REMOVE EXERCISE?",
-                    style = MaterialTheme.typography.titleLarge,
-                )
+        HevyntConfirmDialog(
+            title = "Remove exercise?",
+            message = "This removes ${exercise.name.ifBlank { "the exercise" }} and all of its sets.",
+            confirmText = "Remove",
+            dismissText = "Cancel",
+            isDestructive = true,
+            onConfirm = {
+                confirmExerciseDelete = false
+                onDelete()
             },
-            text = { Text("This removes ${exercise.name.ifBlank { "the exercise" }} and all of its sets.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmExerciseDelete = false
-                    onDelete()
-                }) {
-                    Text("REMOVE", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmExerciseDelete = false }) {
-                    Text("CANCEL", fontWeight = FontWeight.Medium)
-                }
-            },
+            onDismiss = { confirmExerciseDelete = false },
         )
     }
 
     if (confirmDiscardSession) {
-        HevyntDialog(
-            onDismissRequest = { confirmDiscardSession = false },
-            title = {
-                Text(
-                    text = if (isRoutineBuilder) "DISCARD ROUTINE?" else "DISCARD WORKOUT?",
-                    style = MaterialTheme.typography.titleLarge,
-                )
+        HevyntConfirmDialog(
+            title = if (isRoutineBuilder) "Discard routine?" else "Discard workout?",
+            message = "This removes the active session from this device. Completed workout history is not affected.",
+            confirmText = "Discard",
+            dismissText = "Cancel",
+            isDestructive = true,
+            onConfirm = {
+                confirmDiscardSession = false
+                onDiscardWorkout()
             },
-            text = { Text("This removes the active session from this device. Completed workout history is not affected.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDiscardSession = false
-                    onDiscardWorkout()
-                }) {
-                    Text("DISCARD", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDiscardSession = false }) {
-                    Text("CANCEL", fontWeight = FontWeight.Medium)
-                }
-            },
+            onDismiss = { confirmDiscardSession = false },
         )
     }
 
     setPendingDelete?.let { set ->
-        HevyntDialog(
-            onDismissRequest = { setPendingDelete = null },
-            title = {
-                Text(
-                    text = "DELETE COMPLETED SET?",
-                    style = MaterialTheme.typography.titleLarge,
-                )
+        HevyntConfirmDialog(
+            title = "Delete completed set?",
+            message = "This set will be removed from your completed sets and workout volume.",
+            confirmText = "Delete",
+            dismissText = "Cancel",
+            isDestructive = true,
+            onConfirm = {
+                setPendingDelete = null
+                onRemoveSet(set.id)
             },
-            text = { Text("This set will be removed from your completed sets and workout volume.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    setPendingDelete = null
-                    onRemoveSet(set.id)
-                }) {
-                    Text(
-                        "DELETE",
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { setPendingDelete = null }) {
-                    Text("CANCEL", fontWeight = FontWeight.Medium)
-                }
-            },
+            onDismiss = { setPendingDelete = null },
         )
     }
 
@@ -438,104 +402,116 @@ private fun ExerciseDetailsAndOptionsDialog(
     onDiscardWorkout: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    HevyntDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = exerciseName.ifBlank { "Exercise" },
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                ExerciseHistoryPanel(history = exerciseHistory)
-                Spacer(Modifier.height(10.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
-                Spacer(Modifier.height(6.dp))
-                TextButton(onClick = onRename, modifier = Modifier.fillMaxWidth()) {
-                    Text("Edit exercise name", modifier = Modifier.fillMaxWidth(), color = HevyntTextPrimary)
-                }
-                TextButton(onClick = onAddExercise, modifier = Modifier.fillMaxWidth()) {
-                    Text("Add exercise to workout", modifier = Modifier.fillMaxWidth(), color = HevyntTextPrimary)
-                }
+    HevyntSheet(
+        onDismiss = onDismiss,
+        title = exerciseName.ifBlank { "Exercise" },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            ExerciseHistoryPanel(history = exerciseHistory)
+
+            Spacer(Modifier.height(14.dp))
+
+            HevyntSheetSection {
+                HevyntSheetRow(
+                    label = "Edit exercise name",
+                    icon = Icons.Outlined.Edit,
+                    onClick = onRename,
+                )
+                HevyntDottedRule(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = HevyntOutline.copy(alpha = 0.7f),
+                )
+                HevyntSheetRow(
+                    label = "Add exercise to workout",
+                    icon = Icons.Outlined.Add,
+                    onClick = onAddExercise,
+                )
                 if (canMoveUp) {
-                    TextButton(onClick = onMoveUp, modifier = Modifier.fillMaxWidth()) {
-                        Text("Move exercise up", modifier = Modifier.fillMaxWidth(), color = HevyntTextPrimary)
-                    }
+                    HevyntDottedRule(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = HevyntOutline.copy(alpha = 0.7f),
+                    )
+                    HevyntSheetRow(
+                        label = "Move exercise up",
+                        icon = Icons.Outlined.KeyboardArrowUp,
+                        onClick = onMoveUp,
+                    )
                 }
                 if (canMoveDown) {
-                    TextButton(onClick = onMoveDown, modifier = Modifier.fillMaxWidth()) {
-                        Text("Move exercise down", modifier = Modifier.fillMaxWidth(), color = HevyntTextPrimary)
-                    }
-                }
-                if (isGlyphSupported) {
-                    Spacer(Modifier.height(4.dp))
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Glyph rest timer", color = HevyntTextPrimary, style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = isGlyphTimerEnabled,
-                            onCheckedChange = onToggleGlyphTimer,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Glyph pulse on finish", color = HevyntTextPrimary, style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = isGlyphPulseEnabled,
-                            onCheckedChange = onToggleGlyphPulse,
-                            enabled = isGlyphTimerEnabled,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
-                        )
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp).background(HevyntDivider))
-                Spacer(Modifier.height(4.dp))
-                TextButton(onClick = onRemoveExercise, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        "Remove exercise",
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.error,
+                    HevyntDottedRule(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = HevyntOutline.copy(alpha = 0.7f),
                     )
-                }
-                TextButton(onClick = onDiscardWorkout, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        if (isRoutineBuilder) "Discard routine" else "Discard workout",
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.error,
+                    HevyntSheetRow(
+                        label = "Move exercise down",
+                        icon = Icons.Outlined.KeyboardArrowDown,
+                        onClick = onMoveDown,
                     )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("CLOSE", color = HevyntAccent, fontWeight = FontWeight.SemiBold)
+
+            if (isGlyphSupported) {
+                Spacer(Modifier.height(12.dp))
+                HevyntSheetSection {
+                    HevyntSheetRow(
+                        label = "Glyph rest timer",
+                        subtitle = "Rear LED countdown during rest",
+                        onClick = { onToggleGlyphTimer(!isGlyphTimerEnabled) },
+                        trailing = {
+                            Switch(
+                                checked = isGlyphTimerEnabled,
+                                onCheckedChange = onToggleGlyphTimer,
+                                colors = hevyntSwitchColors(),
+                            )
+                        },
+                    )
+                    HevyntDottedRule(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = HevyntOutline.copy(alpha = 0.7f),
+                    )
+                    HevyntSheetRow(
+                        label = "Glyph pulse on finish",
+                        subtitle = "Flash all zones when rest ends",
+                        enabled = isGlyphTimerEnabled,
+                        onClick = { onToggleGlyphPulse(!isGlyphPulseEnabled) },
+                        trailing = {
+                            Switch(
+                                checked = isGlyphPulseEnabled,
+                                onCheckedChange = onToggleGlyphPulse,
+                                enabled = isGlyphTimerEnabled,
+                                colors = hevyntSwitchColors(),
+                            )
+                        },
+                    )
+                }
             }
-        },
-    )
+
+            Spacer(Modifier.height(12.dp))
+
+            HevyntSheetSection {
+                HevyntSheetRow(
+                    label = "Remove exercise",
+                    icon = Icons.Outlined.Delete,
+                    destructive = true,
+                    onClick = onRemoveExercise,
+                )
+                HevyntDottedRule(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = HevyntOutline.copy(alpha = 0.7f),
+                )
+                HevyntSheetRow(
+                    label = if (isRoutineBuilder) "Discard routine" else "Discard workout",
+                    icon = Icons.Outlined.Close,
+                    destructive = true,
+                    onClick = onDiscardWorkout,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -555,27 +531,43 @@ internal fun ExerciseAutocompletePanel(
         modifier = Modifier
             .padding(horizontal = HevyntPageHorizontalPadding, vertical = 6.dp)
             .background(HevyntSurfaceRaised, RoundedCornerShape(24.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
-        Text(
-            text = "ADD EXERCISE",
-            color = HevyntTextSecondary,
-            style = MaterialTheme.typography.labelMedium,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Add exercise",
+                color = HevyntTextPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onDismiss, modifier = Modifier.size(34.dp)) {
+                Icon(
+                    Icons.Outlined.Close,
+                    contentDescription = "Close exercise search",
+                    tint = HevyntTextSecondary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp)
                 .height(48.dp)
-                .border(1.dp, HevyntOutline, RoundedCornerShape(14.dp))
-                .padding(horizontal = 12.dp),
+                .clip(RoundedCornerShape(16.dp))
+                .background(HevyntSurfaceInteractive)
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 Icons.Outlined.Search,
                 contentDescription = null,
                 tint = HevyntTextSecondary,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(19.dp),
             )
             BasicTextField(
                 value = query,
@@ -586,7 +578,8 @@ internal fun ExerciseAutocompletePanel(
                     .focusRequester(focusRequester),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = HevyntTextPrimary,
+                    fontSize = 15.5.sp,
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(
@@ -597,56 +590,79 @@ internal fun ExerciseAutocompletePanel(
                                 ?.let(onSelect)
                     },
                 ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                cursorBrush = SolidColor(HevyntAccent),
                 decorationBox = { innerTextField ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (query.isEmpty()) {
                             Text(
-                                text = "SEARCH EXERCISES…",
+                                text = "Search exercises…",
                                 color = HevyntTextSecondary,
-                                style = MaterialTheme.typography.bodyMedium,
+                                fontSize = 15.sp,
                             )
                         }
                         innerTextField()
                     }
                 },
             )
-            IconButton(onClick = onDismiss, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Outlined.Close, contentDescription = "Close exercise search")
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { query = "" }, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "Clear search",
+                        tint = HevyntTextSecondary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
 
-        matches.forEach { suggestion ->
-            HevyntDottedRule(Modifier.padding(top = 4.dp))
+        if (matches.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+        }
+
+        matches.forEachIndexed { idx, suggestion ->
+            if (idx > 0) {
+                HevyntDottedRule()
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
                     .clickable { onSelect(suggestion) }
-                    .height(58.dp)
-                    .padding(horizontal = 6.dp),
+                    .padding(horizontal = 4.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         text = suggestion.name,
-                        style = MaterialTheme.typography.titleSmall,
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = HevyntTextPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     suggestion.lastPerformance?.let { previous ->
                         Text(
-                            "LAST: ${PreviousSetResolver.format(previous)}",
+                            text = "Last: ${PreviousSetResolver.format(previous)}",
                             modifier = Modifier.padding(top = 2.dp),
                             color = HevyntTextSecondary,
-                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 12.5.sp,
                         )
                     }
                 }
-                Text(
-                    text = "+",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 25.sp),
-                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(HevyntSurfaceInteractive, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = "Add ${suggestion.name}",
+                        tint = HevyntAccent,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
 
@@ -658,17 +674,32 @@ internal fun ExerciseAutocompletePanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
                     .clickable { onSelect(ExerciseAutocomplete.custom(query)) }
-                    .height(50.dp)
-                    .padding(horizontal = 6.dp),
+                    .padding(horizontal = 4.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(HevyntAccentContainer, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = null,
+                        tint = HevyntAccent,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
                 Text(
-                    text = "+  ${query.trim()}",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    text = "Create \"${query.trim()}\"",
+                    color = HevyntAccent,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 10.dp),
                 )
             }
         }
@@ -694,18 +725,18 @@ internal fun NoteEditor(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         textStyle = MaterialTheme.typography.bodyMedium.copy(
             color = HevyntTextPrimary,
-            fontSize = 13.sp,
+            fontSize = 13.5.sp,
         ),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        cursorBrush = SolidColor(HevyntAccent),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         decorationBox = { innerTextField ->
             Box {
                 if (value.isEmpty()) {
                     Text(
-                        "ADD A SHORT NOTE…",
+                        text = "Add a short note…",
                         color = HevyntTextSecondary,
-                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 13.5.sp,
                     )
                 }
                 innerTextField()
@@ -720,52 +751,75 @@ internal fun EmptyWorkoutState(
     onAddExercise: () -> Unit,
     onDiscard: () -> Unit,
 ) {
-    Column(
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = HevyntSurfaceRaised,
         modifier = Modifier
             .fillMaxWidth()
-            .height(430.dp)
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+            .padding(horizontal = HevyntPageHorizontalPadding, vertical = 12.dp),
     ) {
-        Icon(
-            Icons.Outlined.Build,
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            tint = HevyntTextSecondary,
-        )
-        Text(
-            text = if (isRoutineBuilder) "Build your routine" else "Get started",
-            modifier = Modifier.padding(top = 22.dp),
-            style = MaterialTheme.typography.titleLarge,
-        )
-        Text(
-            "Add an exercise to ${if (isRoutineBuilder) "build your routine" else "start your workout"}",
-            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
-            color = HevyntTextSecondary,
-            fontSize = 15.sp,
-            textAlign = TextAlign.Center,
-        )
-        HevyntPrimaryButton(
-            onClick = onAddExercise,
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .padding(horizontal = 24.dp, vertical = 40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Icon(Icons.Outlined.Add, contentDescription = null)
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(HevyntSurfaceInteractive, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_nav_dumbbell),
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                    tint = HevyntTextPrimary,
+                )
+            }
+            Spacer(Modifier.height(18.dp))
             Text(
-                text = "  ADD EXERCISE",
-                style = MaterialTheme.typography.labelLarge,
+                text = if (isRoutineBuilder) "Build your routine" else "Get started",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = HevyntTextPrimary,
             )
-        }
-        TextButton(
-            onClick = onDiscard,
-            modifier = Modifier.padding(top = 14.dp),
-        ) {
+            Spacer(Modifier.height(6.dp))
             Text(
-                if (isRoutineBuilder) "Discard routine" else "Discard workout",
-                color = MaterialTheme.colorScheme.error,
+                text = "Add an exercise to ${if (isRoutineBuilder) "build your routine" else "start your workout"}.",
+                color = HevyntTextSecondary,
+                fontSize = 14.5.sp,
+                textAlign = TextAlign.Center,
             )
+            Spacer(Modifier.height(24.dp))
+            HevyntPrimaryButton(
+                onClick = onAddExercise,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+            ) {
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(19.dp))
+                Text(
+                    text = "  Add exercise",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            HevyntTonalButton(
+                onClick = onDiscard,
+                destructive = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+            ) {
+                Text(
+                    text = if (isRoutineBuilder) "Discard routine" else "Discard workout",
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
     }
 }

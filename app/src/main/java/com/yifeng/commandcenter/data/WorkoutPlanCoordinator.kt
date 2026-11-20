@@ -20,9 +20,6 @@ class WorkoutPlanCoordinator(
         WorkoutPlanParser.parse(content)
     }
 
-    fun loadPlanFromJson(json: String): WorkoutPlanParseResult =
-        WorkoutPlanParser.parse(json)
-
     suspend fun checkPlanExists(programId: String): Boolean =
         routineRepository.hasProgram(programId)
 

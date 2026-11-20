@@ -17,10 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,13 +38,12 @@ import com.yifeng.commandcenter.data.ActiveWorkout
 import com.yifeng.commandcenter.data.WorkoutMetrics
 import com.yifeng.commandcenter.data.formatWeight
 import com.yifeng.commandcenter.ui.theme.HevyntAccent
+import com.yifeng.commandcenter.ui.theme.HevyntBorderSubtle
 import com.yifeng.commandcenter.ui.theme.HevyntDisplayFont
 import com.yifeng.commandcenter.ui.theme.HevyntTextPrimary
 import com.yifeng.commandcenter.ui.theme.HevyntTextSecondary
 import java.util.Locale
 import kotlinx.coroutines.delay
-
-private val OutlinedFinishBorder = Color(0xFF3A3A3E)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -62,25 +59,17 @@ internal fun ActiveWorkoutHeader(
     var confirmDiscard by remember { mutableStateOf(false) }
 
     if (confirmDiscard) {
-        HevyntDialog(
-            onDismissRequest = { confirmDiscard = false },
-            title = {
-                Text(
-                    if (isRoutineBuilder) "DISCARD ROUTINE?" else "DISCARD WORKOUT?",
-                    style = MaterialTheme.typography.titleLarge,
-                )
+        HevyntConfirmDialog(
+            title = if (isRoutineBuilder) "Discard routine?" else "Discard workout?",
+            message = "This removes the active session from this device. Completed workout history is not affected.",
+            confirmText = "Discard",
+            dismissText = "Cancel",
+            isDestructive = true,
+            onConfirm = {
+                confirmDiscard = false
+                onDiscard()
             },
-            text = { Text("This removes the active session from this device. Completed workout history is not affected.") },
-            confirmButton = {
-                TextButton(onClick = { confirmDiscard = false; onDiscard() }) {
-                    Text("DISCARD", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDiscard = false }) {
-                    Text("CANCEL", style = MaterialTheme.typography.labelMedium)
-                }
-            },
+            onDismiss = { confirmDiscard = false },
         )
     }
 
@@ -137,7 +126,7 @@ internal fun ActiveWorkoutHeader(
             Surface(
                 shape = RoundedCornerShape(50),
                 color = Color.Transparent,
-                border = BorderStroke(1.dp, OutlinedFinishBorder),
+                border = BorderStroke(1.dp, HevyntBorderSubtle),
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .clip(RoundedCornerShape(50))

@@ -2,6 +2,23 @@
 
 All notable changes to Hevyn’t are documented here.
 
+## [2.0.0] - 2026-11-20
+
+### Added
+
+- **Google Sheets Program Sync**: Connect a Google Sheet to pre-fill weekly Big 3 & accessory weights, reps, set counts, rest timers, and notes with offline caching, auto-sync on Workout tab open, and automatic week advancement after the final day of each week (`ProgramSheetRepository`, `ProgramSheetCsvParser`, `ProgramSheetWorkoutMapper`, `ProgramSheetComponents`).
+- **6-Week Powerlifting Template**: Added ready-to-import CSV template with Training Max formulas and deload week (`sample-plans/powerlifting-6-week-sheet-template.csv`).
+- **Body Metrics & Exercise Progress**: Added Google Sheets Body Metrics sync with charts and dedicated Exercise Progress tracking with estimated 1RM, top weight, and volume trends.
+- **Drag-and-Drop Routine Reordering**: Long-press and drag routines inside any folder to reorder and persist positions in Room.
+- **Journal Photo Editing**: Change, add, or remove session photos directly from `JournalDetailScreen`.
+
+### Improved
+
+- **Floating Translucent Bottom Bar**: Bottom navigation bar now floats transparently over Home, Workout, and Journal content with concentric rounded tab indicators (`RoundedCornerShape(28.dp)`).
+- **Home Screen Hierarchy**: Reordered Home cards to prioritize Start Workout, Body Metrics, and Exercise Progress above Weekly and Monthly calendars.
+- **120 Hz & Pager Performance**: Enabled highest display refresh rate preference in `MainActivity`, kept all top-level pages pre-composed (`beyondViewportPageCount = 2`), and memoized pager props to eliminate swipe stutter.
+- **Google Sheet Source of Truth**: Skipped post-workout local routine overwriting when a Google Sheet program is connected.
+
 ## [1.9.4] - 2026-09-22
 
 ### Added

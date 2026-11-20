@@ -68,11 +68,6 @@ data class MonthlyWorkoutAggregate(
     val totalVolumeKg: Double,
 )
 
-data class WorkoutDayCount(
-    val dayStartMillis: Long,
-    val count: Int,
-)
-
 data class PreviousSetPerformance(
     val weightKg: Double?,
     val repetitions: Int?,
